@@ -3,6 +3,7 @@ import { Nunito } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { FinanceProvider } from "@/lib/financeStore";
+import { SkinProvider } from "@/lib/skinStore";
 import { AppShell } from "@/components/AppShell";
 
 const nunito = Nunito({
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full font-sans">
         <StoreProvider>
           <FinanceProvider>
-            <AppShell>{children}</AppShell>
+            <SkinProvider>
+              <AppShell>{children}</AppShell>
+            </SkinProvider>
           </FinanceProvider>
         </StoreProvider>
       </body>

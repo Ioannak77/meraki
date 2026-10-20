@@ -100,7 +100,7 @@ function seed(): Data {
   return {
     areas,
     tasks: [
-      t("Evening skincare", "care", { isEssential: true }),
+      t("Take vitamins", "care", { isEssential: true, minutes: 1 }),
       t("Kitchen reset", "home", { isEssential: true, minutes: 10, energy: "normal" }),
       t("Review spending", "finance", { isEssential: true, minutes: 5 }),
       t("Book vet appointment", "life", { minutes: 5 }),

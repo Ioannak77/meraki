@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { Icon, type IconName } from "./icons";
+import { SkinReminder } from "./skin/SkinReminder";
 
 /** Reminder that the app is pretending it's another day (Settings > Testing). */
 function TestDateBanner() {
@@ -37,6 +38,7 @@ const NAV: { href: string; label: string; short?: string; icon: IconName; phone:
   { href: "/calendar/", label: "Calendar", icon: "calendar", phone: false },
   { href: "/finances/", label: "Finances", icon: "wallet", phone: true },
   { href: "/tracker/", label: "Tracker", icon: "tracker", phone: true },
+  { href: "/skincare/", label: "Skincare", short: "Skin", icon: "heart", phone: true },
   { href: "/insights/", label: "Insights", icon: "insights", phone: false },
 ];
 
@@ -87,6 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <main className="pt-safe min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10">
         <TestDateBanner />
+        <SkinReminder />
         {children}
       </main>
 
