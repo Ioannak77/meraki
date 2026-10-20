@@ -67,6 +67,14 @@ export default function TodayPage() {
   const todayDone = today.filter((t) => t.completedAt).length;
   const mood = moods[dayKey()];
   const moodFace = MOODS.find((m) => m.mood === mood)?.face;
+  // Everything due now that isn't a priority: today's tasks, late ones, and
+  // ones showing early (an MOT two weeks before its date). Soonest first.
+  const comingUp = today
+    .filter((t) => !t.isEssential)
+    .sort(
+      (a, b) =>
+        Number(!!a.completedAt) - Number(!!b.completedAt) || (a.dueDate ?? "").localeCompare(b.dueDate ?? ""),
+    );
 
   function cycleMood() {
     const i = MOODS.findIndex((m) => m.mood === mood);
@@ -134,6 +142,22 @@ export default function TodayPage() {
           )}
           <p className="mt-2 text-sm text-muted">Three essentials. Everything else is optional.</p>
         </Card>
+
+        {comingUp.length > 0 && (
+          <Card>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Coming up</h2>
+              <Link href="/tasks/" className="text-sm font-semibold text-sage-dark">
+                All tasks →
+              </Link>
+            </div>
+            <ul className="divide-y divide-line">
+              {comingUp.map((t) => (
+                <TaskRow key={t.id} task={t} onEdit={setSheet} />
+              ))}
+            </ul>
+          </Card>
+        )}
 
         <div className="flex flex-col gap-4 lg:col-span-2 lg:grid lg:grid-cols-2">
           <div className="flex items-center justify-between lg:col-span-2">

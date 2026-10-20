@@ -56,7 +56,7 @@ export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit:
         </span>
       </button>
 
-      <span className={`shrink-0 text-xs ${label === "Overdue" || label === "Today" ? "text-peach" : "text-muted"}`}>
+      <span className={`shrink-0 text-xs ${label === "Overdue" || label === "Today" || label.startsWith("by ") ? "text-peach" : "text-muted"}`}>
         {done ? "Done" : label}
       </span>
       <button onClick={() => onEdit(task)} aria-label={`Edit ${task.title}`} className="shrink-0 p-1 text-muted">

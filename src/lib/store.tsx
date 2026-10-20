@@ -20,6 +20,7 @@ export type Task = {
   areaId: string | null;
   dueDate: string | null; // "YYYY-MM-DD"; for a whole-month task, the month's last day
   wholeMonth?: boolean; // "sometime this month / by the end of the month"
+  showBefore?: number; // days before the due date it appears on Today (see LEAD_CHOICES)
   minutes: number | null;
   energy: Energy;
   isEssential: boolean; // shows under "Your priorities today"
@@ -272,19 +273,36 @@ export function monthEndKey(offset = 0) {
   return dayKey(new Date(d.getFullYear(), d.getMonth() + offset + 1, 0));
 }
 
+/** How early a task appears on Today, before its due date. */
+export const LEAD_CHOICES = [
+  { days: 0, label: "On the day" },
+  { days: 3, label: "3 days before" },
+  { days: 7, label: "1 week before" },
+  { days: 14, label: "2 weeks before" },
+  { days: 30, label: "1 month before" },
+];
+
+/** Whole-month tasks default to showing in the month's last week; dated ones on the day. */
+export function leadDays(t: Pick<Task, "showBefore" | "wholeMonth">) {
+  return t.showBefore ?? (t.wholeMonth ? 7 : 0);
+}
+
+/** Whole days from today until the due date (negative when late). */
+export function daysUntil(t: Task) {
+  if (!t.dueDate) return null;
+  const [y, m, d] = t.dueDate.split("-").map(Number);
+  const n = today();
+  return Math.round((new Date(y, m - 1, d).getTime() - new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime()) / 86400000);
+}
+
 /**
- * Should this open task show up as "to do now"? Dated tasks from their day;
- * whole-month tasks in the last week of their month (so they don't crowd the
- * rest of the month), and both once they're late.
+ * Should this open task show up as "to do now"? From `leadDays` before its
+ * due date (e.g. an MOT two weeks early, so there's time to book), and
+ * always once it's late.
  */
 export function isDueNow(t: Task) {
   if (t.completedAt || t.dueDate === null) return false;
-  const now = dayKey();
-  if (t.dueDate <= now) return true;
-  if (!t.wholeMonth) return false;
-  const d = today();
-  const weekAhead = dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6));
-  return t.dueDate <= weekAhead;
+  return (daysUntil(t) ?? 0) <= leadDays(t);
 }
 
 /** Open tasks due now (see isDueNow), plus anything finished today. */
@@ -303,5 +321,12 @@ export function dueLabel(t: Task) {
     return `By end of ${d.toLocaleDateString(undefined, { month: "short" })}`;
   }
   if (t.dueDate === now) return "Today";
-  return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  const date = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  // Showing early (e.g. "book the MOT"): say how long is left.
+  const left = daysUntil(t) ?? 0;
+  if (leadDays(t) > 0 && left <= leadDays(t)) {
+    const short = d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    return `by ${short} · ${left === 1 ? "1 day" : `${left} days`} left`;
+  }
+  return date;
 }

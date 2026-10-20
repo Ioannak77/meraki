@@ -5,10 +5,18 @@
 
 import { today } from "@/lib/clock";
 import { useState } from "react";
-import { dayKey, monthEndKey, useStore, type Energy, type Task } from "@/lib/store";
+import { LEAD_CHOICES, dayKey, leadDays, monthEndKey, useStore, type Energy, type Task } from "@/lib/store";
 import { Icon } from "./icons";
 
 const MINUTE_CHOICES = [5, 10, 20, 30, 60];
+
+/** "Shows on Today from Fri 6 Nov." */
+function showFromText(dueDate: string, lead: number) {
+  const [y, m, d] = dueDate.split("-").map(Number);
+  const from = new Date(y, m - 1, d - lead);
+  if (dayKey(from) <= dayKey()) return "Shows on Today straight away.";
+  return `Shows on Today from ${from.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}.`;
+}
 
 function inDays(n: number) {
   const d = today();
@@ -24,6 +32,8 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
   const [areaId, setAreaId] = useState<string | null>(existing?.areaId ?? null);
   const [dueDate, setDueDate] = useState<string | null>(existing ? existing.dueDate : dayKey());
   const [wholeMonth, setWholeMonth] = useState(existing?.wholeMonth ?? false);
+  // null = the default for this kind of task (see leadDays).
+  const [showBefore, setShowBefore] = useState<number | null>(existing?.showBefore ?? null);
 
   /** A specific day, or (whole month) the month's last day. */
   function setWhen(date: string | null, month = false) {
@@ -39,7 +49,16 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
     e.preventDefault();
     const clean = title.trim();
     if (!clean) return;
-    const input = { title: clean, areaId, dueDate, wholeMonth: wholeMonth || undefined, minutes, energy, isEssential };
+    const input = {
+      title: clean,
+      areaId,
+      dueDate,
+      wholeMonth: wholeMonth || undefined,
+      showBefore: dueDate && showBefore !== null ? showBefore : undefined,
+      minutes,
+      energy,
+      isEssential,
+    };
     if (existing) updateTask(existing.id, input);
     else addTask(input);
     onClose();
@@ -122,9 +141,28 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
         </div>
         {wholeMonth && dueDate && (
           <p className="mt-2 text-xs text-muted">
-            Any time in {new Date(dueDate + "T12:00:00").toLocaleDateString(undefined, { month: "long" })}. It shows up on
-            Today in the month&apos;s last week.
+            Any time in {new Date(dueDate + "T12:00:00").toLocaleDateString(undefined, { month: "long" })}, done by its last
+            day.
           </p>
+        )}
+
+        {dueDate && (
+          <>
+            <p className="mb-2 mt-5 text-sm font-semibold text-muted">Show on Today</p>
+            <div className="flex flex-wrap gap-2">
+              {LEAD_CHOICES.map((c) => (
+                <button
+                  key={c.days}
+                  type="button"
+                  className={chip(leadDays({ showBefore: showBefore ?? undefined, wholeMonth }) === c.days)}
+                  onClick={() => setShowBefore(c.days)}
+                >
+                  {wholeMonth && c.days === 0 ? "On the last day" : c.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted">{showFromText(dueDate, leadDays({ showBefore: showBefore ?? undefined, wholeMonth }))}</p>
+          </>
         )}
 
         <p className="mb-2 mt-5 text-sm font-semibold text-muted">How long</p>
