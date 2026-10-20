@@ -8,7 +8,7 @@ import { WEEKDAY_SHORT, scheduleLabel, type SkinSchedule, type SkinStep, type Sl
 import { useSkin } from "@/lib/skinStore";
 import { dayKey } from "@/lib/store";
 import { Card, CardTitle, Chips, DangerButton, Label, PrimaryButton, Sheet, inputClass } from "../finance/ui";
-import { SLOT_LABEL } from "./SlotCard";
+import { SLOT_TITLE } from "./SlotCard";
 
 export function SkinSetup() {
   const { steps, moveStep, settings, updateSettings } = useSkin();
@@ -32,7 +32,7 @@ export function SkinSetup() {
               </button>
             }
           >
-            {SLOT_LABEL[slot]}
+            {SLOT_TITLE[slot]}
           </CardTitle>
           <ul className="divide-y divide-line">
             {steps

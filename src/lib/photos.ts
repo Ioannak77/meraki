@@ -1,4 +1,4 @@
-// Skin check-in photos, stored in this browser's IndexedDB (photos are too big
+// Self-care check-in photos, stored in this browser's IndexedDB (photos are too big
 // for localStorage). They never leave the device.
 
 const DB = "meraki-photos";

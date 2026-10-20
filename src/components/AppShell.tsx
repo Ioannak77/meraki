@@ -38,7 +38,7 @@ const NAV: { href: string; label: string; short?: string; icon: IconName; phone:
   { href: "/calendar/", label: "Calendar", icon: "calendar", phone: false },
   { href: "/finances/", label: "Finances", icon: "wallet", phone: true },
   { href: "/tracker/", label: "Tracker", icon: "tracker", phone: true },
-  { href: "/skincare/", label: "Skincare", short: "Skin", icon: "heart", phone: true },
+  { href: "/self-care/", label: "Self care", icon: "heart", phone: true },
   { href: "/insights/", label: "Insights", icon: "insights", phone: false },
 ];
 

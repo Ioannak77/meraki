@@ -1,6 +1,6 @@
 "use client";
 
-// Check-ins: photos of your skin over time, with a note, and a side-by-side
+// Check-ins: photos of your skin, hair or nails over time, with a note, and a side-by-side
 // comparison of the first and the latest. Photos stay on this device.
 
 import { useEffect, useState } from "react";
@@ -32,7 +32,7 @@ export function PhotoImage({ id, className = "" }: { id: string; className?: str
   }, [id]);
   if (!url) return <div className={`animate-pulse bg-line ${className}`} />;
   // eslint-disable-next-line @next/next/no-img-element -- local blob URL, not a remote image
-  return <img src={url} alt="Skin check-in" className={`object-cover ${className}`} />;
+  return <img src={url} alt="Self-care check-in" className={`object-cover ${className}`} />;
 }
 
 export function SkinPhotos({ now }: { now: Date }) {
@@ -48,7 +48,7 @@ export function SkinPhotos({ now }: { now: Date }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card className="lg:col-span-2">
-        <CardTitle>Skin check-ins</CardTitle>
+        <CardTitle>Photo check-ins</CardTitle>
         <p className="text-[15px] text-muted">
           {isDue
             ? photos.length
@@ -114,7 +114,7 @@ function AddPhotoSheet({ now, onClose }: { now: Date; onClose: () => void }) {
   }
 
   return (
-    <Sheet title="Skin check-in" onClose={onClose}>
+    <Sheet title="Photo check-in" onClose={onClose}>
       {preview ? (
         // eslint-disable-next-line @next/next/no-img-element -- local preview
         <img src={preview} alt="New check-in" className="max-h-80 w-full rounded-2xl object-cover" />
@@ -134,8 +134,8 @@ function AddPhotoSheet({ now, onClose }: { now: Date; onClose: () => void }) {
         </label>
       )}
       {error && <p className="mt-2 text-[15px] text-peach">{error}</p>}
-      <Label>How&apos;s your skin? (optional)</Label>
-      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. less redness, a breakout on the chin" className={inputClass} />
+      <Label>How are things looking? (optional)</Label>
+      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. less redness, nails growing back" className={inputClass} />
       <PrimaryButton
         disabled={!blob || saving}
         onClick={async () => {

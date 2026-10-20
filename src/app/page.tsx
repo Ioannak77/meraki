@@ -19,7 +19,8 @@ import {
 } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { SlotCard, dueSteps } from "@/components/skin/SlotCard";
-import { currentSlot, nextPhotoDue } from "@/lib/skin";
+import { careIsDueSoon, currentSlot, nextPhotoDue } from "@/lib/skin";
+import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
 import { dayKey, isDoneToday, isDueNow, todaysTasks, useStore, type Energy, type Mood, type Task } from "@/lib/store";
@@ -70,12 +71,13 @@ export default function TodayPage() {
   const todayDone = today.filter((t) => t.completedAt).length;
   const mood = moods[dayKey()];
   const moodFace = MOODS.find((m) => m.mood === mood)?.face;
-  // Skincare for this time of day, while it has steps due today.
+  // Self care: skincare for this time of day, while it has steps due today.
   const skin = useSkin();
   const skinSlot = currentSlot(now);
   const skinDueNow = dueSteps(skin.steps, skinSlot, now).length;
   const nextPhoto = nextPhotoDue(skin.photos, skin.settings.photoEvery);
   const photoDue = !nextPhoto || nextPhoto <= dayKey(now);
+  const careDue = skin.items.some((i) => careIsDueSoon(i, now));
   // Everything due now that isn't a priority: today's tasks, late ones, and
   // ones showing early (an MOT two weeks before its date). Soonest first.
   const comingUp = today
@@ -152,12 +154,13 @@ export default function TodayPage() {
           <p className="mt-2 text-sm text-muted">Three essentials. Everything else is optional.</p>
         </Card>
 
-        {skin.ready && skinDueNow > 0 && (
+        {skin.ready && (skinDueNow > 0 || careDue) && (
           <div className="flex flex-col gap-2">
-            <SlotCard slot={skinSlot} date={now} badge="Now" />
+            <CareDueCard now={now} />
+            {skinDueNow > 0 && <SlotCard slot={skinSlot} date={now} badge="Now" />}
             {photoDue && (
-              <Link href="/skincare/" className="rounded-2xl bg-rose-soft px-4 py-3 text-sm text-rose">
-                📷 Time for a skin check-in photo →
+              <Link href="/self-care/" className="rounded-2xl bg-rose-soft px-4 py-3 text-sm text-rose">
+                📷 Time for a check-in photo →
               </Link>
             )}
           </div>

@@ -8,7 +8,9 @@
   The phone tab bar says "Cleaning" (short label); the page title and iPad sidebar say "Cleaning schedule".
   The page lives at `/cleaning/`. (Code still uses `Routine`/`routine` as internal type names; that's fine.)
 - The money section's page title is **Money**.
-- The skincare section is **Skincare** (phone tab bar: "Skin"); the tab of your own trackers is **Tracker**.
+- The **Self care** section (page `/self-care/`) covers skincare, repeating reminders (waxing, nails, hair…)
+  and photo check-ins. Never call the section "Skin" or "Skincare"; "skincare" is only the morning/evening
+  skin steps inside it. The tab of your own trackers is **Tracker**.
 - Pari is Ioanna's dog; she has her own task area and appears in cleaning and money categories.
 
 ## Working on this repo

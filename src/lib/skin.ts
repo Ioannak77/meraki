@@ -1,4 +1,4 @@
-// Skincare: the steps Ioanna sets up, when each is due, and skin check-ins.
+// Self care: skincare steps, repeating reminders (waxing, nails, hair…), and photo check-ins.
 
 import { today } from "./clock";
 import { dayKey } from "./store";
@@ -100,4 +100,70 @@ export function nextPhotoDue(photos: SkinPhoto[], every: number) {
   if (!last) return null; // no photo yet: due now
   const [y, m, d] = last.date.split("-").map(Number);
   return dayKey(new Date(y, m - 1, d + every));
+}
+
+// ---------- Repeating self-care reminders (waxing, nails, hair…) ----------
+
+export type CareItem = {
+  id: string;
+  name: string; // e.g. "Waxing"
+  everyDays: number; // how often
+  lastDone: string | null; // "YYYY-MM-DD"; null until you say when you last did it
+  showBefore: number; // days early it shows on Today (to book an appointment)
+  note?: string;
+};
+
+/** Suggestions to start with; delete or change any of them. */
+export function starterCareItems(): CareItem[] {
+  return [
+    { id: "care-waxing", name: "Waxing", everyDays: 28, lastDone: null, showBefore: 7 },
+    { id: "care-nails", name: "Nails", everyDays: 21, lastDone: null, showBefore: 3 },
+    { id: "care-hair", name: "Haircut", everyDays: 56, lastDone: null, showBefore: 7 },
+    { id: "care-brows", name: "Eyebrows", everyDays: 28, lastDone: null, showBefore: 3 },
+  ];
+}
+
+export const CARE_EVERY = [
+  { days: 7, label: "Every week" },
+  { days: 14, label: "2 weeks" },
+  { days: 21, label: "3 weeks" },
+  { days: 28, label: "4 weeks" },
+  { days: 42, label: "6 weeks" },
+  { days: 56, label: "8 weeks" },
+  { days: 84, label: "12 weeks" },
+];
+
+export function everyLabel(days: number) {
+  if (days % 7 === 0) return days === 7 ? "Every week" : `Every ${days / 7} weeks`;
+  return `Every ${days} days`;
+}
+
+/** When it's next due ("YYYY-MM-DD"), or null if we don't know when it was last done. */
+export function careNextDue(item: CareItem) {
+  if (!item.lastDone) return null;
+  const [y, m, d] = item.lastDone.split("-").map(Number);
+  return dayKey(new Date(y, m - 1, d + item.everyDays));
+}
+
+/** Days until it's due (negative = overdue), or null if not set up yet. */
+export function careDaysLeft(item: CareItem, d = today()) {
+  const next = careNextDue(item);
+  if (!next) return null;
+  return daysBetween(dayKey(d), new Date(next + "T12:00:00"));
+}
+
+/** Should it show on Today? From `showBefore` days ahead, and while overdue. */
+export function careIsDueSoon(item: CareItem, d = today()) {
+  const left = careDaysLeft(item, d);
+  return left !== null && left <= item.showBefore;
+}
+
+export function careStatus(item: CareItem, d = today()) {
+  const left = careDaysLeft(item, d);
+  if (left === null) return "When did you last do it?";
+  if (left < 0) return `${-left} ${left === -1 ? "day" : "days"} overdue`;
+  if (left === 0) return "Due today";
+  if (left === 1) return "Due tomorrow";
+  const next = new Date(careNextDue(item)! + "T12:00:00");
+  return `Due ${next.toLocaleDateString(undefined, { day: "numeric", month: "short" })} · in ${left} days`;
 }

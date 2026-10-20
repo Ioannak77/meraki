@@ -7,6 +7,7 @@ import { useSkin } from "@/lib/skinStore";
 import { Icon } from "../icons";
 
 export const SLOT_LABEL: Record<Slot, string> = { am: "Morning", pm: "Evening" };
+export const SLOT_TITLE: Record<Slot, string> = { am: "Morning skincare", pm: "Evening skincare" };
 
 export function dueSteps(steps: ReturnType<typeof useSkin>["steps"], slot: Slot, d: Date) {
   return steps.filter((s) => s.slot === slot && isStepDue(s, d));
@@ -28,11 +29,11 @@ export function SlotCard({ slot, date, badge }: { slot: Slot; date: Date; badge?
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="text-[17px] font-bold">{SLOT_LABEL[slot]}</span>
+            <span className="text-[17px] font-bold">{SLOT_TITLE[slot]}</span>
             {badge && <span className="rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">{badge}</span>}
           </span>
           <span className="block text-[13px] text-muted">
-            Skincare · {slot === "am" ? settings.amTime : settings.pmTime}
+            {slot === "am" ? settings.amTime : settings.pmTime}
           </span>
         </span>
         <span className={`shrink-0 text-sm font-semibold ${complete ? "text-sage-dark" : "text-muted"}`}>
