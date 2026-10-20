@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Ring } from "@/components/Ring";
+import { RoutineCard, routineProgress } from "@/components/RoutineCard";
+import { WEEKDAYS, currentDayPart, dueToday, occurrenceKey } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskSheet } from "@/components/TaskSheet";
 import { dayKey, isDoneToday, todaysTasks, useStore, type Energy, type Mood, type Task } from "@/lib/store";
@@ -23,9 +26,23 @@ function greeting(hour: number) {
 }
 
 export default function TodayPage() {
-  const { tasks, moods, setMood, ready } = useStore();
+  const { tasks, moods, setMood, ready, routineDone } = useStore();
   const [sheet, setSheet] = useState<Task | "new" | null>(null);
   const [now] = useState(() => new Date());
+
+  const routinesToday = useMemo(() => dueToday(now), [now]);
+  const routineSteps = routinesToday.reduce(
+    (sum, r) => {
+      const p = routineProgress(r, routineDone[occurrenceKey(r, now)] ?? []);
+      return { done: sum.done + p.done, total: sum.total + p.total };
+    },
+    { done: 0, total: 0 },
+  );
+  // On Today, show the daily list for this time of day plus today's weekly list.
+  const part = currentDayPart(now);
+  const routinesNow = routinesToday.filter(
+    (r) => (r.when.kind === "daily" && r.when.part === part) || r.when.kind === "weekly",
+  );
 
   const today = useMemo(() => todaysTasks(tasks), [tasks]);
   const priorities = useMemo(
@@ -66,8 +83,8 @@ export default function TodayPage() {
         <Ring value={todayDone} max={today.length} color="var(--color-peach)" label="Today">
           {todayDone}/{today.length}
         </Ring>
-        <Ring value={0} max={1} color="var(--color-sky)" label="Routines">
-          <span className="text-xs text-muted">soon</span>
+        <Ring value={routineSteps.done} max={routineSteps.total} color="var(--color-sky)" label="Routines">
+          {routineSteps.done}/{routineSteps.total}
         </Ring>
         <button onClick={cycleMood} className="flex flex-col items-center gap-1.5" aria-label="Set today's mood">
           <span className="grid size-[68px] place-items-center rounded-full bg-peach-soft text-3xl md:size-20">
@@ -77,8 +94,8 @@ export default function TodayPage() {
         </button>
       </section>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <Card className="md:row-span-2">
+      <div className="mt-6 grid gap-4 lg:grid-flow-dense lg:grid-cols-2">
+        <Card className="lg:row-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Your priorities today</h2>
             {priorities.length > 0 && (
@@ -101,11 +118,31 @@ export default function TodayPage() {
           <p className="mt-2 text-sm text-muted">Three essentials. Everything else is optional.</p>
         </Card>
 
+        <div className="flex flex-col gap-4 lg:col-span-2 lg:grid lg:grid-cols-2">
+          <div className="flex items-center justify-between lg:col-span-2">
+            <h2 className="text-lg font-bold">Cleaning now</h2>
+            <Link href="/routines/" className="text-sm font-semibold text-sage-dark">
+              All routines →
+            </Link>
+          </div>
+          {routinesNow.map((r) => (
+            <RoutineCard
+              key={r.id}
+              routine={r}
+              date={now}
+              badge={r.when.kind === "weekly" ? WEEKDAYS[r.when.weekday] : "Now"}
+            />
+          ))}
+        </div>
+
         <Card>
           <h2 className="mb-3 text-lg font-bold">Quick add</h2>
           <div className="grid grid-cols-4 gap-2">
             <QuickAdd label="Task" tone="bg-sky-soft text-sky" onClick={() => setSheet("new")} icon={<Icon.plus className="size-5" />} />
-            <QuickAdd label="Routine" tone="bg-sage-soft text-sage" soon icon={<Icon.leaf className="size-5" />} />
+            <Link href="/routines/" className="flex flex-col items-center gap-1 rounded-2xl bg-sage-soft py-3 text-sm font-semibold text-sage">
+              <Icon.leaf className="size-5" />
+              Routines
+            </Link>
             <QuickAdd label="Bill" tone="bg-peach-soft text-peach" soon icon={<Icon.bill className="size-5" />} />
             <QuickAdd label="Note" tone="bg-cream text-muted" soon icon={<Icon.note className="size-5" />} />
           </div>

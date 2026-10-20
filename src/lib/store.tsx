@@ -29,6 +29,8 @@ type Data = {
   areas: Area[];
   tasks: Task[];
   moods: Record<string, Mood>; // by day
+  // Ticked routine steps, by occurrence ("evening@2026-10-20", "monthly@2026-10").
+  routineDone: Record<string, string[]>;
 };
 
 const STORAGE_KEY = "meraki.v1";
@@ -82,15 +84,29 @@ function seed(): Data {
       t("Update CV", "life", { dueDate: null, minutes: 30, energy: "high" }),
     ],
     moods: {},
+    routineDone: {},
   };
 }
 
 function load(): Data {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Data;
+    if (raw) return { routineDone: {}, ...(JSON.parse(raw) as Partial<Data>) } as Data;
   } catch {}
   return seed();
+}
+
+/** Drop routine ticks older than ~13 months so storage doesn't grow forever. */
+function pruneRoutineDone(done: Data["routineDone"]) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 13);
+  const cut = dayKey(cutoff);
+  return Object.fromEntries(
+    Object.entries(done).filter(([key, ids]) => {
+      const when = key.split("@")[1] ?? ""; // "YYYY-MM-DD" or "YYYY-MM"
+      return ids.length > 0 && when >= cut.slice(0, when.length);
+    }),
+  );
 }
 
 export type TaskInput = Omit<Task, "id" | "createdAt" | "completedAt">;
@@ -102,13 +118,14 @@ type Store = Data & {
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
   setMood: (mood: Mood) => void;
+  toggleStep: (occurrence: string, stepId: string) => void;
   areaById: (id: string | null) => Area | undefined;
 };
 
 const StoreContext = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<Data>({ areas: [], tasks: [], moods: {} });
+  const [data, setData] = useState<Data>({ areas: [], tasks: [], moods: {}, routineDone: {} });
   const [ready, setReady] = useState(false);
 
   // localStorage only exists in the browser, so read it after the first render.
@@ -153,6 +170,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({ ...d, moods: { ...d.moods, [dayKey()]: mood } }));
   }, []);
 
+  const toggleStep = useCallback((occurrence: string, stepId: string) => {
+    setData((d) => {
+      const current = d.routineDone[occurrence] ?? [];
+      const next = current.includes(stepId) ? current.filter((s) => s !== stepId) : [...current, stepId];
+      return { ...d, routineDone: pruneRoutineDone({ ...d.routineDone, [occurrence]: next }) };
+    });
+  }, []);
+
   const value = useMemo<Store>(
     () => ({
       ...data,
@@ -162,9 +187,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       toggleTask,
       deleteTask,
       setMood,
+      toggleStep,
       areaById: (id) => data.areas.find((a) => a.id === id),
     }),
-    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood],
+    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood, toggleStep],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
