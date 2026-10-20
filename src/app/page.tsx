@@ -6,7 +6,17 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Ring } from "@/components/Ring";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
-import { WEEKDAYS, currentDayPart, dueToday, occurrenceKey, weekdayIndex } from "@/lib/cleaning";
+import {
+  MONTHS,
+  WEEKDAYS,
+  currentDayPart,
+  dueToday,
+  endOfMonthStart,
+  inEndOfMonthWindow,
+  occurrenceKey,
+  routinesForMonth,
+  weekdayIndex,
+} from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskSheet } from "@/components/TaskSheet";
 import { dayKey, isDoneToday, todaysTasks, useStore, type Energy, type Mood, type Task } from "@/lib/store";
@@ -39,11 +49,14 @@ export default function TodayPage() {
     },
     { done: 0, total: 0 },
   );
-  // On Today, show the daily list for this time of day plus today's weekly list.
+  // On Today, show the daily list for this time of day, today's weekly list,
+  // and the month-end lists while they're open.
   const part = currentDayPart(now);
   const routinesNow = routinesToday.filter(
-    (r) => (r.when.kind === "daily" && r.when.part === part) || r.when.kind === "weekly",
+    (r) => (r.when.kind === "daily" && r.when.part === part) || r.when.kind !== "daily",
   );
+  const monthEndOpen = inEndOfMonthWindow(now);
+  const monthLists = routinesForMonth(now);
 
   const today = useMemo(() => todaysTasks(tasks), [tasks]);
   const priorities = useMemo(
@@ -129,14 +142,25 @@ export default function TodayPage() {
               All routines →
             </Link>
           </div>
-          {routinesNow.map((r) => (
-            <RoutineCard
-              key={r.id}
-              routine={r}
-              date={now}
-              badge={r.when.kind === "weekly" ? WEEKDAYS[weekdayIndex(now)] : "Now"}
-            />
-          ))}
+          {routinesNow.map((r) =>
+            r.when.kind === "monthly" ? (
+              // Month-end lists are long, so they start folded; tap to open.
+              <RoutineCard key={r.id} routine={r} date={now} badge="Month end" collapsible startOpen={false} />
+            ) : (
+              <RoutineCard
+                key={r.id}
+                routine={r}
+                date={now}
+                badge={r.when.kind === "weekly" ? WEEKDAYS[weekdayIndex(now)] : "Now"}
+              />
+            ),
+          )}
+          {!monthEndOpen && (
+            <Link href="/routines/" className="rounded-3xl bg-card/60 p-4 text-[15px] text-muted lg:col-span-2">
+              Month-end lists ({monthLists.map((r) => r.name).join(", ")}) open on {endOfMonthStart(now)}{" "}
+              {MONTHS[now.getMonth()]}.
+            </Link>
+          )}
         </div>
 
         <Card>
