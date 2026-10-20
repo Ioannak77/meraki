@@ -25,7 +25,7 @@ export type ModuleId = (typeof MODULES)[number]["id"];
 
 // ---------- Categories ----------
 
-export type CategoryId =
+export type BuiltinCategoryId =
   | "groceries"
   | "household"
   | "pet"
@@ -40,7 +40,12 @@ export type CategoryId =
   | "transfer"
   | "other";
 
-export const CATEGORIES: { id: CategoryId; label: string; color: string; counts: boolean }[] = [
+/** Built-in categories, or ones you make yourself ("custom:…", e.g. Car maintenance, Limassol). */
+export type CategoryId = BuiltinCategoryId | `custom:${string}`;
+
+export type Category = { id: CategoryId; label: string; color: string; counts: boolean };
+
+const BUILTIN: Category[] = [
   { id: "groceries", label: "Groceries", color: "#5e8c61", counts: true },
   { id: "household", label: "Household", color: "#8fb48f", counts: true },
   { id: "pet", label: "Pari", color: "#f0a37f", counts: true },
@@ -57,12 +62,33 @@ export const CATEGORIES: { id: CategoryId; label: string; color: string; counts:
   { id: "transfer", label: "Transfer between my accounts", color: "#bdb5aa", counts: false },
 ];
 
+export const CUSTOM_COLORS = ["#6f9fa8", "#9b7fc4", "#c48f6a", "#7aa36b", "#c9778a", "#5f86b8", "#b0a24e"];
+
+// Your own categories, kept in sync by FinanceProvider (like the test clock),
+// so every screen and calculation sees them without passing them around.
+let custom: Category[] = [];
+
+export function setCustomCategories(list: Category[]) {
+  custom = list;
+}
+
+/** All categories in display order: spending ones (yours before "Other"), then the ones that don't count. */
+export function allCategories(): Category[] {
+  const spending = BUILTIN.filter((c) => c.counts && c.id !== "other");
+  return [...spending, ...custom, BUILTIN.find((c) => c.id === "other")!, ...BUILTIN.filter((c) => !c.counts)];
+}
+
 export function category(id: CategoryId) {
-  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES.find((c) => c.id === "other")!;
+  const all = allCategories();
+  return all.find((c) => c.id === id) ?? all.find((c) => c.id === "other")!;
 }
 
 /** Day-to-day spending categories (what an allowance or "spent so far" covers). */
-export const SPENDING_CATEGORIES = CATEGORIES.filter((c) => c.counts).map((c) => c.id);
+export function spendingCategories() {
+  return allCategories()
+    .filter((c) => c.counts)
+    .map((c) => c.id);
+}
 
 /** Starter keywords (lower case) for sorting bank lines; learned rules come first. */
 const DEFAULT_RULES: { match: string; category: CategoryId }[] = [
@@ -322,7 +348,7 @@ export function monthStats(txns: Txn[], now = today(), count = 3): MonthStats {
   });
   const avg = new Map<CategoryId, number>();
   const low = new Map<CategoryId, { amount: number; label: string }>();
-  for (const c of SPENDING_CATEGORIES) {
+  for (const c of spendingCategories()) {
     if (!per.length) break;
     const values = per.map((p) => p.totals.get(c) ?? 0);
     if (values.every((v) => v === 0)) continue;
@@ -350,7 +376,7 @@ export function tidy(n: number) {
  */
 export function effectiveBudgets(budgets: Partial<Record<CategoryId, number>>, stats: MonthStats) {
   const out = new Map<CategoryId, { amount: number; auto: boolean }>();
-  for (const c of SPENDING_CATEGORIES) {
+  for (const c of spendingCategories()) {
     const manual = budgets[c];
     if (manual) out.set(c, { amount: manual, auto: false });
     else if (stats.avg.has(c)) out.set(c, { amount: tidy(stats.avg.get(c)!), auto: true });

@@ -46,6 +46,12 @@ export const Icon = {
       <path d="M5 20v-6M10 20V9M15 20v-8M20 20V5" />
     </svg>
   ),
+  tracker: ({ className }: IconProps) => (
+    <svg {...base} className={className}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M8 9h8M8 13h5M8 17h3" />
+    </svg>
+  ),
   settings: ({ className }: IconProps) => (
     <svg {...base} className={className}>
       <circle cx="12" cy="12" r="3" />

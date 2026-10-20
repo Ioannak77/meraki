@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  CATEGORIES,
+  allCategories,
   categorise,
   effectiveBudgets,
   monthStats,
@@ -49,7 +49,7 @@ export function SpendingTab({ now }: { now: Date }) {
   const total = [...totals.values()].reduce((a, b) => a + b, 0);
   const lines = txns.filter((t) => inRange(t.date, start, end)).sort((a, b) => b.date.localeCompare(a.date));
   const eff = effectiveBudgets(budgets, monthStats(txns, now));
-  const rows = CATEGORIES.filter((c) => c.counts && (totals.get(c.id) || eff.has(c.id))).sort(
+  const rows = allCategories().filter((c) => c.counts && (totals.get(c.id) || eff.has(c.id))).sort(
     (a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0),
   );
 
@@ -173,7 +173,8 @@ export function SpendingTab({ now }: { now: Date }) {
   );
 }
 
-const CATEGORY_CHOICES = CATEGORIES.map((c) => ({ id: c.id, label: c.label }));
+/** Category chips, including your own categories (read fresh each render). */
+const categoryChoices = () => allCategories().map((c) => ({ id: c.id, label: c.label }));
 
 type Mapping = { always: boolean; match: string };
 
@@ -205,7 +206,7 @@ function MappingChoice({ value, onChange }: { value: Mapping; onChange: (m: Mapp
   );
 }
 
-function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
+export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const { setTxnCategory, deleteTxn } = useFinance();
   const [cat, setCat] = useState<CategoryId>(txn.category);
   const [mapping, setMapping] = useState<Mapping>({
@@ -222,7 +223,7 @@ function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
       </p>
 
       <Label>Category</Label>
-      <Chips options={CATEGORY_CHOICES} value={cat} onChange={setCat} />
+      <Chips options={categoryChoices()} value={cat} onChange={setCat} />
 
       <Label>Remember it?</Label>
       <MappingChoice value={mapping} onChange={setMapping} />
@@ -246,11 +247,12 @@ function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   );
 }
 
-function AddSpendingSheet({ onClose, now }: { onClose: () => void; now: Date }) {
+/** `only` limits the category choice (a Tracker adds into its own categories). */
+export function AddSpendingSheet({ onClose, now, only }: { onClose: () => void; now: Date; only?: CategoryId[] }) {
   const { addTxn, has } = useFinance();
   const [amount, setAmount] = useState<number | null>(null);
   const [description, setDescription] = useState("");
-  const [cat, setCat] = useState<CategoryId>(has("groceries") ? "groceries" : "other");
+  const [cat, setCat] = useState<CategoryId>(only?.[0] ?? (has("groceries") ? "groceries" : "other"));
   const [date, setDate] = useState(dayKey(now));
   const valid = amount !== null && amount > 0;
 
@@ -269,7 +271,11 @@ function AddSpendingSheet({ onClose, now }: { onClose: () => void; now: Date }) 
         <Label>On what? (optional)</Label>
         <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Lidl" className={inputClass} />
         <Label>Category</Label>
-        <Chips options={CATEGORY_CHOICES.filter((c) => category(c.id).counts)} value={cat} onChange={setCat} />
+        <Chips
+          options={categoryChoices().filter((c) => (only ? only.includes(c.id) : category(c.id).counts))}
+          value={cat}
+          onChange={setCat}
+        />
         <Label>Date</Label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
         <PrimaryButton type="submit" disabled={!valid}>
@@ -366,7 +372,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
               {g.lines.length > 1 && <p className="text-xs text-muted">{g.lines.length} lines</p>}
               <div className="mt-2">
                 <Chips
-                  options={CATEGORY_CHOICES.filter((c) => c.id !== "income" || g.total > 0)}
+                  options={categoryChoices().filter((c) => c.id !== "income" || g.total > 0)}
                   value={g.category}
                   onChange={(category) => updateGroup(i, { category })}
                 />

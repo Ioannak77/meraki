@@ -36,7 +36,8 @@ const NAV: { href: string; label: string; short?: string; icon: IconName; phone:
   { href: "/cleaning/", label: "Cleaning schedule", short: "Cleaning", icon: "routines", phone: true },
   { href: "/calendar/", label: "Calendar", icon: "calendar", phone: false },
   { href: "/finances/", label: "Finances", icon: "wallet", phone: true },
-  { href: "/insights/", label: "Insights", icon: "insights", phone: true },
+  { href: "/tracker/", label: "Tracker", icon: "tracker", phone: true },
+  { href: "/insights/", label: "Insights", icon: "insights", phone: false },
 ];
 
 function isActive(pathname: string, href: string) {

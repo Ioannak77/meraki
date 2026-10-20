@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  CATEGORIES,
+  allCategories,
   effectiveBudgets,
   canLower,
   money,
@@ -36,7 +36,7 @@ export function BudgetsTab({ now }: { now: Date }) {
   const suggestedAllowance = stats.months.length ? tidy((monthlySpend * 12) / 52) : null;
   // Categories you picked during setup come first.
   const featured: CategoryId[] = [...(has("pet") ? ["pet" as const] : []), ...(has("groceries") ? ["groceries" as const, "household" as const] : [])];
-  const cats = CATEGORIES.filter((c) => c.counts).sort(
+  const cats = allCategories().filter((c) => c.counts).sort(
     (a, b) => Number(featured.includes(b.id)) - Number(featured.includes(a.id)),
   );
 
@@ -126,7 +126,7 @@ export function BudgetsTab({ now }: { now: Date }) {
 
       {editing && (
         <AmountSheet
-          title={editing === "allowance" ? "Weekly allowance" : `${CATEGORIES.find((c) => c.id === editing)?.label} budget`}
+          title={editing === "allowance" ? "Weekly allowance" : `${allCategories().find((c) => c.id === editing)?.label} budget`}
           hint={editing === "allowance" ? "For day-to-day spending, Monday to Sunday." : "Per month. Remove it to go back to automatic."}
           value={editing === "allowance" ? weeklyAllowance : (budgets[editing] ?? null)}
           onSave={(v) => (editing === "allowance" ? setWeeklyAllowance(v) : setBudget(editing, v))}

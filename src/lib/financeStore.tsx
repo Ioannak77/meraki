@@ -1,10 +1,14 @@
 "use client";
 
-// Money data, kept in this browser's localStorage (separate from tasks and
-// routines). Nothing here is ever sent to a server.
+// Money data, kept in this browser's localStorage (separate from tasks and the
+// cleaning schedule). Nothing here is ever sent to a server.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
+  CUSTOM_COLORS,
+  allCategories,
+  setCustomCategories,
+  type Category,
   billKeyword,
   dueDates,
   paidKey,
@@ -34,7 +38,12 @@ type FinanceData = {
   budgets: Partial<Record<CategoryId, number>>; // per month
   weeklyAllowance: number | null;
   goals: Goal[];
+  customCategories: Category[]; // your own, e.g. "Car maintenance", "Limassol"
+  trackers: Tracker[];
 };
+
+/** A Tracker tab: easy access to the money in a few categories (and bills). */
+export type Tracker = { id: string; name: string; categories: CategoryId[]; billIds: string[] };
 
 const STORAGE_KEY = "meraki.finance.v1";
 
@@ -51,6 +60,8 @@ const EMPTY: FinanceData = {
   budgets: {},
   weeklyAllowance: null,
   goals: [],
+  customCategories: [],
+  trackers: [],
 };
 
 function newId() {
@@ -92,6 +103,10 @@ type FinanceStore = FinanceData & {
   setWeeklyAllowance: (amount: number | null) => void;
   saveGoal: (goal: Omit<Goal, "id"> & { id?: string }) => void;
   deleteGoal: (id: string) => void;
+  /** Makes a new category (or returns the existing one with that name). */
+  addCategory: (label: string) => CategoryId;
+  saveTracker: (t: Omit<Tracker, "id"> & { id?: string }) => string;
+  deleteTracker: (id: string) => void;
 };
 
 const FinanceContext = createContext<FinanceStore | null>(null);
@@ -99,6 +114,9 @@ const FinanceContext = createContext<FinanceStore | null>(null);
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<FinanceData>(EMPTY);
   const [ready, setReady] = useState(false);
+
+  // Make your own categories visible to every screen and calculation.
+  setCustomCategories(data.customCategories);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time load from localStorage
@@ -241,6 +259,32 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const deleteGoal = useCallback((id: string) => setData((d) => ({ ...d, goals: d.goals.filter((g) => g.id !== id) })), []);
 
+  const addCategory = useCallback(
+    (label: string): CategoryId => {
+      const name = label.trim();
+      const existing = allCategories().find((c) => c.label.toLowerCase() === name.toLowerCase());
+      if (existing) return existing.id;
+      const id: CategoryId = `custom:${newId()}`;
+      const color = CUSTOM_COLORS[data.customCategories.length % CUSTOM_COLORS.length];
+      const made: Category = { id, label: name, color, counts: true };
+      setCustomCategories([...data.customCategories, made]); // visible right away, before the re-render
+      setData((d) => ({ ...d, customCategories: [...d.customCategories, made] }));
+      return id;
+    },
+    [data.customCategories],
+  );
+
+  const saveTracker = useCallback((t: Omit<Tracker, "id"> & { id?: string }) => {
+    const id = t.id ?? newId();
+    setData((d) => ({
+      ...d,
+      trackers: t.id ? d.trackers.map((x) => (x.id === t.id ? { ...t, id } : x)) : [...d.trackers, { ...t, id }],
+    }));
+    return id;
+  }, []);
+
+  const deleteTracker = useCallback((id: string) => setData((d) => ({ ...d, trackers: d.trackers.filter((t) => t.id !== id) })), []);
+
   const value = useMemo<FinanceStore>(
     () => ({
       ...data,
@@ -260,6 +304,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       setWeeklyAllowance,
       saveGoal,
       deleteGoal,
+      addCategory,
+      saveTracker,
+      deleteTracker,
     }),
     [
       data,
@@ -278,6 +325,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       setWeeklyAllowance,
       saveGoal,
       deleteGoal,
+      addCategory,
+      saveTracker,
+      deleteTracker,
     ],
   );
 
