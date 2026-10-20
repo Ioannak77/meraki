@@ -1,6 +1,6 @@
 # Meraki
 
-A calm personal life manager for phone and iPad: today's priorities, tasks and routines, with finances and insights to come.
+A calm personal life manager for phone and iPad: today's priorities, tasks, a cleaning schedule and money.
 It's built for ADHD: few steps, gentle progress, and no guilt when you miss a day.
 
 ## Run locally
@@ -22,7 +22,7 @@ Open http://localhost:3100. To try it on your phone or iPad, open the "Network" 
 
 1. **Working skeleton** (in progress): navigation (bottom tabs on phone, sidebar on iPad), Today dashboard, task capture/edit/complete.
    Still to do: Supabase sign-in and sync, so phone and iPad share the same data.
-2. **Routines and reminders:** routine steps with a full-screen countdown, "Just start: 2 minutes", short versions, snooze/skip, recovery after missed days, and reminder windows.
+2. **Cleaning schedule and reminders:** daily, weekly and month-end cleaning lists with a step timer, office-day swaps, a room-by-room Big clean weekend, and (still to do) reminders.
 3. **Finance:** CSV statement import, categories, bills, budgets, and a "left to spend" forecast.
 4. **Insights and polish:** a weekly reset, adaptive suggestions, and reliable notifications.
 

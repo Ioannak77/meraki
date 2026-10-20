@@ -12,7 +12,7 @@ const nunito = Nunito({
 
 export const metadata: Metadata = {
   title: "Meraki",
-  description: "Routines, tasks and gentle progress, one manageable day at a time.",
+  description: "Cleaning, tasks, money and gentle progress, one manageable day at a time.",
   appleWebApp: { capable: true, title: "Meraki", statusBarStyle: "default" },
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };

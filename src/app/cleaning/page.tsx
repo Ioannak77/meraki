@@ -21,7 +21,7 @@ import { useStore } from "@/lib/store";
 const TABS = ["Today", "This week", "Month & year"] as const;
 type Tab = (typeof TABS)[number];
 
-export default function RoutinesPage() {
+export default function CleaningSchedulePage() {
   const { ready, settings } = useStore();
   const [tab, setTab] = useState<Tab>("Today");
   const now = useMemo(() => today(settings.testDate), [settings.testDate]);
@@ -30,7 +30,7 @@ export default function RoutinesPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Routines</h1>
+      <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Cleaning schedule</h1>
       <p className="text-[15px] text-muted">Cleaning, a little at a time. Missed days don&apos;t pile up.</p>
 
       <div className="mt-4 flex gap-1 rounded-full bg-card p-1">

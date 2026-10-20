@@ -29,10 +29,11 @@ function TestDateBanner() {
   );
 }
 
-const NAV: { href: string; label: string; icon: IconName; phone: boolean }[] = [
+// `short` is the label under the icon in the phone tab bar, where space is tight.
+const NAV: { href: string; label: string; short?: string; icon: IconName; phone: boolean }[] = [
   { href: "/", label: "Today", icon: "home", phone: true },
   { href: "/tasks/", label: "Tasks", icon: "tasks", phone: true },
-  { href: "/routines/", label: "Routines", icon: "routines", phone: true },
+  { href: "/cleaning/", label: "Cleaning schedule", short: "Cleaning", icon: "routines", phone: true },
   { href: "/calendar/", label: "Calendar", icon: "calendar", phone: false },
   { href: "/finances/", label: "Finances", icon: "wallet", phone: true },
   { href: "/insights/", label: "Insights", icon: "insights", phone: true },
@@ -102,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   }`}
                 >
                   <Glyph className="size-6" />
-                  {item.label}
+                  {item.short ?? item.label}
                 </Link>
               </li>
             );

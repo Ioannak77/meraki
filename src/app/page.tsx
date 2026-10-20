@@ -108,7 +108,7 @@ export default function TodayPage() {
         <Ring value={todayDone} max={today.length} color="var(--color-peach)" label="Today">
           {todayDone}/{today.length}
         </Ring>
-        <Ring value={routineSteps.done} max={routineSteps.total} color="var(--color-sky)" label="Routines">
+        <Ring value={routineSteps.done} max={routineSteps.total} color="var(--color-sky)" label="Cleaning">
           {routineSteps.done}/{routineSteps.total}
         </Ring>
         <button onClick={cycleMood} className="flex flex-col items-center gap-1.5" aria-label="Set today's mood">
@@ -162,8 +162,8 @@ export default function TodayPage() {
         <div className="flex flex-col gap-4 lg:col-span-2 lg:grid lg:grid-cols-2">
           <div className="flex items-center justify-between lg:col-span-2">
             <h2 className="text-lg font-bold">Cleaning now</h2>
-            <Link href="/routines/" className="text-sm font-semibold text-sage-dark">
-              All routines →
+            <Link href="/cleaning/" className="text-sm font-semibold text-sage-dark">
+              Cleaning schedule →
             </Link>
           </div>
           {dailyNow.map((r) => (
@@ -177,7 +177,7 @@ export default function TodayPage() {
             ))
           )}
           {!monthEndOpen && (
-            <Link href="/routines/" className="rounded-3xl bg-card/60 p-4 text-[15px] text-muted lg:col-span-2">
+            <Link href="/cleaning/" className="rounded-3xl bg-card/60 p-4 text-[15px] text-muted lg:col-span-2">
               Big clean ({monthLists.map((r) => r.name).join(", ")}) is on the month-end weekend, {monthEndLabel(now)}.
             </Link>
           )}
@@ -187,9 +187,9 @@ export default function TodayPage() {
           <h2 className="mb-3 text-lg font-bold">Quick add</h2>
           <div className="grid grid-cols-4 gap-2">
             <QuickAdd label="Task" tone="bg-sky-soft text-sky" onClick={() => setSheet("new")} icon={<Icon.plus className="size-5" />} />
-            <Link href="/routines/" className="flex flex-col items-center gap-1 rounded-2xl bg-sage-soft py-3 text-sm font-semibold text-sage">
+            <Link href="/cleaning/" className="flex flex-col items-center gap-1 rounded-2xl bg-sage-soft py-3 text-sm font-semibold text-sage">
               <Icon.leaf className="size-5" />
-              Routines
+              Cleaning
             </Link>
             <QuickAdd label="Bill" tone="bg-peach-soft text-peach" soon icon={<Icon.bill className="size-5" />} />
             <QuickAdd label="Note" tone="bg-cream text-muted" soon icon={<Icon.note className="size-5" />} />

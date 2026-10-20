@@ -3,7 +3,7 @@
 // Month-end weekends: the weekly list and the month's big lists merged into
 // one checklist, grouped by room, so it's one focused clean instead of
 // jumping between "weekly" and "monthly". Each step still saves to its own
-// list, so the Routines screen stays in sync.
+// list, so the Cleaning schedule screen stays in sync.
 
 import { useState } from "react";
 import { ROOMS, formatMinutes, occurrenceKey, stepsOn, type Room, type Routine } from "@/lib/cleaning";
