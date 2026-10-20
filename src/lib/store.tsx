@@ -157,6 +157,8 @@ type Store = Data & {
   setMood: (mood: Mood) => void;
   toggleStep: (occurrence: string, stepId: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  /** Makes a new task area (or returns the existing one with that name). */
+  addArea: (name: string) => string;
   /** Tick the given steps (never unticks) and save the time a timed run took. */
   finishTimedRun: (occurrence: string, stepIds: string[], seconds: number) => void;
   areaById: (id: string | null) => Area | undefined;
@@ -236,6 +238,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const addArea = useCallback(
+    (name: string) => {
+      const clean = name.trim();
+      const existing = data.areas.find((a) => a.name.toLowerCase() === clean.toLowerCase());
+      if (existing) return existing.id;
+      const id = `area-${newId()}`;
+      const tones: Tone[] = ["sky", "sage", "peach", "rose", "sun", "lilac"];
+      const area: Area = { id, name: clean, icon: "leaf", tone: tones[data.areas.length % tones.length] };
+      setData((d) => ({ ...d, areas: [...d.areas, area] }));
+      return id;
+    },
+    [data.areas],
+  );
+
   const value = useMemo<Store>(
     () => ({
       ...data,
@@ -247,10 +263,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setMood,
       toggleStep,
       updateSettings,
+      addArea,
       finishTimedRun,
       areaById: (id) => data.areas.find((a) => a.id === id),
     }),
-    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood, toggleStep, updateSettings, finishTimedRun],
+    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood, toggleStep, updateSettings, addArea, finishTimedRun],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -13,6 +13,7 @@ import {
   type CategoryId,
 } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
+import { NewChip } from "../NewChip";
 import { spendingByCategory } from "./Spending";
 import { Bar, Card, CardTitle, Label, MoneyInput, PrimaryButton, Sheet } from "./ui";
 
@@ -25,7 +26,7 @@ export function allowanceStatus(txns: Parameters<typeof spendingByCategory>[0], 
 }
 
 export function BudgetsTab({ now }: { now: Date }) {
-  const { txns, budgets, setBudget, weeklyAllowance, setWeeklyAllowance, has } = useFinance();
+  const { txns, budgets, setBudget, weeklyAllowance, setWeeklyAllowance, has, addCategory } = useFinance();
   const [editing, setEditing] = useState<CategoryId | "allowance" | null>(null);
 
   const { start, end } = monthRange(now);
@@ -122,6 +123,9 @@ export function BudgetsTab({ now }: { now: Date }) {
             );
           })}
         </ul>
+        <div className="mt-4">
+          <NewChip placeholder="New category, e.g. Gifts" onAdd={(name) => setEditing(addCategory(name))} />
+        </div>
       </Card>
 
       {editing && (

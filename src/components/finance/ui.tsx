@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { Icon } from "../icons";
+import { NewChip } from "../NewChip";
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <section className={`rounded-3xl bg-card p-5 ${className}`}>{children}</section>;
@@ -80,14 +81,19 @@ export function MoneyInput({
   );
 }
 
+/** Pass `onCreate` to add a "+ New" chip that makes a new option and selects it. */
 export function Chips<T extends string | number>({
   options,
   value,
   onChange,
+  onCreate,
+  createPlaceholder,
 }: {
   options: { id: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
+  onCreate?: (name: string) => T;
+  createPlaceholder?: string;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -103,6 +109,7 @@ export function Chips<T extends string | number>({
           {o.label}
         </button>
       ))}
+      {onCreate && <NewChip onAdd={(name) => onChange(onCreate(name))} placeholder={createPlaceholder} />}
     </div>
   );
 }

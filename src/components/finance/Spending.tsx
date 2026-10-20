@@ -207,7 +207,7 @@ function MappingChoice({ value, onChange }: { value: Mapping; onChange: (m: Mapp
 }
 
 export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
-  const { setTxnCategory, deleteTxn } = useFinance();
+  const { setTxnCategory, deleteTxn, addCategory } = useFinance();
   const [cat, setCat] = useState<CategoryId>(txn.category);
   const [mapping, setMapping] = useState<Mapping>({
     always: txn.source === "import",
@@ -223,7 +223,7 @@ export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
       </p>
 
       <Label>Category</Label>
-      <Chips options={categoryChoices()} value={cat} onChange={setCat} />
+      <Chips options={categoryChoices()} value={cat} onChange={setCat} onCreate={addCategory} />
 
       <Label>Remember it?</Label>
       <MappingChoice value={mapping} onChange={setMapping} />
@@ -249,7 +249,7 @@ export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
 
 /** `only` limits the category choice (a Tracker adds into its own categories). */
 export function AddSpendingSheet({ onClose, now, only }: { onClose: () => void; now: Date; only?: CategoryId[] }) {
-  const { addTxn, has } = useFinance();
+  const { addTxn, has, addCategory } = useFinance();
   const [amount, setAmount] = useState<number | null>(null);
   const [description, setDescription] = useState("");
   const [cat, setCat] = useState<CategoryId>(only?.[0] ?? (has("groceries") ? "groceries" : "other"));
@@ -275,6 +275,7 @@ export function AddSpendingSheet({ onClose, now, only }: { onClose: () => void; 
           options={categoryChoices().filter((c) => (only ? only.includes(c.id) : category(c.id).counts))}
           value={cat}
           onChange={setCat}
+          onCreate={only ? undefined : addCategory}
         />
         <Label>Date</Label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
@@ -300,7 +301,7 @@ const FIELDS: { key: keyof ColumnMap; label: string }[] = [
 type ReviewGroup = { match: string; sample: string; lines: number[]; total: number; category: CategoryId; mapping: Mapping };
 
 export function ImportSheet({ onClose }: { onClose: () => void }) {
-  const { importLines, importProfiles, rules, bills } = useFinance();
+  const { importLines, importProfiles, rules, bills, addCategory } = useFinance();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -375,6 +376,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
                   options={categoryChoices().filter((c) => c.id !== "income" || g.total > 0)}
                   value={g.category}
                   onChange={(category) => updateGroup(i, { category })}
+                  onCreate={addCategory}
                 />
               </div>
               <div className="mt-3">

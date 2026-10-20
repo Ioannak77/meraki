@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { LEAD_CHOICES, dayKey, leadDays, monthEndKey, useStore, type Energy, type Task } from "@/lib/store";
 import { Icon } from "./icons";
+import { NewChip } from "./NewChip";
 
 const MINUTE_CHOICES = [5, 10, 20, 30, 60];
 
@@ -18,7 +19,7 @@ function showFromText(dueDate: string, lead: number) {
 }
 
 export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () => void }) {
-  const { areas, addTask, updateTask, deleteTask } = useStore();
+  const { areas, addTask, updateTask, deleteTask, addArea } = useStore();
   const existing = task === "new" ? null : task;
 
   const [title, setTitle] = useState(existing?.title ?? "");
@@ -203,6 +204,7 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
               {a.name}
             </button>
           ))}
+          <NewChip placeholder="New area, e.g. Work" onAdd={(name) => setAreaId(addArea(name))} />
         </div>
 
         <label className="mt-5 flex items-center gap-3 rounded-2xl bg-cream px-4 py-3">
