@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RoutineCard } from "@/components/RoutineCard";
 import {
   CLEANING,
+  weeklyPlan,
   MONTHS,
   WEEKDAYS,
   currentDayPart,
@@ -52,17 +53,30 @@ export default function RoutinesPage() {
 }
 
 function TodayTab({ now }: { now: Date }) {
+  const { settings } = useStore();
   const part = currentDayPart(now);
-  const due = dueToday(now);
+  const due = dueToday(now, settings.officeDays);
   const monthLists = routinesForMonth(now);
+  const todaySlot = weeklyPlan(settings.officeDays)[weekdayIndex(now)];
+  const isOffice = settings.officeDays.includes(weekdayIndex(now));
   return (
     <>
+      {isOffice && (
+        <p className="rounded-3xl bg-sage-soft p-4 text-[15px] text-sage-dark lg:col-span-2">
+          Office day: you get the lighter weekly list today.
+        </p>
+      )}
       {due.map((r) => (
         <RoutineCard
           key={r.id}
           routine={r}
           date={now}
-          badge={r.when.kind === "daily" && r.when.part === part ? "Now" : r.when.kind === "weekly" ? WEEKDAYS[r.when.weekday] : undefined}
+          badge={r.when.kind === "daily" && r.when.part === part ? "Now" : r.when.kind === "weekly" ? WEEKDAYS[weekdayIndex(now)] : undefined}
+          subtitle={
+            r.when.kind === "weekly" && todaySlot.movedFrom !== undefined
+              ? `Swapped with ${WEEKDAYS[todaySlot.movedFrom]}`
+              : undefined
+          }
         />
       ))}
       {!inEndOfMonthWindow(now) && (
@@ -77,20 +91,28 @@ function TodayTab({ now }: { now: Date }) {
 function WeekTab({ now }: { now: Date }) {
   const monday = new Date(now);
   monday.setDate(now.getDate() - weekdayIndex(now));
-  const weekly = CLEANING.filter((r) => r.when.kind === "weekly");
+  const { settings } = useStore();
+  const plan = weeklyPlan(settings.officeDays);
   return (
     <>
-      {weekly.map((r) => {
-        if (r.when.kind !== "weekly") return null;
+      {plan.map((slot, day) => {
         const date = new Date(monday);
-        date.setDate(monday.getDate() + r.when.weekday);
-        const isToday = r.when.weekday === weekdayIndex(now);
+        date.setDate(monday.getDate() + day);
+        const isToday = day === weekdayIndex(now);
+        const office = settings.officeDays.includes(day);
         return (
           <RoutineCard
-            key={r.id}
-            routine={r}
+            key={day}
+            routine={slot.routine}
             date={date}
-            badge={isToday ? "Today" : WEEKDAYS[r.when.weekday].slice(0, 3)}
+            badge={isToday ? "Today" : WEEKDAYS[day].slice(0, 3)}
+            subtitle={
+              slot.movedFrom !== undefined
+                ? `${office ? "Office day · " : ""}swapped with ${WEEKDAYS[slot.movedFrom]}`
+                : office
+                  ? "Office day"
+                  : undefined
+            }
             collapsible
             startOpen={isToday}
           />

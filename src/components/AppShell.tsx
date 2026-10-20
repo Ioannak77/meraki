@@ -47,6 +47,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
+        <Link
+          href="/settings/"
+          className={`mt-6 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition-colors ${
+            isActive(pathname, "/settings/") ? "bg-sage-soft font-semibold text-sage-dark" : "text-ink/80 hover:bg-card"
+          }`}
+        >
+          <Icon.settings className="size-5" />
+          Settings
+        </Link>
         <div className="mt-auto rounded-2xl bg-card/70 p-4 text-sm leading-snug text-muted">
           A calmer, more consistent you.
         </div>

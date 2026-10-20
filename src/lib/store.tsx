@@ -31,7 +31,16 @@ type Data = {
   moods: Record<string, Mood>; // by day
   // Ticked routine steps, by occurrence ("evening@2026-10-20", "monthly@2026-10").
   routineDone: Record<string, string[]>;
+  // How long a timed run took, in seconds, by occurrence.
+  routineTimes: Record<string, number>;
+  settings: Settings;
 };
+
+export type Settings = {
+  officeDays: number[]; // 0 = Monday … 6 = Sunday
+};
+
+const DEFAULT_SETTINGS: Settings = { officeDays: [2, 3] }; // Wednesday and Thursday
 
 const STORAGE_KEY = "meraki.v1";
 
@@ -85,13 +94,18 @@ function seed(): Data {
     ],
     moods: {},
     routineDone: {},
+    routineTimes: {},
+    settings: DEFAULT_SETTINGS,
   };
 }
 
 function load(): Data {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { routineDone: {}, ...(JSON.parse(raw) as Partial<Data>) } as Data;
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<Data>;
+      return { routineDone: {}, routineTimes: {}, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved.settings } } as Data;
+    }
   } catch {}
   return seed();
 }
@@ -119,13 +133,16 @@ type Store = Data & {
   deleteTask: (id: string) => void;
   setMood: (mood: Mood) => void;
   toggleStep: (occurrence: string, stepId: string) => void;
+  updateSettings: (patch: Partial<Settings>) => void;
+  /** Tick the given steps (never unticks) and save the time a timed run took. */
+  finishTimedRun: (occurrence: string, stepIds: string[], seconds: number) => void;
   areaById: (id: string | null) => Area | undefined;
 };
 
 const StoreContext = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<Data>({ areas: [], tasks: [], moods: {}, routineDone: {} });
+  const [data, setData] = useState<Data>({ areas: [], tasks: [], moods: {}, routineDone: {}, routineTimes: {}, settings: DEFAULT_SETTINGS });
   const [ready, setReady] = useState(false);
 
   // localStorage only exists in the browser, so read it after the first render.
@@ -178,6 +195,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateSettings = useCallback((patch: Partial<Settings>) => {
+    setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
+  }, []);
+
+  const finishTimedRun = useCallback((occurrence: string, stepIds: string[], seconds: number) => {
+    setData((d) => {
+      const current = d.routineDone[occurrence] ?? [];
+      return {
+        ...d,
+        routineDone: { ...d.routineDone, [occurrence]: [...new Set([...current, ...stepIds])] },
+        routineTimes: { ...d.routineTimes, [occurrence]: (d.routineTimes[occurrence] ?? 0) + seconds },
+      };
+    });
+  }, []);
+
   const value = useMemo<Store>(
     () => ({
       ...data,
@@ -188,9 +220,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       deleteTask,
       setMood,
       toggleStep,
+      updateSettings,
+      finishTimedRun,
       areaById: (id) => data.areas.find((a) => a.id === id),
     }),
-    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood, toggleStep],
+    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood, toggleStep, updateSettings, finishTimedRun],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

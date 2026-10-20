@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { occurrenceKey, type Routine } from "@/lib/cleaning";
+import { formatMinutes, occurrenceKey, plannedMinutes, type Routine } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
+import { RoutineTimer, unlockTimerAudio } from "./RoutineTimer";
 
 const GROUP_STYLE: Record<Routine["group"], { tone: string; bar: string; label: string }> = {
   daily: { tone: "bg-sage-soft text-sage", bar: "bg-sage", label: "Daily" },
@@ -24,21 +25,26 @@ export function RoutineCard({
   routine,
   date = new Date(),
   badge,
+  subtitle,
   collapsible = false,
   startOpen = true,
 }: {
   routine: Routine;
   date?: Date;
   badge?: string;
+  subtitle?: string;
   collapsible?: boolean;
   startOpen?: boolean;
 }) {
-  const { routineDone, toggleStep } = useStore();
+  const { routineDone, routineTimes, toggleStep } = useStore();
   const [open, setOpen] = useState(startOpen);
+  const [timing, setTiming] = useState(false);
   const key = occurrenceKey(routine, date);
   const ticked = routineDone[key] ?? [];
   const { done, total, complete } = routineProgress(routine, ticked);
   const style = GROUP_STYLE[routine.group];
+  const minutesLeft = routine.steps.filter((s) => !s.optional && !ticked.includes(s.id)).reduce((sum, s) => sum + s.minutes, 0);
+  const timedSeconds = routineTimes[key];
 
   return (
     <section className="rounded-3xl bg-card p-5">
@@ -56,7 +62,9 @@ export function RoutineCard({
             <span className="truncate text-[17px] font-bold">{routine.name}</span>
             {badge && <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">{badge}</span>}
           </span>
-          <span className="block truncate text-[13px] text-muted">{routine.note ?? style.label}</span>
+          <span className="block truncate text-[13px] text-muted">
+            {subtitle ?? routine.note ?? style.label} · ~{formatMinutes(plannedMinutes(routine))}
+          </span>
         </span>
         <span className={`shrink-0 text-sm font-semibold ${complete ? "text-sage-dark" : "text-muted"}`}>
           {complete ? "Done ✓" : `${done}/${total}`}
@@ -68,35 +76,61 @@ export function RoutineCard({
       </div>
 
       {open && (
-        <ul className="mt-2 divide-y divide-line">
-          {routine.steps.map((step) => {
-            const isDone = ticked.includes(step.id);
-            return (
-              <li key={step.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isDone) navigator.vibrate?.(20);
-                    toggleStep(key, step.id);
-                  }}
-                  className="flex w-full items-center gap-3 py-3 text-left"
-                  aria-pressed={isDone}
-                >
-                  <span
-                    className={`grid size-7 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                      isDone ? "animate-pop border-sage bg-sage text-white" : "border-line bg-card"
-                    }`}
+        <>
+          <ul className="mt-2 divide-y divide-line">
+            {routine.steps.map((step) => {
+              const isDone = ticked.includes(step.id);
+              return (
+                <li key={step.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isDone) navigator.vibrate?.(20);
+                      toggleStep(key, step.id);
+                    }}
+                    className="flex w-full items-center gap-3 py-3 text-left"
+                    aria-pressed={isDone}
                   >
-                    {isDone && <Icon.check className="size-4" />}
-                  </span>
-                  <span className={`flex-1 text-[15px] ${isDone ? "text-muted line-through" : ""}`}>{step.title}</span>
-                  {step.hint && <span className="shrink-0 text-xs text-muted">{step.hint}</span>}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                    <span
+                      className={`grid size-7 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                        isDone ? "animate-pop border-sage bg-sage text-white" : "border-line bg-card"
+                      }`}
+                    >
+                      {isDone && <Icon.check className="size-4" />}
+                    </span>
+                    <span className={`flex-1 text-[15px] ${isDone ? "text-muted line-through" : ""}`}>{step.title}</span>
+                    <span className="shrink-0 text-right text-xs text-muted">
+                      {step.minutes} min
+                      {step.hint && <span className="block">{step.hint}</span>}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          {complete ? (
+            timedSeconds ? (
+              <p className="mt-3 rounded-2xl bg-sage-soft py-3 text-center text-[15px] font-semibold text-sage-dark">
+                Done in {formatMinutes(Math.max(1, Math.round(timedSeconds / 60)))} 🎉
+              </p>
+            ) : null
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                unlockTimerAudio();
+                setTiming(true);
+              }}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-sage-dark py-3.5 text-[16px] font-bold text-white"
+            >
+              ▶ {done ? "Continue" : "Start"} · ~{formatMinutes(minutesLeft)}
+            </button>
+          )}
+        </>
       )}
+
+      {timing && <RoutineTimer routine={routine} occurrence={key} onClose={() => setTiming(false)} />}
     </section>
   );
 }

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Ring } from "@/components/Ring";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
-import { WEEKDAYS, currentDayPart, dueToday, occurrenceKey } from "@/lib/cleaning";
+import { WEEKDAYS, currentDayPart, dueToday, occurrenceKey, weekdayIndex } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskSheet } from "@/components/TaskSheet";
 import { dayKey, isDoneToday, todaysTasks, useStore, type Energy, type Mood, type Task } from "@/lib/store";
@@ -26,11 +26,11 @@ function greeting(hour: number) {
 }
 
 export default function TodayPage() {
-  const { tasks, moods, setMood, ready, routineDone } = useStore();
+  const { tasks, moods, setMood, ready, routineDone, settings } = useStore();
   const [sheet, setSheet] = useState<Task | "new" | null>(null);
   const [now] = useState(() => new Date());
 
-  const routinesToday = useMemo(() => dueToday(now), [now]);
+  const routinesToday = useMemo(() => dueToday(now, settings.officeDays), [now, settings.officeDays]);
   const routineSteps = routinesToday.reduce(
     (sum, r) => {
       const p = routineProgress(r, routineDone[occurrenceKey(r, now)] ?? []);
@@ -74,6 +74,9 @@ export default function TodayPage() {
             <p className="text-[15px] text-muted md:text-lg">Let&apos;s make today manageable.</p>
           </div>
         </div>
+        <Link href="/settings/" aria-label="Settings" className="grid size-11 shrink-0 place-items-center rounded-full bg-card text-muted md:hidden">
+          <Icon.settings className="size-5" />
+        </Link>
       </header>
 
       <section className="mt-6 flex justify-between gap-2 sm:justify-start sm:gap-8">
@@ -130,7 +133,7 @@ export default function TodayPage() {
               key={r.id}
               routine={r}
               date={now}
-              badge={r.when.kind === "weekly" ? WEEKDAYS[r.when.weekday] : "Now"}
+              badge={r.when.kind === "weekly" ? WEEKDAYS[weekdayIndex(now)] : "Now"}
             />
           ))}
         </div>
