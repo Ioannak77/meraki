@@ -1,11 +1,12 @@
 // Ioanna's cleaning plan and the rules for when each list is due.
 //
 // Daily lists every day, weekly lists on their weekday (moved around office
-// days), and the bigger lists in the last week of the month they belong to.
-// Nothing piles up: a missed list simply isn't shown again until its next turn.
+// days), and the bigger lists on the last weekend of the month they belong
+// to, so they can be done in one focused go. Nothing piles up: a missed list
+// simply isn't shown again until its next turn.
 //
-// Every step has a time estimate. The timer uses it, and it shows how small
-// most jobs really are.
+// Every step has a time estimate (for the timer) and a room (so the big
+// month-end weekends can be shown room by room).
 
 import { today } from "./clock";
 import { dayKey } from "./store";
@@ -15,11 +16,32 @@ export type DayPart = "morning" | "meals" | "evening";
 export type RoutineWhen =
   | { kind: "daily"; part: DayPart }
   | { kind: "weekly"; weekday: number } // 0 = Monday … 6 = Sunday
-  | { kind: "monthly"; months: number[] }; // 1-12, done in the month's last week
+  | { kind: "monthly"; months: number[] }; // 1-12, done on the month's last weekend
 
 export type RoutineGroup = "daily" | "weekly" | "monthly" | "quarterly" | "twice-a-year";
 
-export type Step = { id: string; title: string; minutes: number; optional?: boolean; hint?: string };
+export const ROOMS = [
+  "Kitchen",
+  "Bathroom",
+  "Bedroom",
+  "Living room",
+  "Floors",
+  "Laundry",
+  "Pari",
+  "Balcony and windows",
+  "Whole home",
+] as const;
+export type Room = (typeof ROOMS)[number];
+
+export type Step = {
+  id: string;
+  title: string;
+  minutes: number;
+  room: Room;
+  optional?: boolean;
+  hint?: string;
+  weekdays?: number[]; // only on these days (0 = Monday); every day if left out
+};
 
 export type Routine = {
   id: string;
@@ -31,12 +53,17 @@ export type Routine = {
 };
 
 const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-export const END_OF_MONTH_DAYS = 7;
 
-type StepInput = [title: string, minutes: number, extra?: { optional?: boolean; hint?: string }];
+type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays">];
 
 function steps(prefix: string, list: StepInput[]): Step[] {
-  return list.map(([title, minutes, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, ...extra }));
+  return list.map(([title, minutes, room, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, room, ...extra }));
+}
+
+// Step ids are "<list>-<position>", so ticks are saved by position. When a list
+// changes, give moved or new steps a fresh, unused id (see "sat" and "monthly").
+function step(id: string, title: string, minutes: number, room: Room, extra?: StepInput[3]): Step {
+  return { id, title, minutes, room, ...extra };
 }
 
 export const CLEANING: Routine[] = [
@@ -47,10 +74,10 @@ export const CLEANING: Routine[] = [
     group: "daily",
     when: { kind: "daily", part: "morning" },
     steps: steps("morning", [
-      ["Make the bed", 2],
-      ["Open the windows", 1, { hint: "leave 10–15 min" }],
-      ["Dirty clothes into the laundry", 1],
-      ["Put away anything left from last night", 3],
+      ["Make the bed", 2, "Bedroom"],
+      ["Open the windows", 1, "Whole home", { hint: "leave 10–15 min" }],
+      ["Dirty clothes into the laundry", 1, "Laundry"],
+      ["Put away anything left from last night", 3, "Living room"],
     ]),
   },
   {
@@ -59,11 +86,15 @@ export const CLEANING: Routine[] = [
     group: "daily",
     when: { kind: "daily", part: "meals" },
     note: "After each meal",
-    steps: steps("meals", [
-      ["Wash the dishes", 10],
-      ["Wipe counters and hob", 3],
-      ["Put everything back", 2],
-    ]),
+    steps: [
+      ...steps("meals", [
+        ["Wash the dishes", 10, "Kitchen"],
+        ["Wipe counters and hob", 3, "Kitchen"],
+        ["Put everything back", 2, "Kitchen"],
+      ]),
+      // Every 2–3 days, on days that never clash with the weekly deep clean.
+      step("meals-bowls", "Rinse Pari's bowls", 2, "Pari", { weekdays: [1, 3, 5], hint: "Tue, Thu, Sat" }),
+    ],
   },
   {
     id: "evening",
@@ -71,11 +102,11 @@ export const CLEANING: Routine[] = [
     group: "daily",
     when: { kind: "daily", part: "evening" },
     steps: steps("evening", [
-      ["Living room reset", 5],
-      ["Empty small bins", 2, { optional: true, hint: "if full" }],
-      ["Wipe bathroom sink and kitchen", 3],
-      ["Vacuum", 10, { optional: true, hint: "if needed" }],
-      ["Set up for tomorrow", 3],
+      ["Living room reset", 5, "Living room"],
+      ["Empty small bins", 2, "Whole home", { optional: true, hint: "if full" }],
+      ["Wipe bathroom sink and kitchen", 3, "Whole home"],
+      ["Vacuum", 10, "Floors", { optional: true, hint: "if needed" }],
+      ["Set up for tomorrow", 3, "Whole home"],
     ]),
   },
 
@@ -86,9 +117,9 @@ export const CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 0 },
     steps: steps("mon", [
-      ["Toilet, sink and mirror", 10],
-      ["Wipe the shower", 5],
-      ["Wash the rug", 2, { hint: "into the machine" }],
+      ["Toilet, sink and mirror", 10, "Bathroom"],
+      ["Wipe the shower", 5, "Bathroom"],
+      ["Wash the rug", 2, "Bathroom", { hint: "into the machine" }],
     ]),
   },
   {
@@ -97,9 +128,9 @@ export const CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 1 },
     steps: steps("tue", [
-      ["Vacuum and mop", 30],
-      ["Shake the entrance mat", 2],
-      ["Vacuum Pari's bed", 3],
+      ["Vacuum and mop", 30, "Floors"],
+      ["Shake the entrance mat", 2, "Floors"],
+      ["Vacuum Pari's bed", 3, "Pari"],
     ]),
   },
   {
@@ -107,14 +138,13 @@ export const CLEANING: Routine[] = [
     name: "Kitchen",
     group: "weekly",
     when: { kind: "weekly", weekday: 2 },
-    steps: steps("wed", [
-      ["Wipe cupboard fronts", 5],
-      ["Wipe the backsplash", 3],
-      ["Check the fridge for expired food", 5],
-      ["Deep clean the sink", 5],
-      ["Drain cleaner", 2],
-      ["Deep clean Pari's bowls", 5],
-    ]),
+    steps: [
+      step("wed-0", "Wipe cupboard fronts", 5, "Kitchen"),
+      step("wed-1", "Wipe the backsplash", 3, "Kitchen"),
+      step("wed-2", "Check the fridge for expired food", 5, "Kitchen"),
+      step("wed-3", "Deep clean the sink", 5, "Kitchen", { hint: "hot water + baking soda" }),
+      step("wed-5", "Deep clean Pari's bowls", 5, "Pari"),
+    ],
   },
   {
     id: "thu",
@@ -122,8 +152,8 @@ export const CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 3 },
     steps: steps("thu", [
-      ["Wash clothes", 5, { hint: "load the machine" }],
-      ["Dust bedroom furniture", 5],
+      ["Wash clothes", 5, "Laundry", { hint: "load the machine" }],
+      ["Dust bedroom furniture", 5, "Bedroom"],
     ]),
   },
   {
@@ -132,9 +162,9 @@ export const CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 4 },
     steps: steps("fri", [
-      ["Dust all surfaces", 10],
-      ["Wipe the tables", 3],
-      ["Vacuum and spray the sofa", 10],
+      ["Dust all surfaces", 10, "Living room"],
+      ["Wipe the tables", 3, "Living room"],
+      ["Vacuum and spray the sofa", 10, "Living room"],
     ]),
   },
   {
@@ -142,12 +172,12 @@ export const CLEANING: Routine[] = [
     name: "Bedroom",
     group: "weekly",
     when: { kind: "weekly", weekday: 5 },
-    steps: steps("sat", [
-      ["Change the sheets", 10],
-      ["Vacuum the mattress", 5],
-      ["Dust", 5],
-      ["Wash Pari's bed cover and blanket", 3, { hint: "into the machine" }],
-    ]),
+    steps: [
+      step("sat-0", "Change the sheets", 10, "Bedroom"),
+      step("sat-towels", "Wash the towels", 3, "Bedroom", { hint: "with the sheets" }),
+      step("sat-2", "Dust", 5, "Bedroom"),
+      step("sat-3", "Wash Pari's bed cover and blanket", 3, "Pari", { hint: "into the machine" }),
+    ],
   },
   {
     id: "sun",
@@ -155,27 +185,32 @@ export const CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 6 },
     steps: steps("sun", [
-      ["Take the rubbish out", 3],
-      ["Restock toiletries", 5],
-      ["Plan groceries", 10],
-      ["Quick tidy up", 10],
+      ["Take the rubbish out", 3, "Whole home"],
+      ["Restock toiletries", 5, "Bathroom"],
+      ["Plan groceries", 10, "Kitchen"],
+      ["Quick tidy up", 10, "Whole home"],
     ]),
   },
 
-  // ---------- End of every month ----------
+  // ---------- Last weekend of every month ----------
   {
     id: "monthly",
     name: "Monthly reset",
     group: "monthly",
     when: { kind: "monthly", months: ALL_MONTHS },
-    steps: steps("monthly", [
-      ["Vacuum under the bed", 10],
-      ["Deep clean the fridge", 20],
-      ["Sanitize the washing machine", 5, { hint: "start the cycle" }],
-      ["Wash the couch throws", 3, { hint: "into the machine" }],
-      ["Clean the vacuums", 10],
-      ["Declutter 1 drawer", 10],
-    ]),
+    steps: [
+      ...steps("monthly", [
+        ["Vacuum under the bed", 10, "Bedroom"],
+        ["Deep clean the fridge", 20, "Kitchen"],
+        ["Sanitize the washing machine", 5, "Laundry", { hint: "start the cycle" }],
+        ["Wash the couch throws", 3, "Living room", { hint: "into the machine" }],
+        ["Clean the vacuums", 10, "Whole home"],
+        ["Declutter 1 drawer", 10, "Whole home"],
+      ]),
+      step("monthly-mattress", "Vacuum the mattress", 5, "Bedroom"),
+      step("monthly-drain", "Drain cleaner", 2, "Kitchen"),
+      step("monthly-bin", "Wash the kitchen bin", 10, "Kitchen"),
+    ],
   },
 
   // ---------- Every 3 months, spread so each month gets one set ----------
@@ -185,11 +220,11 @@ export const CLEANING: Routine[] = [
     group: "quarterly",
     when: { kind: "monthly", months: [1, 4, 7, 10] },
     steps: steps("q-kitchen", [
-      ["Clean the oven", 30],
-      ["Clean the extractor fans", 15],
-      ["Wipe inside the kitchen cabinets", 20],
-      ["Clean behind the fridge and oven", 15],
-      ["Clean on top of the cabinets and fridge", 10],
+      ["Clean the oven", 30, "Kitchen"],
+      ["Clean the extractor fans", 15, "Kitchen"],
+      ["Wipe inside the kitchen cabinets", 20, "Kitchen"],
+      ["Clean behind the fridge and oven", 15, "Kitchen"],
+      ["Clean on top of the cabinets and fridge", 10, "Kitchen"],
     ]),
   },
   {
@@ -198,11 +233,11 @@ export const CLEANING: Routine[] = [
     group: "quarterly",
     when: { kind: "monthly", months: [2, 5, 8, 11] },
     steps: steps("q-living", [
-      ["Vacuum under the furniture", 15],
-      ["Vacuum and wash the couch cushions", 15],
-      ["Clean the windows and balcony door", 30],
-      ["Wipe the skirting boards", 15],
-      ["Dust the lights", 10],
+      ["Vacuum under the furniture", 15, "Living room"],
+      ["Vacuum and wash the couch cushions", 15, "Living room"],
+      ["Clean the windows and balcony door", 30, "Balcony and windows"],
+      ["Wipe the skirting boards", 15, "Whole home"],
+      ["Dust the lights", 10, "Whole home"],
     ]),
   },
   {
@@ -212,11 +247,11 @@ export const CLEANING: Routine[] = [
     when: { kind: "monthly", months: [3, 6, 9, 12] },
     note: "All of Pari's washing in one go",
     steps: steps("q-pari", [
-      ["Wash Pari's inner bed", 5, { hint: "into the machine" }],
-      ["Wash Pari's collars, harness and leash", 5],
-      ["Wash Pari's toys", 5],
-      ["Wash the pillows", 5, { hint: "into the machine" }],
-      ["Clean inside the bathroom cabinets", 15],
+      ["Wash Pari's inner bed", 5, "Pari", { hint: "into the machine" }],
+      ["Wash Pari's collars, harness and leash", 5, "Pari"],
+      ["Wash Pari's toys", 5, "Pari"],
+      ["Wash the pillows", 5, "Bedroom", { hint: "into the machine" }],
+      ["Clean inside the bathroom cabinets", 15, "Bathroom"],
     ]),
   },
 
@@ -228,9 +263,9 @@ export const CLEANING: Routine[] = [
     when: { kind: "monthly", months: [5, 11] },
     note: "Same month as the windows, so the balcony gets done in one go",
     steps: steps("half", [
-      ["Rotate the mattress", 10],
-      ["Wash the duvet and comforter", 5, { hint: "into the machine" }],
-      ["Deep clean the balcony", 30],
+      ["Rotate the mattress", 10, "Bedroom"],
+      ["Wash the duvet and comforter", 5, "Bedroom", { hint: "into the machine" }],
+      ["Deep clean the balcony", 30, "Balcony and windows"],
     ]),
   },
 ];
@@ -242,29 +277,56 @@ export function weekdayIndex(d: Date) {
   return (d.getDay() + 6) % 7;
 }
 
-function daysInMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+/** Steps of a list that apply on this day (e.g. Pari's bowls only Tue/Thu/Sat). */
+export function stepsOn(r: Routine, d = today()) {
+  const day = weekdayIndex(d);
+  return r.steps.filter((s) => !s.weekdays || s.weekdays.includes(day));
 }
 
-/** First day of the "end of month" window, e.g. the 25th in October. */
-export function endOfMonthStart(d = today()) {
-  return daysInMonth(d) - END_OF_MONTH_DAYS + 1;
+// ---------- Month-end weekend ----------
+
+/** The last Saturday of the month `d` is in. Its weekend is the month-end weekend. */
+export function monthEndSaturday(d = today()) {
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  last.setDate(last.getDate() - ((last.getDay() + 1) % 7)); // back to Saturday
+  return last;
+}
+
+/**
+ * If `d` is on a month-end weekend, the Saturday that starts it, else null.
+ * The Sunday can fall in the next month (Sat 31 Oct, Sun 1 Nov): it still
+ * belongs to October's lists.
+ */
+export function monthEndOwner(d = today()) {
+  const sat = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (weekdayIndex(d) === 6 ? 1 : 0));
+  if (weekdayIndex(sat) !== 5) return null;
+  return dayKey(monthEndSaturday(sat)) === dayKey(sat) ? sat : null;
 }
 
 export function inEndOfMonthWindow(d = today()) {
-  return d.getDate() >= endOfMonthStart(d);
+  return monthEndOwner(d) !== null;
 }
 
-/** Which lists belong to the month of `d` (whether or not the window is open yet). */
+/** "Saturday 31 October": when this month's big lists are due. */
+export function monthEndLabel(d = today()) {
+  const sat = monthEndSaturday(d);
+  return `Saturday ${sat.getDate()} ${MONTHS[sat.getMonth()]}`;
+}
+
+/** Which big lists belong to `d`'s month (or to the month-end weekend it's on). */
 export function routinesForMonth(d = today()) {
-  const month = d.getMonth() + 1;
+  const month = (monthEndOwner(d) ?? d).getMonth() + 1;
   return CLEANING.filter((r) => r.when.kind === "monthly" && r.when.months.includes(month));
 }
 
 /** Planned minutes for the steps that count (optional "if needed" steps left out). */
-export function plannedMinutes(r: Routine) {
-  return r.steps.filter((s) => !s.optional).reduce((sum, s) => sum + s.minutes, 0);
+export function plannedMinutes(r: Routine, d = today()) {
+  return stepsOn(r, d)
+    .filter((s) => !s.optional)
+    .reduce((sum, s) => sum + s.minutes, 0);
 }
+
+// ---------- Weekly plan around office days ----------
 
 export type WeekSlot = { routine: Routine; movedFrom?: number };
 
@@ -283,7 +345,7 @@ export function weeklyPlan(officeDays: number[]): WeekSlot[] {
   }));
   const office = new Set(officeDays);
   const swapped = new Set<number>();
-  const cost = (day: number) => plannedMinutes(slots[day].routine);
+  const cost = (day: number) => slots[day].routine.steps.filter((s) => !s.optional).reduce((t, s) => t + s.minutes, 0);
 
   const longestFirst = [...office].sort((a, b) => cost(b) - cost(a));
   for (const day of longestFirst) {
@@ -306,14 +368,16 @@ export function isDueOn(r: Routine, d = today(), officeDays: number[] = []) {
       return true;
     case "weekly":
       return weeklyPlan(officeDays)[weekdayIndex(d)].routine.id === r.id;
-    case "monthly":
-      return r.when.months.includes(d.getMonth() + 1) && inEndOfMonthWindow(d);
+    case "monthly": {
+      const owner = monthEndOwner(d);
+      return owner !== null && r.when.months.includes(owner.getMonth() + 1);
+    }
   }
 }
 
 /** Key for one turn of a routine: a day for daily/weekly lists, a month for the rest. */
 export function occurrenceKey(r: Routine, d = today()) {
-  if (r.when.kind === "monthly") return `${r.id}@${dayKey(d).slice(0, 7)}`;
+  if (r.when.kind === "monthly") return `${r.id}@${dayKey(monthEndOwner(d) ?? d).slice(0, 7)}`;
   return `${r.id}@${dayKey(d)}`;
 }
 

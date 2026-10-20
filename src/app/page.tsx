@@ -5,14 +5,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Ring } from "@/components/Ring";
+import { BigCleanCard } from "@/components/BigCleanCard";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
 import {
-  MONTHS,
   WEEKDAYS,
   currentDayPart,
   dueToday,
-  endOfMonthStart,
   inEndOfMonthWindow,
+  monthEndLabel,
   occurrenceKey,
   routinesForMonth,
   weekdayIndex,
@@ -44,18 +44,18 @@ export default function TodayPage() {
   const routinesToday = useMemo(() => dueToday(now, settings.officeDays), [now, settings.officeDays]);
   const routineSteps = routinesToday.reduce(
     (sum, r) => {
-      const p = routineProgress(r, routineDone[occurrenceKey(r, now)] ?? []);
+      const p = routineProgress(r, routineDone[occurrenceKey(r, now)] ?? [], now);
       return { done: sum.done + p.done, total: sum.total + p.total };
     },
     { done: 0, total: 0 },
   );
-  // On Today, show the daily list for this time of day, today's weekly list,
-  // and the month-end lists while they're open.
+  // On Today, show the daily list for this time of day and today's weekly
+  // list. On a month-end weekend the weekly and big lists become one
+  // "Big clean" checklist grouped by room.
   const part = currentDayPart(now);
-  const routinesNow = routinesToday.filter(
-    (r) => (r.when.kind === "daily" && r.when.part === part) || r.when.kind !== "daily",
-  );
   const monthEndOpen = inEndOfMonthWindow(now);
+  const dailyNow = routinesToday.filter((r) => r.when.kind === "daily" && r.when.part === part);
+  const nonDaily = routinesToday.filter((r) => r.when.kind !== "daily");
   const monthLists = routinesForMonth(now);
 
   const today = useMemo(() => todaysTasks(tasks), [tasks]);
@@ -142,23 +142,19 @@ export default function TodayPage() {
               All routines →
             </Link>
           </div>
-          {routinesNow.map((r) =>
-            r.when.kind === "monthly" ? (
-              // Month-end lists are long, so they start folded; tap to open.
-              <RoutineCard key={r.id} routine={r} date={now} badge="Month end" collapsible startOpen={false} />
-            ) : (
-              <RoutineCard
-                key={r.id}
-                routine={r}
-                date={now}
-                badge={r.when.kind === "weekly" ? WEEKDAYS[weekdayIndex(now)] : "Now"}
-              />
-            ),
+          {dailyNow.map((r) => (
+            <RoutineCard key={r.id} routine={r} date={now} badge="Now" />
+          ))}
+          {monthEndOpen ? (
+            <BigCleanCard routines={nonDaily} date={now} />
+          ) : (
+            nonDaily.map((r) => (
+              <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} />
+            ))
           )}
           {!monthEndOpen && (
             <Link href="/routines/" className="rounded-3xl bg-card/60 p-4 text-[15px] text-muted lg:col-span-2">
-              Month-end lists ({monthLists.map((r) => r.name).join(", ")}) open on {endOfMonthStart(now)}{" "}
-              {MONTHS[now.getMonth()]}.
+              Big clean ({monthLists.map((r) => r.name).join(", ")}) is on the month-end weekend, {monthEndLabel(now)}.
             </Link>
           )}
         </div>

@@ -2,7 +2,7 @@
 
 import { today } from "@/lib/clock";
 import { useState } from "react";
-import { formatMinutes, occurrenceKey, plannedMinutes, type Routine } from "@/lib/cleaning";
+import { formatMinutes, occurrenceKey, plannedMinutes, stepsOn, type Routine } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 import { RoutineTimer, unlockTimerAudio } from "./RoutineTimer";
@@ -16,8 +16,8 @@ const GROUP_STYLE: Record<Routine["group"], { tone: string; bar: string; label: 
 };
 
 /** Ticked vs. required steps. Optional steps ("if needed") never hold you back. */
-export function routineProgress(routine: Routine, ticked: string[]) {
-  const required = routine.steps.filter((s) => !s.optional);
+export function routineProgress(routine: Routine, ticked: string[], date = today()) {
+  const required = stepsOn(routine, date).filter((s) => !s.optional);
   const done = required.filter((s) => ticked.includes(s.id)).length;
   return { done, total: required.length, complete: done === required.length };
 }
@@ -42,9 +42,10 @@ export function RoutineCard({
   const [timing, setTiming] = useState(false);
   const key = occurrenceKey(routine, date);
   const ticked = routineDone[key] ?? [];
-  const { done, total, complete } = routineProgress(routine, ticked);
+  const daySteps = stepsOn(routine, date);
+  const { done, total, complete } = routineProgress(routine, ticked, date);
   const style = GROUP_STYLE[routine.group];
-  const minutesLeft = routine.steps.filter((s) => !s.optional && !ticked.includes(s.id)).reduce((sum, s) => sum + s.minutes, 0);
+  const minutesLeft = daySteps.filter((s) => !s.optional && !ticked.includes(s.id)).reduce((sum, s) => sum + s.minutes, 0);
   const timedSeconds = routineTimes[key];
 
   return (
@@ -64,7 +65,7 @@ export function RoutineCard({
             {badge && <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">{badge}</span>}
           </span>
           <span className="block truncate text-[13px] text-muted">
-            {subtitle ?? routine.note ?? style.label} · ~{formatMinutes(plannedMinutes(routine))}
+            {subtitle ?? routine.note ?? style.label} · ~{formatMinutes(plannedMinutes(routine, date))}
           </span>
         </span>
         <span className={`shrink-0 text-sm font-semibold ${complete ? "text-sage-dark" : "text-muted"}`}>
@@ -79,7 +80,7 @@ export function RoutineCard({
       {open && (
         <>
           <ul className="mt-2 divide-y divide-line">
-            {routine.steps.map((step) => {
+            {daySteps.map((step) => {
               const isDone = ticked.includes(step.id);
               return (
                 <li key={step.id}>
@@ -131,7 +132,13 @@ export function RoutineCard({
         </>
       )}
 
-      {timing && <RoutineTimer routine={routine} occurrence={key} onClose={() => setTiming(false)} />}
+      {timing && (
+        <RoutineTimer
+          title={routine.name}
+          items={daySteps.map((step) => ({ step, occurrence: key }))}
+          onClose={() => setTiming(false)}
+        />
+      )}
     </section>
   );
 }

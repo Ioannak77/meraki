@@ -3,15 +3,14 @@
 // Settings > Testing: pretend it's another day, to preview the month-end,
 // every-3-months and twice-a-year lists before they're really due.
 
-import { MONTHS, endOfMonthStart, routinesForMonth } from "@/lib/cleaning";
+import { MONTHS, monthEndSaturday, routinesForMonth } from "@/lib/cleaning";
 import { realToday } from "@/lib/clock";
 import { dayKey, useStore } from "@/lib/store";
 
-/** A day inside the month-end window of the month `offset` months from now. */
+/** The month-end Saturday of the month `offset` months from now. */
 function monthEndDay(offset: number) {
   const real = realToday();
-  const first = new Date(real.getFullYear(), real.getMonth() + offset, 1);
-  return new Date(first.getFullYear(), first.getMonth(), endOfMonthStart(first) + 2);
+  return monthEndSaturday(new Date(real.getFullYear(), real.getMonth() + offset, 1));
 }
 
 export function TestingCard() {

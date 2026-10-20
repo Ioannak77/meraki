@@ -5,7 +5,7 @@
 // shows how long the whole list really took.
 
 import { useEffect, useRef, useState } from "react";
-import { formatMinutes, type Routine, type Step } from "@/lib/cleaning";
+import { formatMinutes, type Step } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 
@@ -17,19 +17,24 @@ function mmss(totalSeconds: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+/** One step in a timed run. A run can mix lists (e.g. a big month-end weekend). */
+export type TimerItem = { step: Step; occurrence: string; label?: string };
+
 export function RoutineTimer({
-  routine,
-  occurrence,
+  title,
+  items,
   onClose,
 }: {
-  routine: Routine;
-  occurrence: string;
+  title: string;
+  items: TimerItem[];
   onClose: () => void;
 }) {
   const { routineDone, finishTimedRun } = useStore();
 
   // Steps still to do when the timer opened. Fixed for this run.
-  const [queue] = useState<Step[]>(() => routine.steps.filter((s) => !(routineDone[occurrence] ?? []).includes(s.id)));
+  const [queue] = useState<TimerItem[]>(() =>
+    items.filter((it) => !(routineDone[it.occurrence] ?? []).includes(it.step.id)),
+  );
   const [index, setIndex] = useState(0);
   const [stepStart, setStepStart] = useState(() => Date.now());
   const [pausedAt, setPausedAt] = useState<number | null>(null);
@@ -39,13 +44,15 @@ export function RoutineTimer({
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rang = useRef(false);
 
-  const step = queue[index];
+  const item = queue[index];
+  const step = item?.step;
   const finished = index >= queue.length;
   const elapsed = ((pausedAt ?? now) - stepStart) / 1000;
   const planned = step ? step.minutes * 60 : 0;
   const left = planned - elapsed;
-  const minutesLeft = queue.slice(index + 1).reduce((sum, s) => sum + (s.optional ? 0 : s.minutes), 0) + Math.max(0, left) / 60;
-  const plannedTotal = queue.filter((s) => !s.optional).reduce((sum, s) => sum + s.minutes, 0);
+  const countable = (it: TimerItem) => (it.step.optional ? 0 : it.step.minutes);
+  const minutesLeft = queue.slice(index + 1).reduce((sum, it) => sum + countable(it), 0) + Math.max(0, left) / 60;
+  const plannedTotal = queue.reduce((sum, it) => sum + countable(it), 0);
 
   // Tick a few times a second; times come from the clock so a locked phone is fine.
   useEffect(() => {
@@ -73,9 +80,9 @@ export function RoutineTimer({
   }, [left, step, pausedAt]);
 
   function next(markDone: boolean) {
-    if (!step) return;
+    if (!item) return;
     const seconds = Math.round(elapsed);
-    finishTimedRun(occurrence, markDone ? [step.id] : [], markDone ? seconds : 0);
+    finishTimedRun(item.occurrence, markDone ? [item.step.id] : [], markDone ? seconds : 0);
     if (markDone) setRunSeconds((s) => s + seconds);
     setIndex((i) => i + 1);
     setStepStart(Date.now());
@@ -110,7 +117,7 @@ export function RoutineTimer({
     <div className="pt-safe pb-safe fixed inset-0 z-50 flex flex-col items-center overflow-y-auto bg-cream px-5 text-center">
       <div className="flex w-full max-w-md items-center justify-between pt-2">
         <span className="text-sm text-muted">
-          {finished ? routine.name : `${routine.name} · step ${index + 1} of ${queue.length}`}
+          {finished ? title : `${title} · step ${index + 1} of ${queue.length}`}
         </span>
         <button onClick={onClose} aria-label="Close the timer" className="grid size-11 place-items-center rounded-full bg-card text-muted">
           <Icon.close className="size-5" />
@@ -134,7 +141,8 @@ export function RoutineTimer({
         </div>
       ) : (
         <div className="flex w-full max-w-md flex-1 flex-col items-center">
-          <h2 className="mt-6 text-[28px] font-bold leading-tight">{step.title}</h2>
+          {item.label && <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-sage">{item.label}</p>}
+          <h2 className={`${item.label ? "mt-1" : "mt-6"} text-[28px] font-bold leading-tight`}>{step.title}</h2>
           <p className="mt-1 min-h-6 text-[15px] text-muted">
             {step.optional ? `Optional${step.hint ? `, ${step.hint}` : ""}. Skip it if it's not needed.` : step.hint ?? ""}
           </p>

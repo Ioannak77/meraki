@@ -2,6 +2,7 @@
 
 import { today } from "@/lib/clock";
 import { useMemo, useState } from "react";
+import { BigCleanCard } from "@/components/BigCleanCard";
 import { RoutineCard } from "@/components/RoutineCard";
 import {
   CLEANING,
@@ -10,8 +11,8 @@ import {
   WEEKDAYS,
   currentDayPart,
   dueToday,
-  endOfMonthStart,
   inEndOfMonthWindow,
+  monthEndLabel,
   routinesForMonth,
   weekdayIndex,
 } from "@/lib/cleaning";
@@ -60,6 +61,7 @@ function TodayTab({ now }: { now: Date }) {
   const monthLists = routinesForMonth(now);
   const todaySlot = weeklyPlan(settings.officeDays)[weekdayIndex(now)];
   const isOffice = settings.officeDays.includes(weekdayIndex(now));
+  const bigClean = inEndOfMonthWindow(now);
   return (
     <>
       {isOffice && (
@@ -67,22 +69,26 @@ function TodayTab({ now }: { now: Date }) {
           Office day: you get the lighter weekly list today.
         </p>
       )}
-      {due.map((r) => (
-        <RoutineCard
-          key={r.id}
-          routine={r}
-          date={now}
-          badge={r.when.kind === "daily" && r.when.part === part ? "Now" : r.when.kind === "weekly" ? WEEKDAYS[weekdayIndex(now)] : undefined}
-          subtitle={
-            r.when.kind === "weekly" && todaySlot.movedFrom !== undefined
-              ? `Swapped with ${WEEKDAYS[todaySlot.movedFrom]}`
-              : undefined
-          }
-        />
-      ))}
-      {!inEndOfMonthWindow(now) && (
+      {due
+        .filter((r) => r.when.kind === "daily" || !bigClean)
+        .map((r) => (
+          <RoutineCard
+            key={r.id}
+            routine={r}
+            date={now}
+            badge={r.when.kind === "daily" && r.when.part === part ? "Now" : r.when.kind === "weekly" ? WEEKDAYS[weekdayIndex(now)] : undefined}
+            subtitle={
+              r.when.kind === "weekly" && todaySlot.movedFrom !== undefined
+                ? `Swapped with ${WEEKDAYS[todaySlot.movedFrom]}`
+                : undefined
+            }
+          />
+        ))}
+      {bigClean ? (
+        <BigCleanCard routines={due.filter((r) => r.when.kind !== "daily")} date={now} />
+      ) : (
         <p className="rounded-3xl bg-card/60 p-5 text-[15px] text-muted lg:col-span-2">
-          Month-end lists ({monthLists.map((r) => r.name).join(", ")}) open on {endOfMonthStart(now)} {MONTHS[now.getMonth()]}.
+          Big clean ({monthLists.map((r) => r.name).join(", ")}) is on the month-end weekend, {monthEndLabel(now)}.
         </p>
       )}
     </>
@@ -126,13 +132,12 @@ function WeekTab({ now }: { now: Date }) {
 function MonthTab({ now }: { now: Date }) {
   const open = inEndOfMonthWindow(now);
   const thisMonth = routinesForMonth(now);
-  const month = MONTHS[now.getMonth()];
   return (
     <>
       <p className="rounded-3xl bg-card/60 p-5 text-[15px] text-muted lg:col-span-2">
         {open
-          ? `Month-end lists are open until the end of ${month}. Tick what you can; the rest waits for next time.`
-          : `These open on ${endOfMonthStart(now)} ${month}. You can tick things off early if you get to them.`}
+          ? "It's the month-end weekend: the Today tab has everything as one Big clean, room by room."
+          : `These are for the month-end weekend, ${monthEndLabel(now)}. You can tick things off early if you get to them.`}
       </p>
       {thisMonth.map((r) => (
         <RoutineCard key={r.id} routine={r} date={now} collapsible startOpen={open} />
