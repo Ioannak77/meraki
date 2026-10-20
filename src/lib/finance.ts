@@ -118,7 +118,7 @@ export function ruleKeyword(description: string) {
 // ---------- Bills ----------
 
 export type BillKind = "bill" | "rent" | "utility" | "common" | "subscription" | "insurance" | "loan";
-export type Frequency = "weekly" | "monthly" | "quarterly" | "yearly";
+export type Frequency = "weekly" | "monthly" | "bimonthly" | "quarterly" | "yearly";
 
 export const BILL_KINDS: { id: BillKind; label: string; module: ModuleId }[] = [
   { id: "rent", label: "Rent", module: "home" },
@@ -132,8 +132,9 @@ export const BILL_KINDS: { id: BillKind; label: string; module: ModuleId }[] = [
 
 export const FREQUENCIES: { id: Frequency; label: string }[] = [
   { id: "monthly", label: "Monthly" },
-  { id: "yearly", label: "Yearly" },
+  { id: "bimonthly", label: "Every 2 months" },
   { id: "quarterly", label: "Every 3 months" },
+  { id: "yearly", label: "Yearly" },
   { id: "weekly", label: "Weekly" },
 ];
 
@@ -175,7 +176,7 @@ export function dueDates(b: Bill, from: Date, to: Date): Date[] {
     }
     return out;
   }
-  const step = b.frequency === "monthly" ? 1 : b.frequency === "quarterly" ? 3 : 12;
+  const step = { monthly: 1, bimonthly: 2, quarterly: 3, yearly: 12 }[b.frequency];
   const monthsFromFirst = (from.getFullYear() - first.getFullYear()) * 12 + (from.getMonth() - first.getMonth());
   let k = Math.floor(monthsFromFirst / step) - 1;
   for (let i = 0; i < 400; i++, k++) {
@@ -198,9 +199,9 @@ export function paidKey(b: Bill, due: Date) {
   return `${b.id}@${dayKey(due)}`;
 }
 
-/** What one bill costs per month on average (for yearly or quarterly ones). */
+/** What one bill costs per month on average (spreads out bills that come every 2, 3 or 12 months). */
 export function monthlyCost(b: Bill) {
-  const perYear = { weekly: 52, monthly: 12, quarterly: 4, yearly: 1 }[b.frequency];
+  const perYear = { weekly: 52, monthly: 12, bimonthly: 6, quarterly: 4, yearly: 1 }[b.frequency];
   return (b.amount * perYear) / 12;
 }
 

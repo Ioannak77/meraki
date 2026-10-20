@@ -98,7 +98,7 @@ export function BillsTab({ now }: { now: Date }) {
         <Card>
           <CardTitle>All bills</CardTitle>
           <p className="text-[15px] text-muted">
-            About <strong className="text-ink">{money(perMonth, true)}</strong> a month, counting yearly ones spread out.
+            About <strong className="text-ink">{money(perMonth, true)}</strong> a month, with bills that come every few months spread out.
           </p>
           <ul className="mt-2 divide-y divide-line">
             {bills.map((b) => {
