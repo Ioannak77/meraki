@@ -3,7 +3,6 @@
 // Add / edit a task. Slides up from the bottom on phones, centred on iPad.
 // Only the title is required, so capturing a task takes one field and one tap.
 
-import { today } from "@/lib/clock";
 import { useState } from "react";
 import { LEAD_CHOICES, dayKey, leadDays, monthEndKey, useStore, type Energy, type Task } from "@/lib/store";
 import { Icon } from "./icons";
@@ -18,12 +17,6 @@ function showFromText(dueDate: string, lead: number) {
   return `Shows on Today from ${from.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}.`;
 }
 
-function inDays(n: number) {
-  const d = today();
-  d.setDate(d.getDate() + n);
-  return dayKey(d);
-}
-
 export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () => void }) {
   const { areas, addTask, updateTask, deleteTask } = useStore();
   const existing = task === "new" ? null : task;
@@ -34,6 +27,11 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
   const [wholeMonth, setWholeMonth] = useState(existing?.wholeMonth ?? false);
   // null = the default for this kind of task (see leadDays).
   const [showBefore, setShowBefore] = useState<number | null>(existing?.showBefore ?? null);
+
+  // Which picker is open: a specific day, a whole month, or none (no date).
+  const [mode, setMode] = useState<"date" | "month" | null>(
+    existing ? (existing.dueDate ? (existing.wholeMonth ? "month" : "date") : null) : "date",
+  );
 
   /** A specific day, or (whole month) the month's last day. */
   function setWhen(date: string | null, month = false) {
@@ -90,60 +88,72 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
         />
 
         <p className="mb-2 mt-5 text-sm font-semibold text-muted">When</p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={chip(!wholeMonth && dueDate === dayKey())} onClick={() => setWhen(dayKey())}>
-            Today
-          </button>
-          <button type="button" className={chip(!wholeMonth && dueDate === inDays(1))} onClick={() => setWhen(inDays(1))}>
-            Tomorrow
+        <div className="flex gap-1 rounded-full bg-cream p-1">
+          <button
+            type="button"
+            className={`flex-1 rounded-full py-2.5 text-sm ${mode === "date" ? "bg-ink font-bold text-cream" : "text-ink/70"}`}
+            onClick={() => {
+              setMode("date");
+              if (wholeMonth || !dueDate) setWhen(dayKey());
+            }}
+          >
+            On a date
           </button>
           <button
             type="button"
-            className={chip(wholeMonth && dueDate === monthEndKey(0))}
-            onClick={() => setWhen(monthEndKey(0), true)}
+            className={`flex-1 rounded-full py-2.5 text-sm ${mode === "month" ? "bg-ink font-bold text-cream" : "text-ink/70"}`}
+            onClick={() => {
+              setMode("month");
+              if (!wholeMonth || !dueDate) setWhen(monthEndKey(0), true);
+            }}
           >
-            This month
-          </button>
-          <button
-            type="button"
-            className={chip(wholeMonth && dueDate === monthEndKey(1))}
-            onClick={() => setWhen(monthEndKey(1), true)}
-          >
-            Next month
-          </button>
-          <button type="button" className={chip(dueDate === null)} onClick={() => setWhen(null)}>
-            No date
+            In a month
           </button>
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className="text-xs text-muted">
-            A day
-            <input
-              type="date"
-              value={!wholeMonth ? (dueDate ?? "") : ""}
-              onChange={(e) => setWhen(e.target.value || null)}
-              className="mt-1 w-full rounded-full bg-cream px-3 py-2 text-sm text-ink/80"
-            />
-          </label>
-          <label className="text-xs text-muted">
-            Or a whole month
+
+        {mode === "date" && (
+          <input
+            type="date"
+            aria-label="Date"
+            value={dueDate ?? ""}
+            onChange={(e) => setWhen(e.target.value || null)}
+            className="mt-2 w-full rounded-2xl bg-cream px-4 py-3 text-base text-ink"
+          />
+        )}
+        {mode === "month" && (
+          <>
             <input
               type="month"
-              value={wholeMonth && dueDate ? dueDate.slice(0, 7) : ""}
+              aria-label="Month"
+              value={dueDate ? dueDate.slice(0, 7) : ""}
               onChange={(e) => {
                 if (!e.target.value) return setWhen(null);
                 const [y, m] = e.target.value.split("-").map(Number);
-                setWhen(dayKey(new Date(y, m, 0)), true); // last day of that month
+                setWhen(dayKey(new Date(y, m, 0)), true); // stored as that month's last day
               }}
-              className="mt-1 w-full rounded-full bg-cream px-3 py-2 text-sm text-ink/80"
+              className="mt-2 w-full rounded-2xl bg-cream px-4 py-3 text-base text-ink"
             />
-          </label>
-        </div>
-        {wholeMonth && dueDate && (
-          <p className="mt-2 text-xs text-muted">
-            Any time in {new Date(dueDate + "T12:00:00").toLocaleDateString(undefined, { month: "long" })}, done by its last
-            day.
-          </p>
+            {dueDate && (
+              <p className="mt-2 text-xs text-muted">
+                Any time in {new Date(dueDate + "T12:00:00").toLocaleDateString(undefined, { month: "long" })}, done by its
+                last day.
+              </p>
+            )}
+          </>
+        )}
+        {mode ? (
+          <button
+            type="button"
+            onClick={() => {
+              setMode(null);
+              setWhen(null);
+            }}
+            className="mt-2 text-sm font-semibold text-muted underline"
+          >
+            No date
+          </button>
+        ) : (
+          <p className="mt-2 text-sm text-muted">No date. Pick one above if it has a deadline.</p>
         )}
 
         {dueDate && (

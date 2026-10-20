@@ -72,6 +72,14 @@ export const Icon = {
       <circle cx="17.5" cy="10.5" r="1.8" />
     </svg>
   ),
+  car: ({ className }: IconProps) => (
+    <svg {...base} className={className}>
+      <path d="M4 16.5V12l2-5h12l2 5v4.5" />
+      <path d="M3.5 12h17v4.5h-17z" />
+      <circle cx="7.5" cy="17.5" r="1.7" />
+      <circle cx="16.5" cy="17.5" r="1.7" />
+    </svg>
+  ),
   leaf: ({ className }: IconProps) => (
     <svg {...base} className={className}>
       <path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z" />

@@ -11,8 +11,8 @@ export type Energy = "low" | "normal" | "high";
 export type Mood = "great" | "okay" | "low";
 
 export type Area = { id: string; name: string; icon: AreaIcon; tone: Tone };
-export type AreaIcon = "heart" | "home" | "wallet" | "briefcase" | "leaf" | "paw";
-export type Tone = "rose" | "peach" | "sage" | "sky" | "sun";
+export type AreaIcon = "heart" | "home" | "wallet" | "briefcase" | "leaf" | "paw" | "car";
+export type Tone = "rose" | "peach" | "sage" | "sky" | "sun" | "lilac";
 
 export type Task = {
   id: string;
@@ -68,6 +68,7 @@ const DEFAULT_AREAS: Area[] = [
   { id: "care", name: "Personal care", icon: "heart", tone: "rose" },
   { id: "home", name: "Home", icon: "home", tone: "peach" },
   { id: "pari", name: "Pari", icon: "paw", tone: "sun" },
+  { id: "car", name: "Car", icon: "car", tone: "lilac" },
   { id: "finance", name: "Finance", icon: "wallet", tone: "sage" },
   { id: "life", name: "Life admin", icon: "briefcase", tone: "sky" },
 ];

@@ -10,6 +10,7 @@ export const TONE_CLASSES: Record<Tone, string> = {
   sage: "bg-sage-soft text-sage",
   sky: "bg-sky-soft text-sky",
   sun: "bg-sun/25 text-[#b7791f]",
+  lilac: "bg-[#ebe7f5] text-[#7a6db0]",
 };
 
 export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit: (t: Task) => void; showArea?: boolean }) {
