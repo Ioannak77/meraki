@@ -1,5 +1,6 @@
 "use client";
 
+import { MoneySettingsCard } from "@/components/finance/SettingsCard";
 import { TestingCard } from "@/components/TestingCard";
 import { WEEKDAYS, formatMinutes, plannedMinutes, weeklyPlan } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
@@ -62,6 +63,8 @@ export default function SettingsPage() {
           ))}
         </ul>
       </section>
+
+      <MoneySettingsCard />
 
       <TestingCard />
     </div>

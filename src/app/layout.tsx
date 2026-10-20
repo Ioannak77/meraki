@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Nunito } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
+import { FinanceProvider } from "@/lib/financeStore";
 import { AppShell } from "@/components/AppShell";
 
 const nunito = Nunito({
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${nunito.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
         <StoreProvider>
-          <AppShell>{children}</AppShell>
+          <FinanceProvider>
+            <AppShell>{children}</AppShell>
+          </FinanceProvider>
         </StoreProvider>
       </body>
     </html>
