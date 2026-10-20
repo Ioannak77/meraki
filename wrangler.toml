@@ -1,0 +1,8 @@
+# Cloudflare hosting (same setup as PumpPal). In the Cloudflare dashboard,
+# connect the GitHub repo and set the build command to `npm run build`.
+name = "meraki"
+compatibility_date = "2026-10-01"
+
+[assets]
+directory = "./out"
+not_found_handling = "404-page"

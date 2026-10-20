@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* Meraki palette: warm cream, sage green and soft accents. */
+@theme inline {
+  --color-cream: #f6f1ea;
+  --color-card: #fffdf9;
+  --color-line: #ece4d8;
+  --color-ink: #2d2a26;
+  --color-muted: #8c8379;
+  --color-sage: #5e8c61;
+  --color-sage-dark: #3f6b46;
+  --color-sage-soft: #e3ecdf;
+  --color-peach: #f0a37f;
+  --color-peach-soft: #fbe6da;
+  --color-rose: #e3a0a6;
+  --color-rose-soft: #f8e2e4;
+  --color-sky: #7fa7cf;
+  --color-sky-soft: #e2ecf6;
+  --color-sun: #f4b860;
+  --font-sans: var(--font-nunito);
+}
+
+html,
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Room for the phone's home indicator under the bottom tab bar. */
+.pb-safe {
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: max(16px, env(safe-area-inset-top));
+}
+
+@keyframes pop {
+  40% {
+    transform: scale(1.2);
+  }
+}
+.animate-pop {
+  animation: pop 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
