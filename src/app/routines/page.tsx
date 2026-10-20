@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { today } from "@/lib/clock";
+import { useMemo, useState } from "react";
 import { RoutineCard } from "@/components/RoutineCard";
 import {
   CLEANING,
@@ -20,9 +21,9 @@ const TABS = ["Today", "This week", "Month & year"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function RoutinesPage() {
-  const { ready } = useStore();
+  const { ready, settings } = useStore();
   const [tab, setTab] = useState<Tab>("Today");
-  const [now] = useState(() => new Date());
+  const now = useMemo(() => today(settings.testDate), [settings.testDate]);
 
   if (!ready) return null;
 

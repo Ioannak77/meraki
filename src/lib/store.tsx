@@ -4,6 +4,7 @@
 // localStorage. The shapes match supabase/schema.sql so syncing can be added
 // later without changing the screens.
 
+import { setTestDate, today } from "./clock";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export type Energy = "low" | "normal" | "high";
@@ -38,18 +39,19 @@ type Data = {
 
 export type Settings = {
   officeDays: number[]; // 0 = Monday … 6 = Sunday
+  testDate?: string | null; // "YYYY-MM-DD" to pretend it is another day (testing only)
 };
 
 const DEFAULT_SETTINGS: Settings = { officeDays: [2, 3] }; // Wednesday and Thursday
 
 const STORAGE_KEY = "meraki.v1";
 
-export function dayKey(d = new Date()) {
+export function dayKey(d = today()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function addDays(days: number) {
-  const d = new Date();
+  const d = today();
   d.setDate(d.getDate() + days);
   return dayKey(d);
 }
@@ -61,7 +63,7 @@ function newId() {
 }
 
 function seed(): Data {
-  const now = new Date().toISOString();
+  const now = today().toISOString();
   const areas: Area[] = [
     { id: "care", name: "Personal care", icon: "heart", tone: "rose" },
     { id: "home", name: "Home", icon: "home", tone: "peach" },
@@ -112,7 +114,7 @@ function load(): Data {
 
 /** Drop routine ticks older than ~13 months so storage doesn't grow forever. */
 function pruneRoutineDone(done: Data["routineDone"]) {
-  const cutoff = new Date();
+  const cutoff = today();
   cutoff.setMonth(cutoff.getMonth() - 13);
   const cut = dayKey(cutoff);
   return Object.fromEntries(
@@ -145,6 +147,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<Data>({ areas: [], tasks: [], moods: {}, routineDone: {}, routineTimes: {}, settings: DEFAULT_SETTINGS });
   const [ready, setReady] = useState(false);
 
+  // Testing: make every screen see the chosen day as "today".
+  setTestDate(data.settings.testDate ?? null);
+
   // localStorage only exists in the browser, so read it after the first render.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time load from localStorage
@@ -162,7 +167,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const addTask = useCallback((input: TaskInput) => {
     setData((d) => ({
       ...d,
-      tasks: [...d.tasks, { ...input, id: newId(), createdAt: new Date().toISOString(), completedAt: null }],
+      tasks: [...d.tasks, { ...input, id: newId(), createdAt: today().toISOString(), completedAt: null }],
     }));
   }, []);
 
@@ -174,7 +179,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({
       ...d,
       tasks: d.tasks.map((t) =>
-        t.id === id ? { ...t, completedAt: t.completedAt ? null : new Date().toISOString() } : t,
+        t.id === id ? { ...t, completedAt: t.completedAt ? null : today().toISOString() } : t,
       ),
     }));
   }, []);

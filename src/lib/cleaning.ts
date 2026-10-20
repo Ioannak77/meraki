@@ -7,6 +7,7 @@
 // Every step has a time estimate. The timer uses it, and it shows how small
 // most jobs really are.
 
+import { today } from "./clock";
 import { dayKey } from "./store";
 
 export type DayPart = "morning" | "meals" | "evening";
@@ -246,16 +247,16 @@ function daysInMonth(d: Date) {
 }
 
 /** First day of the "end of month" window, e.g. the 25th in October. */
-export function endOfMonthStart(d = new Date()) {
+export function endOfMonthStart(d = today()) {
   return daysInMonth(d) - END_OF_MONTH_DAYS + 1;
 }
 
-export function inEndOfMonthWindow(d = new Date()) {
+export function inEndOfMonthWindow(d = today()) {
   return d.getDate() >= endOfMonthStart(d);
 }
 
 /** Which lists belong to the month of `d` (whether or not the window is open yet). */
-export function routinesForMonth(d = new Date()) {
+export function routinesForMonth(d = today()) {
   const month = d.getMonth() + 1;
   return CLEANING.filter((r) => r.when.kind === "monthly" && r.when.months.includes(month));
 }
@@ -299,7 +300,7 @@ export function weeklyPlan(officeDays: number[]): WeekSlot[] {
   return slots;
 }
 
-export function isDueOn(r: Routine, d = new Date(), officeDays: number[] = []) {
+export function isDueOn(r: Routine, d = today(), officeDays: number[] = []) {
   switch (r.when.kind) {
     case "daily":
       return true;
@@ -311,17 +312,17 @@ export function isDueOn(r: Routine, d = new Date(), officeDays: number[] = []) {
 }
 
 /** Key for one turn of a routine: a day for daily/weekly lists, a month for the rest. */
-export function occurrenceKey(r: Routine, d = new Date()) {
+export function occurrenceKey(r: Routine, d = today()) {
   if (r.when.kind === "monthly") return `${r.id}@${dayKey(d).slice(0, 7)}`;
   return `${r.id}@${dayKey(d)}`;
 }
 
-export function dueToday(d = new Date(), officeDays: number[] = []) {
+export function dueToday(d = today(), officeDays: number[] = []) {
   return CLEANING.filter((r) => isDueOn(r, d, officeDays));
 }
 
 /** Daily list to put first right now: morning before 12, evening from 18. */
-export function currentDayPart(d = new Date()): DayPart {
+export function currentDayPart(d = today()): DayPart {
   const h = d.getHours();
   if (h < 12) return "morning";
   if (h < 18) return "meals";

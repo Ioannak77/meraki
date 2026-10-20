@@ -1,5 +1,6 @@
 "use client";
 
+import { today } from "@/lib/clock";
 import { useState } from "react";
 import { formatMinutes, occurrenceKey, plannedMinutes, type Routine } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
@@ -23,7 +24,7 @@ export function routineProgress(routine: Routine, ticked: string[]) {
 
 export function RoutineCard({
   routine,
-  date = new Date(),
+  date = today(),
   badge,
   subtitle,
   collapsible = false,

@@ -1,5 +1,6 @@
 "use client";
 
+import { today as getToday } from "@/lib/clock";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
@@ -28,7 +29,7 @@ function greeting(hour: number) {
 export default function TodayPage() {
   const { tasks, moods, setMood, ready, routineDone, settings } = useStore();
   const [sheet, setSheet] = useState<Task | "new" | null>(null);
-  const [now] = useState(() => new Date());
+  const now = useMemo(() => getToday(settings.testDate), [settings.testDate]);
 
   const routinesToday = useMemo(() => dueToday(now, settings.officeDays), [now, settings.officeDays]);
   const routineSteps = routinesToday.reduce(
@@ -274,7 +275,7 @@ function ManageNow({ onEdit }: { onEdit: (t: Task) => void }) {
 function WeekCard() {
   const { tasks } = useStore();
   const days = useMemo(() => {
-    const now = new Date();
+    const now = getToday();
     const monday = new Date(now);
     monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
     return Array.from({ length: 7 }, (_, i) => {

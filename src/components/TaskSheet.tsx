@@ -3,6 +3,7 @@
 // Add / edit a task. Slides up from the bottom on phones, centred on iPad.
 // Only the title is required, so capturing a task takes one field and one tap.
 
+import { today } from "@/lib/clock";
 import { useState } from "react";
 import { dayKey, useStore, type Energy, type Task } from "@/lib/store";
 import { Icon } from "./icons";
@@ -10,7 +11,7 @@ import { Icon } from "./icons";
 const MINUTE_CHOICES = [5, 10, 20, 30, 60];
 
 function inDays(n: number) {
-  const d = new Date();
+  const d = today();
   d.setDate(d.getDate() + n);
   return dayKey(d);
 }

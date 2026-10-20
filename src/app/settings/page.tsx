@@ -1,5 +1,6 @@
 "use client";
 
+import { TestingCard } from "@/components/TestingCard";
 import { WEEKDAYS, formatMinutes, plannedMinutes, weeklyPlan } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 
@@ -61,6 +62,8 @@ export default function SettingsPage() {
           ))}
         </ul>
       </section>
+
+      <TestingCard />
     </div>
   );
 }

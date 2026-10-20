@@ -5,7 +5,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useStore } from "@/lib/store";
 import { Icon, type IconName } from "./icons";
+
+/** Reminder that the app is pretending it's another day (Settings > Testing). */
+function TestDateBanner() {
+  const { settings, updateSettings } = useStore();
+  if (!settings.testDate) return null;
+  const label = new Date(settings.testDate + "T12:00:00").toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  return (
+    <div className="mx-auto mb-4 flex max-w-5xl items-center justify-between gap-3 rounded-2xl bg-sun/30 px-4 py-2.5 text-sm">
+      <span>
+        <strong>Test mode:</strong> pretending it&apos;s {label}
+      </span>
+      <button onClick={() => updateSettings({ testDate: null })} className="shrink-0 font-bold underline">
+        Back to today
+      </button>
+    </div>
+  );
+}
 
 const NAV: { href: string; label: string; icon: IconName; phone: boolean }[] = [
   { href: "/", label: "Today", icon: "home", phone: true },
@@ -61,7 +83,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="pt-safe min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10">{children}</main>
+      <main className="pt-safe min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10">
+        <TestDateBanner />
+        {children}
+      </main>
 
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t border-line bg-card/95 backdrop-blur md:hidden">
         <ul className="mx-auto flex max-w-lg justify-around pt-2">
