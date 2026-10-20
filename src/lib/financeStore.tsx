@@ -6,7 +6,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   billKeyword,
-  categorise,
   dueDates,
   paidKey,
   txnHash,
@@ -28,6 +27,7 @@ type FinanceData = {
   income: Income | null;
   bills: Bill[];
   paid: Record<string, string>; // paidKey -> when it was marked paid (ISO)
+  billActuals: Record<string, number>; // paidKey -> amount actually paid, seen on a statement
   txns: Txn[];
   rules: Rule[]; // learned from "always use this category"
   importProfiles: Record<string, ColumnMap>; // remembered column choices per bank layout
@@ -44,6 +44,7 @@ const EMPTY: FinanceData = {
   income: null,
   bills: [],
   paid: {},
+  billActuals: {},
   txns: [],
   rules: [],
   importProfiles: {},
@@ -77,8 +78,15 @@ type FinanceStore = FinanceData & {
   deleteBill: (id: string) => void;
   togglePaid: (key: string) => void;
   addTxn: (t: Omit<Txn, "id" | "hash" | "source">) => void;
-  importLines: (lines: ParsedLine[], signature: string, map: ColumnMap) => ImportResult;
+  /** Lines arrive already categorised (and reviewed); `newRules` are the "always" mappings chosen during review. */
+  importLines: (
+    lines: (ParsedLine & { category: CategoryId })[],
+    signature: string,
+    map: ColumnMap,
+    newRules: Rule[],
+  ) => ImportResult;
   setTxnCategory: (id: string, category: CategoryId, alwaysFor?: string) => void;
+  deleteRule: (match: string) => void;
   deleteTxn: (id: string) => void;
   setBudget: (category: CategoryId, amount: number | null) => void;
   setWeeklyAllowance: (amount: number | null) => void;
@@ -141,7 +149,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   // Runs the import against the current data synchronously so the screen can
   // show "added / duplicates" straight away, then saves.
   const importLines = useCallback(
-    (lines: ParsedLine[], signature: string, map: ColumnMap): ImportResult => {
+    (lines: (ParsedLine & { category: CategoryId })[], signature: string, map: ColumnMap, newRules: Rule[]): ImportResult => {
       const seen = new Set(data.txns.map((t) => t.hash));
       const added: Txn[] = [];
       let duplicates = 0;
@@ -152,17 +160,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           continue;
         }
         seen.add(hash);
-        added.push({
-          ...line,
-          id: newId(),
-          source: "import",
-          hash,
-          category: categorise(line.description, line.amount, data.rules, data.bills),
-        });
+        added.push({ ...line, id: newId(), source: "import", hash });
       }
 
-      // A bank line that matches a bill marks the nearest due date (within a week) as paid.
+      // A bank line that matches a bill marks the nearest due date (within a
+      // week) as paid and saves what it really cost.
       const paid = { ...data.paid };
+      const billActuals = { ...data.billActuals };
       let billsMarkedPaid = 0;
       for (const t of added) {
         if (t.category !== "bills") continue;
@@ -173,22 +177,34 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         const from = new Date(y, m - 1, dd - 7);
         const to = new Date(y, m - 1, dd + 7);
         const due = dueDates(bill, from, to)[0];
-        if (due && !paid[paidKey(bill, due)]) {
-          paid[paidKey(bill, due)] = new Date(y, m - 1, dd).toISOString();
+        if (!due) continue;
+        const key = paidKey(bill, due);
+        billActuals[key] = (billActuals[key] ?? 0) - t.amount; // a bill paid in two parts adds up
+        if (!paid[key]) {
+          paid[key] = new Date(y, m - 1, dd).toISOString();
           billsMarkedPaid++;
         }
       }
 
-      setData((d) => ({
-        ...d,
-        txns: [...d.txns, ...added],
-        paid,
-        importProfiles: { ...d.importProfiles, [signature]: map },
-      }));
+      setData((d) => {
+        const fresh = newRules.filter((r) => r.match.trim());
+        return {
+          ...d,
+          txns: [...d.txns, ...added],
+          paid,
+          billActuals,
+          rules: [...fresh, ...d.rules.filter((r) => !fresh.some((f) => f.match === r.match))],
+          importProfiles: { ...d.importProfiles, [signature]: map },
+        };
+      });
       return { added: added.length, duplicates, billsMarkedPaid };
     },
-    [data.txns, data.rules, data.bills, data.paid],
+    [data.txns, data.bills, data.paid, data.billActuals],
   );
+
+  const deleteRule = useCallback((match: string) => {
+    setData((d) => ({ ...d, rules: d.rules.filter((r) => r.match !== match) }));
+  }, []);
 
   const setTxnCategory = useCallback((id: string, category: CategoryId, alwaysFor?: string) => {
     setData((d) => {
@@ -238,6 +254,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       addTxn,
       importLines,
       setTxnCategory,
+      deleteRule,
       deleteTxn,
       setBudget,
       setWeeklyAllowance,
@@ -255,6 +272,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       addTxn,
       importLines,
       setTxnCategory,
+      deleteRule,
       deleteTxn,
       setBudget,
       setWeeklyAllowance,

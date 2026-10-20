@@ -3,6 +3,9 @@
 import { useState } from "react";
 import {
   CATEGORIES,
+  categorise,
+  effectiveBudgets,
+  monthStats,
   category,
   findHeader,
   guessColumns,
@@ -15,6 +18,8 @@ import {
   ruleKeyword,
   type CategoryId,
   type ColumnMap,
+  type ParsedLine,
+  type Rule,
   type Txn,
 } from "@/lib/finance";
 import { useFinance, type ImportResult } from "@/lib/financeStore";
@@ -32,7 +37,7 @@ export function spendingByCategory(txns: Txn[], start: Date, end: Date) {
 }
 
 export function SpendingTab({ now }: { now: Date }) {
-  const { txns, budgets, has } = useFinance();
+  const { txns, budgets, has, rules, deleteRule } = useFinance();
   const [monthOffset, setMonthOffset] = useState(0);
   const [importing, setImporting] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -43,7 +48,8 @@ export function SpendingTab({ now }: { now: Date }) {
   const totals = spendingByCategory(txns, start, end);
   const total = [...totals.values()].reduce((a, b) => a + b, 0);
   const lines = txns.filter((t) => inRange(t.date, start, end)).sort((a, b) => b.date.localeCompare(a.date));
-  const rows = CATEGORIES.filter((c) => c.counts && (totals.get(c.id) || budgets[c.id])).sort(
+  const eff = effectiveBudgets(budgets, monthStats(txns, now));
+  const rows = CATEGORIES.filter((c) => c.counts && (totals.get(c.id) || eff.has(c.id))).sort(
     (a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0),
   );
 
@@ -91,7 +97,7 @@ export function SpendingTab({ now }: { now: Date }) {
           <ul className="mt-3 space-y-3">
             {rows.map((c) => {
               const spent = totals.get(c.id) ?? 0;
-              const budget = budgets[c.id];
+              const budget = eff.get(c.id)?.amount;
               return (
                 <li key={c.id}>
                   <div className="mb-1 flex items-baseline justify-between gap-3 text-[15px]">
@@ -142,6 +148,24 @@ export function SpendingTab({ now }: { now: Date }) {
         )}
       </Card>
 
+      {rules.length > 0 && (
+        <Card className="lg:col-span-2">
+          <CardTitle>Mappings</CardTitle>
+          <p className="mb-2 text-sm text-muted">Lines containing this text always get this category. Tap ✕ to forget one.</p>
+          <ul className="divide-y divide-line">
+            {rules.map((r) => (
+              <li key={r.match} className="flex items-center gap-3 py-2.5 text-[15px]">
+                <span className="min-w-0 flex-1 truncate">“{r.match}”</span>
+                <span className="shrink-0 text-muted">→ {category(r.category).label}</span>
+                <button type="button" onClick={() => deleteRule(r.match)} aria-label={`Forget ${r.match}`} className="shrink-0 px-2 text-muted">
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       {importing && <ImportSheet onClose={() => setImporting(false)} />}
       {adding && <AddSpendingSheet onClose={() => setAdding(false)} now={now} />}
       {editing && <TxnSheet txn={editing} onClose={() => setEditing(null)} />}
@@ -151,11 +175,43 @@ export function SpendingTab({ now }: { now: Date }) {
 
 const CATEGORY_CHOICES = CATEGORIES.map((c) => ({ id: c.id, label: c.label }));
 
+type Mapping = { always: boolean; match: string };
+
+/** "Just this once" or "Always" for lines containing some text (editable, e.g. just "abc"). */
+function MappingChoice({ value, onChange }: { value: Mapping; onChange: (m: Mapping) => void }) {
+  const seg = (on: boolean) =>
+    `flex-1 rounded-full py-2 text-sm ${on ? "bg-ink font-bold text-cream" : "text-ink/70"}`;
+  return (
+    <div>
+      <div className="flex gap-1 rounded-full bg-cream p-1">
+        <button type="button" className={seg(!value.always)} onClick={() => onChange({ ...value, always: false })}>
+          Just this once
+        </button>
+        <button type="button" className={seg(value.always)} onClick={() => onChange({ ...value, always: true })}>
+          Always
+        </button>
+      </div>
+      {value.always && (
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <span className="shrink-0 text-muted">for lines containing</span>
+          <input
+            value={value.match}
+            onChange={(e) => onChange({ ...value, match: e.target.value })}
+            className="min-w-0 flex-1 rounded-xl border border-line bg-cream px-3 py-2"
+          />
+        </label>
+      )}
+    </div>
+  );
+}
+
 function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const { setTxnCategory, deleteTxn } = useFinance();
   const [cat, setCat] = useState<CategoryId>(txn.category);
-  const keyword = ruleKeyword(txn.description);
-  const [always, setAlways] = useState(txn.source === "import");
+  const [mapping, setMapping] = useState<Mapping>({
+    always: txn.source === "import",
+    match: ruleKeyword(txn.description),
+  });
 
   return (
     <Sheet title="Transaction" onClose={onClose}>
@@ -168,16 +224,12 @@ function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
       <Label>Category</Label>
       <Chips options={CATEGORY_CHOICES} value={cat} onChange={setCat} />
 
-      <label className="mt-5 flex items-center gap-3 rounded-2xl bg-cream px-4 py-3">
-        <input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} className="size-5 accent-sage" />
-        <span className="text-[15px]">
-          Always use this for lines with “<strong>{keyword}</strong>”
-        </span>
-      </label>
+      <Label>Remember it?</Label>
+      <MappingChoice value={mapping} onChange={setMapping} />
 
       <PrimaryButton
         onClick={() => {
-          setTxnCategory(txn.id, cat, always ? keyword : undefined);
+          setTxnCategory(txn.id, cat, mapping.always && mapping.match.trim() ? mapping.match : undefined);
           onClose();
         }}
       >
@@ -238,11 +290,47 @@ const FIELDS: { key: keyof ColumnMap; label: string }[] = [
   { key: "moneyIn", label: "…and Money in" },
 ];
 
-function ImportSheet({ onClose }: { onClose: () => void }) {
-  const { importLines, importProfiles } = useFinance();
+/** Lines Meraki couldn't sort, grouped by shop so each is decided once. */
+type ReviewGroup = { match: string; sample: string; lines: number[]; total: number; category: CategoryId; mapping: Mapping };
+
+export function ImportSheet({ onClose }: { onClose: () => void }) {
+  const { importLines, importProfiles, rules, bills } = useFinance();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [review, setReview] = useState<{ lines: (ParsedLine & { category: CategoryId })[]; groups: ReviewGroup[] } | null>(null);
+
+  function next() {
+    if (!preview || !loaded) return;
+    const lines = preview.lines.map((l) => ({ ...l, category: categorise(l.description, l.amount, rules, bills) }));
+    const groups = new Map<string, ReviewGroup>();
+    lines.forEach((l, i) => {
+      if (l.category !== "other") return;
+      const match = ruleKeyword(l.description);
+      const g = groups.get(match) ?? { match, sample: l.description, lines: [], total: 0, category: "other", mapping: { always: true, match } };
+      g.lines.push(i);
+      g.total += l.amount;
+      groups.set(match, g);
+    });
+    if (groups.size === 0) finish(lines, []);
+    else setReview({ lines, groups: [...groups.values()] });
+  }
+
+  function finish(lines: (ParsedLine & { category: CategoryId })[], groups: ReviewGroup[]) {
+    if (!loaded) return;
+    const final = lines.map((l) => ({ ...l }));
+    const newRules: Rule[] = [];
+    for (const g of groups) {
+      for (const i of g.lines) final[i].category = g.category;
+      if (g.mapping.always && g.category !== "other" && g.mapping.match.trim())
+        newRules.push({ match: g.mapping.match.toLowerCase().trim(), category: g.category });
+    }
+    setResult(importLines(final, loaded.signature, loaded.map, newRules));
+  }
+
+  function updateGroup(i: number, patch: Partial<ReviewGroup>) {
+    setReview((r) => (r ? { ...r, groups: r.groups.map((g, j) => (j === i ? { ...g, ...patch } : g)) } : r));
+  }
 
   async function onFile(file: File) {
     setError(null);
@@ -261,6 +349,45 @@ function ImportSheet({ onClose }: { onClose: () => void }) {
 
   const preview = loaded ? readStatement(loaded.rows, loaded.map) : null;
   const mapOk = loaded && loaded.map.date >= 0 && loaded.map.description >= 0 && (loaded.map.amount >= 0 || loaded.map.moneyOut >= 0 || loaded.map.moneyIn >= 0);
+
+  if (review && !result) {
+    return (
+      <Sheet title="Sort a few lines" onClose={onClose}>
+        <p className="text-[15px] text-muted">
+          Meraki didn&apos;t recognise these. Pick a category, and choose whether to remember it.
+        </p>
+        <ul className="mt-3 space-y-4">
+          {review.groups.map((g, i) => (
+            <li key={g.match} className="rounded-2xl bg-cream p-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 truncate text-[15px] font-semibold">{g.sample}</span>
+                <span className="shrink-0 text-sm font-semibold">{money(g.total)}</span>
+              </div>
+              {g.lines.length > 1 && <p className="text-xs text-muted">{g.lines.length} lines</p>}
+              <div className="mt-2">
+                <Chips
+                  options={CATEGORY_CHOICES.filter((c) => c.id !== "income" || g.total > 0)}
+                  value={g.category}
+                  onChange={(category) => updateGroup(i, { category })}
+                />
+              </div>
+              <div className="mt-3">
+                <MappingChoice value={g.mapping} onChange={(mapping) => updateGroup(i, { mapping })} />
+              </div>
+            </li>
+          ))}
+        </ul>
+        <PrimaryButton onClick={() => finish(review.lines, review.groups)}>Import {review.lines.length} transactions</PrimaryButton>
+        <button
+          type="button"
+          onClick={() => finish(review.lines, review.groups.map((g) => ({ ...g, category: "other" })))}
+          className="mt-3 w-full py-2 text-sm font-semibold text-muted"
+        >
+          Skip, leave them as Other
+        </button>
+      </Sheet>
+    );
+  }
 
   if (result) {
     return (
@@ -347,11 +474,8 @@ function ImportSheet({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          <PrimaryButton
-            disabled={!mapOk || !preview?.lines.length}
-            onClick={() => setResult(importLines(preview!.lines, loaded.signature, loaded.map))}
-          >
-            Import {preview?.lines.length ?? 0} transactions
+          <PrimaryButton disabled={!mapOk || !preview?.lines.length} onClick={next}>
+            Next: {preview?.lines.length ?? 0} transactions
           </PrimaryButton>
           <button type="button" onClick={() => setLoaded(null)} className="mt-3 w-full py-2 text-sm font-semibold text-muted">
             Choose a different file

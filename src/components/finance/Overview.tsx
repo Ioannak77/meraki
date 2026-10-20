@@ -1,26 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import { category, dueDates, inRange, money, monthRange, paidKey, payPeriod, type Income } from "@/lib/finance";
+import {
+  category,
+  dueDates,
+  expectedAmount,
+  inRange,
+  money,
+  monthRange,
+  paidKey,
+  payPeriod,
+  type Bill,
+  type Income,
+} from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { dayKey } from "@/lib/store";
 import { AllowanceBody } from "./Budgets";
+import { useSavings } from "./Goals";
 import { dueLabel, upcomingBills } from "./Bills";
-import { spendingByCategory } from "./Spending";
+import { ImportSheet, spendingByCategory } from "./Spending";
 import { Bar, Card, CardTitle, Label, MoneyInput, PrimaryButton, Sheet } from "./ui";
 
 export type FinanceTab = "Overview" | "Bills" | "Spending" | "Budgets" | "Goals";
 
 export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => void }) {
-  const { income, bills, paid, txns, weeklyAllowance, goals, has } = useFinance();
+  const { income, bills, paid, billActuals, txns, weeklyAllowance, has } = useFinance();
+  const { goals, plan } = useSavings(now);
   const [editingIncome, setEditingIncome] = useState(false);
+  const [importing, setImporting] = useState(false);
   const billModules = has("bills") || has("home") || has("subscriptions") || has("insurance") || has("loans");
   const spendingModules = has("imports") || has("groceries") || has("pet");
+  // Real amount once seen on a statement, else the estimate from past ones.
+  const cost = (b: Bill, due: Date) => expectedAmount(b, due, billActuals, txns).amount;
+  const lastImport = txns.filter((t) => t.source === "import").reduce((m, t) => (t.date > m ? t.date : m), "");
 
   const period = payPeriod(income, now);
   const billsInPeriod = bills.flatMap((b) => dueDates(b, period.start, period.end).map((due) => ({ bill: b, due })));
-  const billsTotal = billsInPeriod.reduce((t, x) => t + x.bill.amount, 0);
-  const billsUnpaid = billsInPeriod.filter((x) => !paid[paidKey(x.bill, x.due)]).reduce((t, x) => t + x.bill.amount, 0);
+  const billsTotal = billsInPeriod.reduce((t, x) => t + cost(x.bill, x.due), 0);
+  const billsUnpaid = billsInPeriod.filter((x) => !paid[paidKey(x.bill, x.due)]).reduce((t, x) => t + cost(x.bill, x.due), 0);
   const spentInPeriod = [...spendingByCategory(txns, period.start, now).values()].reduce((a, b) => a + b, 0);
   const left = income ? income.amount - billsTotal - spentInPeriod : 0;
 
@@ -32,12 +49,30 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   const monthSpend = spendingByCategory(txns, mStart, mEnd);
   const topCats = [...monthSpend.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
   const monthIncomeTxns = txns.filter((t) => t.category === "income" && t.amount > 0 && inRange(t.date, mStart, mEnd)).reduce((a, t) => a + t.amount, 0);
-  const monthBills = bills.flatMap((b) => dueDates(b, mStart, mEnd).map(() => b.amount)).reduce((a, b) => a + b, 0);
+  const monthBills = bills.flatMap((b) => dueDates(b, mStart, mEnd).map((due) => cost(b, due))).reduce((a, b) => a + b, 0);
   const monthSpent = [...monthSpend.values()].reduce((a, b) => a + b, 0);
   const monthIn = monthIncomeTxns || income?.amount || 0;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      {has("imports") && (
+        <button
+          type="button"
+          onClick={() => setImporting(true)}
+          className="flex items-center justify-between gap-3 rounded-3xl bg-sage-dark px-5 py-4 text-left text-white lg:col-span-2"
+        >
+          <span>
+            <span className="block text-[17px] font-bold">Import bank statement</span>
+            <span className="block text-sm text-white/80">
+              {lastImport
+                ? `Latest line so far: ${new Date(lastImport + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
+                : "Budgets, bill estimates and savings fill in from your statements"}
+            </span>
+          </span>
+          <span className="text-2xl">↑</span>
+        </button>
+      )}
+
       {(has("summary") || has("income")) && (
         <Card className="lg:col-span-2">
           {!income ? (
@@ -91,7 +126,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
                 <li key={paidKey(bill, due)} className="flex items-center justify-between gap-3 py-2.5 text-[15px]">
                   <span className="min-w-0 truncate">{bill.name}</span>
                   <span className="shrink-0">
-                    <span className="font-semibold">{money(bill.amount)}</span>
+                    <span className="font-semibold">{money(cost(bill, due))}</span>
                     <span className={`ml-2 text-sm ${dayKey(due) < dayKey(now) ? "font-semibold text-peach" : "text-muted"}`}>
                       {dueLabel(due, now)}
                     </span>
@@ -156,6 +191,11 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
           >
             Savings
           </CardTitle>
+          {plan.available > 0 && (
+            <p className="mb-3 text-[15px] text-muted">
+              You can save about <strong className="text-ink">{money(plan.available, true)} a month</strong>.
+            </p>
+          )}
           {goals.length === 0 ? (
             <p className="text-muted">No goals yet. An emergency fund is a good first one.</p>
           ) : (
@@ -194,6 +234,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
       )}
 
       {editingIncome && <IncomeSheet income={income} onClose={() => setEditingIncome(false)} />}
+      {importing && <ImportSheet onClose={() => setImporting(false)} />}
     </div>
   );
 }

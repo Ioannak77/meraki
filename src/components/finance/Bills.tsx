@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import {
   BILL_KINDS,
   FREQUENCIES,
+  billEstimate,
   dueDates,
+  expectedAmount,
   money,
   monthlyCost,
   nextDue,
@@ -43,7 +45,7 @@ export function upcomingBills(bills: Bill[], payday: number | null, now: Date, d
 }
 
 export function BillsTab({ now }: { now: Date }) {
-  const { bills, paid, togglePaid, income, has } = useFinance();
+  const { bills, paid, togglePaid, income, has, txns } = useFinance();
   const [editing, setEditing] = useState<Bill | "new" | null>(null);
   const kinds = useAllowedKinds();
 
@@ -83,12 +85,8 @@ export function BillsTab({ now }: { now: Date }) {
                     </span>
                     <span className="block text-[13px] text-muted">{BILL_KINDS.find((k) => k.id === bill.kind)?.label}</span>
                   </button>
-                  <span className="shrink-0 text-right">
-                    <span className="block text-[15px] font-semibold">{money(bill.amount)}</span>
-                    <span className={`block text-xs ${late ? "font-semibold text-peach" : "text-muted"}`}>
-                      {isPaid ? "Paid" : dueLabel(due, now)}
-                    </span>
-                  </span>
+                  <BillAmount bill={bill} due={due} now={now} isPaid={isPaid} late={late} />
+
                 </li>
               );
             })}
@@ -105,6 +103,7 @@ export function BillsTab({ now }: { now: Date }) {
           <ul className="mt-2 divide-y divide-line">
             {bills.map((b) => {
               const next = nextDue(b, now);
+              const est = billEstimate(b, txns);
               return (
                 <li key={b.id}>
                   <button type="button" onClick={() => setEditing(b)} className="flex w-full items-center gap-3 py-3 text-left">
@@ -115,7 +114,10 @@ export function BillsTab({ now }: { now: Date }) {
                         {next ? ` · next ${next.toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}
                       </span>
                     </span>
-                    <span className="text-[15px] font-semibold">{money(b.amount)}</span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-[15px] font-semibold">{money(est ?? b.amount)}</span>
+                      {est !== null && <span className="block text-xs text-muted">from statements</span>}
+                    </span>
                   </button>
                 </li>
               );
@@ -137,6 +139,38 @@ export function BillsTab({ now }: { now: Date }) {
 
       {editing && kinds.length > 0 && <BillSheet bill={editing} onClose={() => setEditing(null)} now={now} />}
     </div>
+  );
+}
+
+/**
+ * The amount for one due date: what was really paid (with the estimate it
+ * replaced, so you can see how close it was), or the estimate from past
+ * statements, or the usual amount you entered.
+ */
+function BillAmount({ bill, due, now, isPaid, late }: { bill: Bill; due: Date; now: Date; isPaid: boolean; late: boolean }) {
+  const { billActuals, txns } = useFinance();
+  const exp = expectedAmount(bill, due, billActuals, txns);
+  // Only payments from before this one's matching window (a week either side) count.
+  const cutoff = dayKey(new Date(due.getFullYear(), due.getMonth(), due.getDate() - 7));
+  const before = billEstimate(bill, txns, cutoff) ?? bill.amount;
+  const diff = exp.amount - before;
+  return (
+    <span className="shrink-0 text-right">
+      <span className="block text-[15px] font-semibold">
+        {exp.kind === "estimate" ? "~" : ""}
+        {money(exp.amount)}
+      </span>
+      <span className={`block text-xs ${late ? "font-semibold text-peach" : "text-muted"}`}>
+        {isPaid ? "Paid" : dueLabel(due, now)}
+        {exp.kind === "estimate" && !isPaid ? " · estimate" : ""}
+      </span>
+      {exp.kind === "actual" && Math.abs(diff) >= 0.5 && (
+        <span className={`block text-xs ${diff > 0 ? "text-peach" : "text-sage-dark"}`}>
+          estimated {money(before)} ({diff > 0 ? "+" : "−"}
+          {money(Math.abs(diff))})
+        </span>
+      )}
+    </span>
   );
 }
 

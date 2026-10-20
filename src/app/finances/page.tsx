@@ -51,7 +51,7 @@ export default function FinancesPage() {
         {current === "Bills" && <BillsTab now={now} />}
         {current === "Spending" && <SpendingTab now={now} />}
         {current === "Budgets" && <BudgetsTab now={now} />}
-        {current === "Goals" && <GoalsTab />}
+        {current === "Goals" && <GoalsTab now={now} />}
       </div>
     </div>
   );

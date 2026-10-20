@@ -257,7 +257,147 @@ export function txnHash(date: string, amount: number, description: string) {
   return `${date}|${amount.toFixed(2)}|${description.toLowerCase().replace(/\s+/g, " ").trim()}`;
 }
 
-export type Goal = { id: string; name: string; target: number; saved: number; emergency?: boolean };
+export type Goal = {
+  id: string;
+  name: string;
+  target: number;
+  saved: number;
+  emergency?: boolean;
+  autoTarget?: boolean; // emergency fund: target follows necessities × months
+  months?: number; // emergency fund: how many months of necessities (default 3)
+};
+
+// ---------- Estimates from statements ----------
+
+/** Statement lines that paid this bill, newest first. */
+export function billPayments(b: Bill, txns: Txn[]) {
+  const key = billKeyword(b);
+  return txns
+    .filter((t) => t.amount < 0 && t.category === "bills" && t.description.toLowerCase().includes(key))
+    .sort((a, c) => c.date.localeCompare(a.date));
+}
+
+/** Expected amount: the average of the last 3 payments seen (before `before`, if given). */
+export function billEstimate(b: Bill, txns: Txn[], before?: string) {
+  const last = billPayments(b, txns)
+    .filter((t) => !before || t.date < before)
+    .slice(0, 3);
+  if (last.length === 0) return null;
+  return Math.round((last.reduce((t, x) => t - x.amount, 0) / last.length) * 100) / 100;
+}
+
+/** What a due date is expected to cost: the real amount once seen, else the estimate, else the usual amount. */
+export function expectedAmount(b: Bill, due: Date, actuals: Record<string, number>, txns: Txn[]) {
+  const actual = actuals[paidKey(b, due)];
+  if (actual !== undefined) return { amount: actual, kind: "actual" as const };
+  const est = billEstimate(b, txns);
+  if (est !== null) return { amount: est, kind: "estimate" as const };
+  return { amount: b.amount, kind: "usual" as const };
+}
+
+export type MonthStats = {
+  months: { key: string; label: string }[]; // full months with statement data, oldest first
+  avg: Map<CategoryId, number>; // average spend per month
+  low: Map<CategoryId, { amount: number; label: string }>; // the cheapest of those months
+  avgIncome: number;
+};
+
+/**
+ * Spending averages from the last `count` complete months that have
+ * statement lines (the current, unfinished month isn't counted).
+ */
+export function monthStats(txns: Txn[], now = today(), count = 3): MonthStats {
+  const thisMonth = dayKey(now).slice(0, 7);
+  const keys = [...new Set(txns.map((t) => t.date.slice(0, 7)))].filter((k) => k < thisMonth).sort().slice(-count);
+  const per = keys.map((k) => {
+    const totals = new Map<CategoryId, number>();
+    let income = 0;
+    for (const t of txns) {
+      if (t.date.slice(0, 7) !== k) continue;
+      if (t.amount > 0 && t.category === "income") income += t.amount;
+      if (t.amount < 0 && category(t.category).counts) totals.set(t.category, (totals.get(t.category) ?? 0) - t.amount);
+    }
+    return { key: k, totals, income };
+  });
+  const avg = new Map<CategoryId, number>();
+  const low = new Map<CategoryId, { amount: number; label: string }>();
+  for (const c of SPENDING_CATEGORIES) {
+    if (!per.length) break;
+    const values = per.map((p) => p.totals.get(c) ?? 0);
+    if (values.every((v) => v === 0)) continue;
+    avg.set(c, values.reduce((a, v) => a + v, 0) / per.length);
+    const i = values.indexOf(Math.min(...values));
+    low.set(c, { amount: values[i], label: monthLabel(per[i].key) });
+  }
+  const avgIncome = per.length ? per.reduce((a, p) => a + p.income, 0) / per.length : 0;
+  return { months: keys.map((k) => ({ key: k, label: monthLabel(k) })), avg, low, avgIncome };
+}
+
+function monthLabel(key: string) {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "long" });
+}
+
+/** Rounds a budget up to a tidy number (nearest €5). */
+export function tidy(n: number) {
+  return Math.max(5, Math.ceil(n / 5) * 5);
+}
+
+/**
+ * The budget for each category: the one you set yourself, otherwise your
+ * average monthly spend from statements (rounded up to the nearest €5).
+ */
+export function effectiveBudgets(budgets: Partial<Record<CategoryId, number>>, stats: MonthStats) {
+  const out = new Map<CategoryId, { amount: number; auto: boolean }>();
+  for (const c of SPENDING_CATEGORIES) {
+    const manual = budgets[c];
+    if (manual) out.set(c, { amount: manual, auto: false });
+    else if (stats.avg.has(c)) out.set(c, { amount: tidy(stats.avg.get(c)!), auto: true });
+  }
+  return out;
+}
+
+/**
+ * A lower budget is suggested when your own statements show a month that was
+ * clearly cheaper (at least 15% under the average). It's the midpoint, so it
+ * stays realistic. Needs at least 2 months of data.
+ */
+export function canLower(stats: MonthStats, c: CategoryId, budget: number) {
+  const avg = stats.avg.get(c);
+  const low = stats.low.get(c);
+  if (stats.months.length < 2 || avg === undefined || !low || low.amount > avg * 0.85) return null;
+  const suggestion = tidy((avg + low.amount) / 2);
+  return suggestion < budget ? { suggestion, low } : null;
+}
+
+/** Necessities a month: all bills + the essential spending categories. */
+export const ESSENTIAL_CATEGORIES: CategoryId[] = ["groceries", "household", "pet", "transport", "health"];
+
+export function necessitiesPerMonth(bills: Bill[], stats: MonthStats) {
+  const billsMonthly = bills.reduce((t, b) => t + monthlyCost(b), 0);
+  const essentials = ESSENTIAL_CATEGORIES.reduce((t, c) => t + (stats.avg.get(c) ?? 0), 0);
+  return { billsMonthly, essentials, total: billsMonthly + essentials };
+}
+
+/**
+ * What can realistically be saved a month: income − bills − average spending.
+ * While the emergency fund isn't full it gets most of it (70%), and the other
+ * goals share the rest; after that the other goals share everything.
+ */
+export function savingsPlan(income: number, bills: Bill[], stats: MonthStats, goals: Goal[]) {
+  const billsMonthly = bills.reduce((t, b) => t + monthlyCost(b), 0);
+  const spending = [...stats.avg.values()].reduce((a, v) => a + v, 0);
+  const available = Math.max(0, income - billsMonthly - spending);
+  const emergency = goals.find((g) => g.emergency && g.saved < g.target);
+  const others = goals.filter((g) => !g.emergency && g.saved < g.target);
+  const perGoal = new Map<string, number>();
+  let forEmergency = 0;
+  if (emergency) forEmergency = others.length ? available * 0.7 : available;
+  const forOthers = available - forEmergency;
+  if (emergency) perGoal.set(emergency.id, forEmergency);
+  for (const g of others) perGoal.set(g.id, others.length ? forOthers / others.length : 0);
+  return { available, billsMonthly, spending, perGoal };
+}
 
 // ---------- Money formatting ----------
 
