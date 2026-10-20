@@ -19,7 +19,7 @@ import {
 } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskSheet } from "@/components/TaskSheet";
-import { dayKey, isDoneToday, todaysTasks, useStore, type Energy, type Mood, type Task } from "@/lib/store";
+import { dayKey, isDoneToday, isDueNow, todaysTasks, useStore, type Energy, type Mood, type Task } from "@/lib/store";
 
 const MOODS: { mood: Mood; face: string; label: string }[] = [
   { mood: "great", face: "😊", label: "Feeling good" },
@@ -229,7 +229,6 @@ function ManageNow({ onEdit }: { onEdit: (t: Task) => void }) {
   const [asked, setAsked] = useState(false);
 
   const suggestion = useMemo(() => {
-    const today = dayKey();
     const fits = tasks.filter(
       (t) =>
         !t.completedAt &&
@@ -237,9 +236,9 @@ function ManageNow({ onEdit }: { onEdit: (t: Task) => void }) {
         (t.minutes ?? 5) <= (minutes >= 30 ? Infinity : minutes) &&
         ENERGY_RANK[t.energy] <= ENERGY_RANK[energy],
     );
-    // Overdue and due-today first, then priorities, then shortest.
+    // Due now first (incl. month tasks in their last week), then priorities, then shortest.
     return fits.sort((a, b) => {
-      const due = (t: Task) => (t.dueDate !== null && t.dueDate <= today ? 0 : 1);
+      const due = (t: Task) => (isDueNow(t) ? 0 : 1);
       return due(a) - due(b) || Number(b.isEssential) - Number(a.isEssential) || (a.minutes ?? 5) - (b.minutes ?? 5);
     })[0];
   }, [tasks, minutes, energy, skipped]);

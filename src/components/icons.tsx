@@ -63,6 +63,15 @@ export const Icon = {
       <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3.5 12.5h17" />
     </svg>
   ),
+  paw: ({ className }: IconProps) => (
+    <svg {...base} className={className}>
+      <ellipse cx="12" cy="16" rx="4.5" ry="3.8" />
+      <circle cx="6.5" cy="10.5" r="1.8" />
+      <circle cx="10" cy="6.8" r="1.8" />
+      <circle cx="14" cy="6.8" r="1.8" />
+      <circle cx="17.5" cy="10.5" r="1.8" />
+    </svg>
+  ),
   leaf: ({ className }: IconProps) => (
     <svg {...base} className={className}>
       <path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z" />

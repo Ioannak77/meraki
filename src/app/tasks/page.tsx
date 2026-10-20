@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskSheet } from "@/components/TaskSheet";
-import { dayKey, isDoneToday, useStore, type Task } from "@/lib/store";
+import { dayKey, isDoneToday, isDueNow, useStore, type Task } from "@/lib/store";
 
-const FILTERS = ["All", "Today", "Upcoming", "Overdue", "Done"] as const;
+const FILTERS = ["All", "Today", "This month", "Upcoming", "Overdue", "Done"] as const;
 type Filter = (typeof FILTERS)[number];
 
 export default function TasksPage() {
@@ -21,7 +21,10 @@ export default function TasksPage() {
     const byDate = (a: Task, b: Task) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999");
     switch (filter) {
       case "Today":
-        return [...open.filter((t) => t.dueDate === today), ...tasks.filter(isDoneToday)];
+        // Due today, plus whole-month tasks in their last week (late ones are under Overdue).
+        return [...open.filter((t) => isDueNow(t) && t.dueDate! >= today), ...tasks.filter(isDoneToday)];
+      case "This month":
+        return open.filter((t) => t.dueDate !== null && t.dueDate.slice(0, 7) === today.slice(0, 7) && t.dueDate >= today).sort(byDate);
       case "Upcoming":
         return open.filter((t) => t.dueDate !== null && t.dueDate > today).sort(byDate);
       case "Overdue":

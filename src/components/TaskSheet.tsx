@@ -5,7 +5,7 @@
 
 import { today } from "@/lib/clock";
 import { useState } from "react";
-import { dayKey, useStore, type Energy, type Task } from "@/lib/store";
+import { dayKey, monthEndKey, useStore, type Energy, type Task } from "@/lib/store";
 import { Icon } from "./icons";
 
 const MINUTE_CHOICES = [5, 10, 20, 30, 60];
@@ -23,6 +23,13 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
   const [title, setTitle] = useState(existing?.title ?? "");
   const [areaId, setAreaId] = useState<string | null>(existing?.areaId ?? null);
   const [dueDate, setDueDate] = useState<string | null>(existing ? existing.dueDate : dayKey());
+  const [wholeMonth, setWholeMonth] = useState(existing?.wholeMonth ?? false);
+
+  /** A specific day, or (whole month) the month's last day. */
+  function setWhen(date: string | null, month = false) {
+    setDueDate(date);
+    setWholeMonth(month && date !== null);
+  }
   const [minutes, setMinutes] = useState<number | null>(existing?.minutes ?? 5);
   const [energy, setEnergy] = useState<Energy>(existing?.energy ?? "normal");
   const [isEssential, setIsEssential] = useState(existing?.isEssential ?? false);
@@ -32,7 +39,7 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
     e.preventDefault();
     const clean = title.trim();
     if (!clean) return;
-    const input = { title: clean, areaId, dueDate, minutes, energy, isEssential };
+    const input = { title: clean, areaId, dueDate, wholeMonth: wholeMonth || undefined, minutes, energy, isEssential };
     if (existing) updateTask(existing.id, input);
     else addTask(input);
     onClose();
@@ -65,23 +72,60 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
 
         <p className="mb-2 mt-5 text-sm font-semibold text-muted">When</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={chip(dueDate === dayKey())} onClick={() => setDueDate(dayKey())}>
+          <button type="button" className={chip(!wholeMonth && dueDate === dayKey())} onClick={() => setWhen(dayKey())}>
             Today
           </button>
-          <button type="button" className={chip(dueDate === inDays(1))} onClick={() => setDueDate(inDays(1))}>
+          <button type="button" className={chip(!wholeMonth && dueDate === inDays(1))} onClick={() => setWhen(inDays(1))}>
             Tomorrow
           </button>
-          <button type="button" className={chip(dueDate === null)} onClick={() => setDueDate(null)}>
+          <button
+            type="button"
+            className={chip(wholeMonth && dueDate === monthEndKey(0))}
+            onClick={() => setWhen(monthEndKey(0), true)}
+          >
+            This month
+          </button>
+          <button
+            type="button"
+            className={chip(wholeMonth && dueDate === monthEndKey(1))}
+            onClick={() => setWhen(monthEndKey(1), true)}
+          >
+            Next month
+          </button>
+          <button type="button" className={chip(dueDate === null)} onClick={() => setWhen(null)}>
             No date
           </button>
-          <input
-            type="date"
-            value={dueDate ?? ""}
-            onChange={(e) => setDueDate(e.target.value || null)}
-            aria-label="Pick a date"
-            className="rounded-full bg-cream px-3 py-2 text-sm text-ink/80"
-          />
         </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <label className="text-xs text-muted">
+            A day
+            <input
+              type="date"
+              value={!wholeMonth ? (dueDate ?? "") : ""}
+              onChange={(e) => setWhen(e.target.value || null)}
+              className="mt-1 w-full rounded-full bg-cream px-3 py-2 text-sm text-ink/80"
+            />
+          </label>
+          <label className="text-xs text-muted">
+            Or a whole month
+            <input
+              type="month"
+              value={wholeMonth && dueDate ? dueDate.slice(0, 7) : ""}
+              onChange={(e) => {
+                if (!e.target.value) return setWhen(null);
+                const [y, m] = e.target.value.split("-").map(Number);
+                setWhen(dayKey(new Date(y, m, 0)), true); // last day of that month
+              }}
+              className="mt-1 w-full rounded-full bg-cream px-3 py-2 text-sm text-ink/80"
+            />
+          </label>
+        </div>
+        {wholeMonth && dueDate && (
+          <p className="mt-2 text-xs text-muted">
+            Any time in {new Date(dueDate + "T12:00:00").toLocaleDateString(undefined, { month: "long" })}. It shows up on
+            Today in the month&apos;s last week.
+          </p>
+        )}
 
         <p className="mb-2 mt-5 text-sm font-semibold text-muted">How long</p>
         <div className="flex flex-wrap gap-2">

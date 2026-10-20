@@ -11,14 +11,15 @@ export type Energy = "low" | "normal" | "high";
 export type Mood = "great" | "okay" | "low";
 
 export type Area = { id: string; name: string; icon: AreaIcon; tone: Tone };
-export type AreaIcon = "heart" | "home" | "wallet" | "briefcase" | "leaf";
-export type Tone = "rose" | "peach" | "sage" | "sky";
+export type AreaIcon = "heart" | "home" | "wallet" | "briefcase" | "leaf" | "paw";
+export type Tone = "rose" | "peach" | "sage" | "sky" | "sun";
 
 export type Task = {
   id: string;
   title: string;
   areaId: string | null;
-  dueDate: string | null; // "YYYY-MM-DD"
+  dueDate: string | null; // "YYYY-MM-DD"; for a whole-month task, the month's last day
+  wholeMonth?: boolean; // "sometime this month / by the end of the month"
   minutes: number | null;
   energy: Energy;
   isEssential: boolean; // shows under "Your priorities today"
@@ -62,14 +63,26 @@ function newId() {
     : Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+const DEFAULT_AREAS: Area[] = [
+  { id: "care", name: "Personal care", icon: "heart", tone: "rose" },
+  { id: "home", name: "Home", icon: "home", tone: "peach" },
+  { id: "pari", name: "Pari", icon: "paw", tone: "sun" },
+  { id: "finance", name: "Finance", icon: "wallet", tone: "sage" },
+  { id: "life", name: "Life admin", icon: "briefcase", tone: "sky" },
+];
+
+/** Areas added in later versions are slotted in for people who already have data. */
+function withNewAreas(saved: Area[]) {
+  const out = [...saved];
+  DEFAULT_AREAS.forEach((a, i) => {
+    if (!out.some((s) => s.id === a.id)) out.splice(Math.min(i, out.length), 0, a);
+  });
+  return out;
+}
+
 function seed(): Data {
   const now = today().toISOString();
-  const areas: Area[] = [
-    { id: "care", name: "Personal care", icon: "heart", tone: "rose" },
-    { id: "home", name: "Home", icon: "home", tone: "peach" },
-    { id: "finance", name: "Finance", icon: "wallet", tone: "sage" },
-    { id: "life", name: "Life admin", icon: "briefcase", tone: "sky" },
-  ];
+  const areas = DEFAULT_AREAS;
   const t = (title: string, areaId: string, extra: Partial<Task> = {}): Task => ({
     id: newId(),
     title,
@@ -90,7 +103,7 @@ function seed(): Data {
       t("Review spending", "finance", { isEssential: true, minutes: 5 }),
       t("Book vet appointment", "life", { minutes: 5 }),
       t("Deep clean bathroom", "home", { dueDate: addDays(5), minutes: 45, energy: "high" }),
-      t("Order pet food", "home", { minutes: 5 }),
+      t("Order pet food", "pari", { minutes: 5 }),
       t("Plan next week", "life", { dueDate: addDays(6), minutes: 15, energy: "normal" }),
       t("Update CV", "life", { dueDate: null, minutes: 30, energy: "high" }),
     ],
@@ -106,7 +119,13 @@ function load(): Data {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Data>;
-      return { routineDone: {}, routineTimes: {}, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved.settings } } as Data;
+      return {
+        routineDone: {},
+        routineTimes: {},
+        ...saved,
+        areas: withNewAreas(saved.areas ?? []),
+        settings: { ...DEFAULT_SETTINGS, ...saved.settings },
+      } as Data;
     }
   } catch {}
   return seed();
@@ -247,17 +266,42 @@ export function isDoneToday(t: Task) {
   return !!t.completedAt && dayKey(new Date(t.completedAt)) === dayKey();
 }
 
-/** Open tasks due today or earlier, plus anything finished today. */
+/** "YYYY-MM-DD" of the last day of a month, `offset` months from today. */
+export function monthEndKey(offset = 0) {
+  const d = today();
+  return dayKey(new Date(d.getFullYear(), d.getMonth() + offset + 1, 0));
+}
+
+/**
+ * Should this open task show up as "to do now"? Dated tasks from their day;
+ * whole-month tasks in the last week of their month (so they don't crowd the
+ * rest of the month), and both once they're late.
+ */
+export function isDueNow(t: Task) {
+  if (t.completedAt || t.dueDate === null) return false;
+  const now = dayKey();
+  if (t.dueDate <= now) return true;
+  if (!t.wholeMonth) return false;
+  const d = today();
+  const weekAhead = dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6));
+  return t.dueDate <= weekAhead;
+}
+
+/** Open tasks due now (see isDueNow), plus anything finished today. */
 export function todaysTasks(tasks: Task[]) {
-  const today = dayKey();
-  return tasks.filter((t) => (t.dueDate !== null && t.dueDate <= today && !t.completedAt) || isDoneToday(t));
+  return tasks.filter((t) => isDueNow(t) || isDoneToday(t));
 }
 
 export function dueLabel(t: Task) {
   if (!t.dueDate) return "No date";
-  const today = dayKey();
-  if (t.dueDate === today) return "Today";
-  if (t.dueDate < today) return "Overdue";
+  const now = dayKey();
+  if (t.dueDate < now) return "Overdue";
   const d = new Date(t.dueDate + "T12:00:00");
+  if (t.wholeMonth) {
+    if (t.dueDate === monthEndKey(0)) return "This month";
+    if (t.dueDate === monthEndKey(1)) return "Next month";
+    return `By end of ${d.toLocaleDateString(undefined, { month: "short" })}`;
+  }
+  if (t.dueDate === now) return "Today";
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 }
