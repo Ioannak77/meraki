@@ -1,13 +1,20 @@
+
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Build to plain static files (the `out/` folder) so it can be hosted on
-  // Cloudflare the same way as PumpPal. All data lives in the browser for now.
+  // Build to plain static files (the `out/` folder) for GitHub Pages.
   output: "export",
+
+  // GitHub Pages serves this project under /meraki/.
+  basePath: "/meraki",
+  assetPrefix: "/meraki",
+
   trailingSlash: true,
   images: { unoptimized: true },
-  // Lets a phone or iPad on the same Wi-Fi use the dev server (npm run dev).
+
+  // Lets devices on the same Wi-Fi use the dev server.
   allowedDevOrigins: ["192.168.*.*"],
+
   turbopack: {
     rules: {
       "*.css": {
