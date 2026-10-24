@@ -4,25 +4,55 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskSheet } from "@/components/TaskSheet";
+import { today } from "@/lib/clock";
 import { dayKey, isDoneToday, isDueNow, useStore, type Task } from "@/lib/store";
 
 const FILTERS = ["All", "Today", "This month", "Upcoming", "Overdue", "Done"] as const;
 type Filter = (typeof FILTERS)[number];
 
+function addDaysKey(n: number) {
+  const d = today();
+  return dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
+}
+
+/** "All" is split into time groups so it reads as a plan, not one long list. */
+function groupAll(open: Task[]) {
+  const today = dayKey();
+  const weekEnd = addDaysKey(6);
+  const groups: { title: string; tasks: Task[] }[] = [
+    { title: "Overdue", tasks: [] },
+    { title: "Today", tasks: [] },
+    { title: "This week", tasks: [] },
+    { title: "Later", tasks: [] },
+    { title: "No date", tasks: [] },
+  ];
+  for (const t of open) {
+    if (t.dueDate === null) groups[4].tasks.push(t);
+    else if (t.dueDate < today) groups[0].tasks.push(t);
+    else if (t.dueDate === today || isDueNow(t)) groups[1].tasks.push(t);
+    else if (t.dueDate <= weekEnd) groups[2].tasks.push(t);
+    else groups[3].tasks.push(t);
+  }
+  return groups.filter((g) => g.tasks.length > 0);
+}
+
 export default function TasksPage() {
-  const { tasks, ready, addTask } = useStore();
+  const { tasks, areas, ready, addTask } = useStore();
   const [filter, setFilter] = useState<Filter>("All");
+  const [area, setArea] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Task | "new" | null>(null);
   const [quick, setQuick] = useState("");
 
+  const inArea = useMemo(() => (area ? tasks.filter((t) => t.areaId === area) : tasks), [tasks, area]);
+
   const shown = useMemo(() => {
     const today = dayKey();
-    const open = tasks.filter((t) => !t.completedAt);
+    const open = inArea.filter((t) => !t.completedAt);
     const byDate = (a: Task, b: Task) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999");
     switch (filter) {
       case "Today":
-        // Due today, plus whole-month tasks in their last week (late ones are under Overdue).
-        return [...open.filter((t) => isDueNow(t) && t.dueDate! >= today), ...tasks.filter(isDoneToday)];
+        // Due today, plus tasks showing early (late ones are under Overdue).
+        return [...open.filter((t) => isDueNow(t) && t.dueDate! >= today), ...inArea.filter(isDoneToday)];
       case "This month":
         return open.filter((t) => t.dueDate !== null && t.dueDate.slice(0, 7) === today.slice(0, 7) && t.dueDate >= today).sort(byDate);
       case "Upcoming":
@@ -30,24 +60,28 @@ export default function TasksPage() {
       case "Overdue":
         return open.filter((t) => t.dueDate !== null && t.dueDate < today).sort(byDate);
       case "Done":
-        return tasks
-          .filter((t) => t.completedAt)
-          .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
+        return inArea.filter((t) => t.completedAt).sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
       default:
         return open.sort(byDate);
     }
-  }, [tasks, filter]);
+  }, [inArea, filter]);
 
-  // One-line capture: type and press enter. Lands in Today with defaults.
+  // Areas that have tasks, so the row stays short.
+  const usedAreas = areas.filter((a) => tasks.some((t) => t.areaId === a.id));
+
+  // One-line capture: type and press enter. No date, so it waits here until you plan it.
   function capture(e: React.FormEvent) {
     e.preventDefault();
     const title = quick.trim();
     if (!title) return;
-    addTask({ title, areaId: null, dueDate: dayKey(), minutes: 5, energy: "normal", isEssential: false });
+    addTask({ title, areaId: area, dueDate: null, minutes: 5, energy: "normal", isEssential: false });
     setQuick("");
   }
 
   if (!ready) return null;
+
+  const chip = (on: boolean) =>
+    `shrink-0 rounded-full px-4 py-2 text-sm ${on ? "bg-sage-soft font-semibold text-sage-dark" : "bg-card text-ink/70"}`;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -74,31 +108,61 @@ export default function TasksPage() {
 
       <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {FILTERS.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`shrink-0 rounded-full px-4 py-2 text-sm ${
-              filter === f ? "bg-sage-soft font-semibold text-sage-dark" : "bg-card text-ink/70"
-            }`}
-          >
+          <button key={f} onClick={() => setFilter(f)} className={chip(filter === f)}>
             {f}
           </button>
         ))}
       </div>
 
-      <section className="mt-4 rounded-3xl bg-card px-5 py-2">
-        {shown.length === 0 ? (
-          <p className="py-8 text-center text-muted">
-            {filter === "Overdue" ? "Nothing overdue. Nice." : "Nothing here yet."}
-          </p>
-        ) : (
+      {usedAreas.length > 0 && (
+        <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
+          <button onClick={() => setArea(null)} className={chip(area === null)}>
+            All areas
+          </button>
+          {usedAreas.map((a) => (
+            <button key={a.id} onClick={() => setArea(area === a.id ? null : a.id)} className={chip(area === a.id)}>
+              {a.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {shown.length === 0 ? (
+        <section className="mt-4 rounded-3xl bg-card px-5 py-8 text-center">
+          {tasks.length === 0 ? (
+            <>
+              <p className="text-[17px] font-bold">Nothing on your list</p>
+              <p className="mt-1 text-[15px] text-muted">
+                Type anything in quick capture above to get it out of your head, or tap <strong>+</strong> to add a task with a
+                date, an area, or a reminder ahead of time.
+              </p>
+            </>
+          ) : (
+            <p className="text-muted">{filter === "Overdue" ? "Nothing overdue. Nice." : "Nothing here."}</p>
+          )}
+        </section>
+      ) : filter === "All" ? (
+        groupAll(shown).map((g) => (
+          <section key={g.title} className="mt-4 rounded-3xl bg-card px-5 py-3">
+            <h2 className={`text-sm font-bold uppercase tracking-wider ${g.title === "Overdue" ? "text-peach" : "text-muted"}`}>
+              {g.title} · {g.tasks.length}
+            </h2>
+            <ul className="divide-y divide-line">
+              {g.tasks.map((t) => (
+                <TaskRow key={t.id} task={t} onEdit={setSheet} />
+              ))}
+            </ul>
+          </section>
+        ))
+      ) : (
+        <section className="mt-4 rounded-3xl bg-card px-5 py-2">
           <ul className="divide-y divide-line">
             {shown.map((t) => (
               <TaskRow key={t.id} task={t} onEdit={setSheet} />
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      )}
 
       {sheet && <TaskSheet task={sheet} onClose={() => setSheet(null)} />}
     </div>
