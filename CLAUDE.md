@@ -15,8 +15,7 @@
 
 ## Agreed next steps (Ioanna said "remind me later", 2026-10-24) — raise these after the page-by-page review
 
-1. On the phone properly: fix GitHub Pages paths (icon/manifest `start_url` still `/` not `/meraki/`), offline
-   (service worker), add to home screen.
+1. DONE (2026-10-24): phone setup. Paths under /meraki/, PNG icons, offline service worker (public/sw.js, built app only), home screen card in Settings.
 2. Backup: Export / Import data in Settings (everything is in one browser's storage).
 3. Sync phone + iPad (Supabase like PumpPal, with a keep-alive so the free tier doesn't pause).
 4. Reminders when the app is closed (push via a worker, like PumpPal).

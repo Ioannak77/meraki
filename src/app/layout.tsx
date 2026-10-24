@@ -6,6 +6,8 @@ import { FinanceProvider } from "@/lib/financeStore";
 import { SkinProvider } from "@/lib/skinStore";
 import { GroceriesProvider } from "@/lib/groceriesStore";
 import { AppShell } from "@/components/AppShell";
+import { OfflineSupport } from "@/components/OfflineSupport";
+import { BASE } from "@/lib/base";
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
   title: "Meraki",
   description: "Cleaning, tasks, money and gentle progress, one manageable day at a time.",
   appleWebApp: { capable: true, title: "Meraki", statusBarStyle: "default" },
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: { icon: `${BASE}/icon.svg`, apple: `${BASE}/apple-touch-icon.png` },
 };
 
 export const viewport: Viewport = {
@@ -35,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <SkinProvider>
               <GroceriesProvider>
                 <AppShell>{children}</AppShell>
+                <OfflineSupport />
               </GroceriesProvider>
             </SkinProvider>
           </FinanceProvider>
