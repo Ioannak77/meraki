@@ -53,9 +53,45 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   const monthSpent = [...monthSpend.values()].reduce((a, b) => a + b, 0);
   const monthIn = monthIncomeTxns || income?.amount || 0;
 
+  // Until things are set up, one checklist instead of a column of empty cards.
+  const steps = [
+    has("income") || has("summary")
+      ? { label: "Add your income and payday", done: !!income, act: () => setEditingIncome(true) }
+      : null,
+    billModules ? { label: "Add your bills (rent, utilities, subscriptions…)", done: bills.length > 0, act: () => go("Bills") } : null,
+    has("imports") ? { label: "Import a bank statement", done: txns.some((t) => t.source === "import"), act: () => setImporting(true) } : null,
+    has("allowance") ? { label: "Set a weekly allowance", done: !!weeklyAllowance, act: () => go("Budgets") } : null,
+    has("savings") ? { label: "Start an emergency fund", done: goals.some((g) => g.emergency), act: () => go("Goals") } : null,
+  ].filter((s): s is { label: string; done: boolean; act: () => void } => s !== null);
+  const stepsLeft = steps.filter((s) => !s.done).length;
+  const hasMonth = monthIn > 0 || monthBills > 0 || monthSpent > 0;
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {has("imports") && (
+      {stepsLeft > 0 && (
+        <Card className="lg:col-span-2">
+          <CardTitle action={<span className="text-sm text-muted">{steps.length - stepsLeft} of {steps.length} done</span>}>
+            Get started
+          </CardTitle>
+          <ul className="divide-y divide-line">
+            {steps.map((s) => (
+              <li key={s.label}>
+                <button type="button" onClick={s.act} disabled={s.done} className="flex w-full items-center gap-3 py-3 text-left">
+                  <span
+                    className={`grid size-7 shrink-0 place-items-center rounded-full border-2 ${s.done ? "border-sage bg-sage text-white" : "border-line"}`}
+                  >
+                    {s.done && "✓"}
+                  </span>
+                  <span className={`flex-1 text-[15px] ${s.done ? "text-muted line-through" : "font-semibold"}`}>{s.label}</span>
+                  {!s.done && <span className="text-muted">›</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {has("imports") && txns.length > 0 && (
         <button
           type="button"
           onClick={() => setImporting(true)}
@@ -73,7 +109,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
         </button>
       )}
 
-      {(has("summary") || has("income")) && (
+      {(has("summary") || has("income")) && income && (
         <Card className="lg:col-span-2">
           {!income ? (
             <>
@@ -107,7 +143,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
         </Card>
       )}
 
-      {billModules && (
+      {billModules && bills.length > 0 && (
         <Card>
           <CardTitle
             action={
@@ -138,7 +174,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
         </Card>
       )}
 
-      {has("allowance") && (
+      {has("allowance") && weeklyAllowance && (
         <Card>
           <CardTitle>This week</CardTitle>
           {weeklyAllowance ? (
@@ -151,7 +187,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
         </Card>
       )}
 
-      {spendingModules && (
+      {spendingModules && txns.length > 0 && (
         <Card>
           <CardTitle
             action={
@@ -180,7 +216,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
         </Card>
       )}
 
-      {has("savings") && (
+      {has("savings") && goals.length > 0 && (
         <Card>
           <CardTitle
             action={
@@ -216,7 +252,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
         </Card>
       )}
 
-      {has("summary") && (
+      {has("summary") && hasMonth && (
         <Card>
           <CardTitle>{now.toLocaleDateString(undefined, { month: "long" })} summary</CardTitle>
           <ul className="space-y-2 text-[15px]">
