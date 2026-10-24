@@ -64,9 +64,11 @@ export function GroceriesView({ now }: { now: Date }) {
     <div className="mx-auto max-w-3xl">
       <div className="flex items-center justify-between md:mt-4">
         <h1 className="text-[26px] font-bold md:text-3xl">Groceries</h1>
-        <button type="button" onClick={() => setSetup(true)} className="text-sm font-semibold text-sage-dark">
-          {connected ? "Reader settings" : "Set up reader"}
-        </button>
+        {connected && (
+          <button type="button" onClick={() => setSetup(true)} className="text-sm font-semibold text-sage-dark">
+            Reader settings
+          </button>
+        )}
       </div>
 
       <Card className="mt-4">
@@ -105,6 +107,8 @@ export function GroceriesView({ now }: { now: Date }) {
         </button>
       </Card>
 
+      {/* Prices and Shops only mean something once there are receipts. */}
+      {receipts.length > 0 && (
       <div className="mt-4 flex gap-1 rounded-full bg-card p-1">
         {TABS.map((t) => (
           <button
@@ -116,6 +120,7 @@ export function GroceriesView({ now }: { now: Date }) {
           </button>
         ))}
       </div>
+      )}
 
       <div className="mt-4">
         {tab === "Receipts" && <ReceiptList onOpen={(r) => setReview(r)} />}

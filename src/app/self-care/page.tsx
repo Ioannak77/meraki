@@ -12,7 +12,9 @@ const TABS = ["Today", "Reminders", "Skincare"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function SelfCarePage() {
-  const { ready, settings } = useSkin();
+  const { ready, settings, items } = useSkin();
+  // Reminders don't know when they're due until they know when you last did them.
+  const needDate = items.filter((i) => i.lastDone === null).length;
   const [tab, setTab] = useState<Tab>("Today");
   const now = useNow();
   if (!ready) return null;
@@ -43,8 +45,20 @@ export default function SelfCarePage() {
               <CareDueCard now={now} />
             </div>
             {/* The skincare slot for now first. */}
+            {needDate > 0 && (
+              <button
+                type="button"
+                onClick={() => setTab("Reminders")}
+                className="rounded-3xl bg-rose-soft px-5 py-4 text-left text-[15px] text-rose lg:col-span-2"
+              >
+                <strong>
+                  {needDate} {needDate === 1 ? "reminder needs" : "reminders need"} a last date
+                </strong>{" "}
+                · Set {needDate === 1 ? "it" : "them"} →
+              </button>
+            )}
             {(slot === "am" ? (["am", "pm"] as const) : (["pm", "am"] as const)).map((s) => (
-              <SlotCard key={s} slot={s} date={now} badge={s === slot ? "Now" : undefined} />
+              <SlotCard key={s} slot={s} date={now} badge={s === slot ? "Now" : undefined} startOpen={s === slot} />
             ))}
           </div>
         )}

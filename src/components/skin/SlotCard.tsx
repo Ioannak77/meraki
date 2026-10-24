@@ -2,6 +2,7 @@
 
 // One skincare slot (morning or evening) for a day: tick the steps that are due.
 
+import { useState } from "react";
 import { isStepDue, slotKey, type Slot } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
 import { Icon } from "../icons";
@@ -13,8 +14,9 @@ export function dueSteps(steps: ReturnType<typeof useSkin>["steps"], slot: Slot,
   return steps.filter((s) => s.slot === slot && isStepDue(s, d));
 }
 
-export function SlotCard({ slot, date, badge }: { slot: Slot; date: Date; badge?: string }) {
+export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; date: Date; badge?: string; startOpen?: boolean }) {
   const { steps, done, toggle, settings } = useSkin();
+  const [open, setOpen] = useState(startOpen);
   const key = slotKey(slot, date);
   const due = dueSteps(steps, slot, date);
   const ticked = done[key] ?? [];
@@ -23,7 +25,7 @@ export function SlotCard({ slot, date, badge }: { slot: Slot; date: Date; badge?
 
   return (
     <section className="rounded-3xl bg-card p-5">
-      <div className="flex items-center gap-3">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 text-left">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-soft text-rose">
           {slot === "am" ? <Icon.sun className="size-6" /> : <Icon.moon className="size-6" />}
         </span>
@@ -39,9 +41,9 @@ export function SlotCard({ slot, date, badge }: { slot: Slot; date: Date; badge?
         <span className={`shrink-0 text-sm font-semibold ${complete ? "text-sage-dark" : "text-muted"}`}>
           {due.length === 0 ? "Nothing today" : complete ? "Done ✓" : `${count}/${due.length}`}
         </span>
-      </div>
+      </button>
 
-      {due.length > 0 && (
+      {open && due.length > 0 && (
         <>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
             <div className="h-full rounded-full bg-rose transition-[width] duration-500" style={{ width: `${(count / due.length) * 100}%` }} />

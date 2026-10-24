@@ -56,12 +56,14 @@ export function TrackerView({ now }: { now: Date }) {
             {t.name}
           </button>
         ))}
-        <button
-          onClick={() => setEditing("new")}
-          className="flex shrink-0 items-center gap-1 rounded-full bg-sage-dark px-4 py-2 text-sm font-bold text-white"
-        >
-          <Icon.plus className="size-4" /> New tracker
-        </button>
+        {trackers.length > 0 && (
+          <button
+            onClick={() => setEditing("new")}
+            className="flex shrink-0 items-center gap-1 rounded-full bg-sage-dark px-4 py-2 text-sm font-bold text-white"
+          >
+            <Icon.plus className="size-4" /> New tracker
+          </button>
+        )}
       </div>
 
       <div className="mt-4">
