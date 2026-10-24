@@ -1,23 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { CareDueCard, CareReminders } from "@/components/skin/CareItems";
-import { SkinPhotos } from "@/components/skin/SkinPhotos";
 import { SkinSetup } from "@/components/skin/SkinSetup";
 import { SlotCard } from "@/components/skin/SlotCard";
-import { today } from "@/lib/clock";
 import { currentSlot } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
-import { useStore } from "@/lib/store";
+import { useNow } from "@/lib/useNow";
 
-const TABS = ["Today", "Reminders", "Skincare", "Check-ins"] as const;
+const TABS = ["Today", "Reminders", "Skincare"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function SelfCarePage() {
-  const { settings } = useStore();
   const { ready } = useSkin();
   const [tab, setTab] = useState<Tab>("Today");
-  const now = useMemo(() => today(settings.testDate), [settings.testDate]);
+  const now = useNow();
   if (!ready) return null;
   const slot = currentSlot(now);
 
@@ -53,7 +50,6 @@ export default function SelfCarePage() {
         )}
         {tab === "Reminders" && <CareReminders now={now} />}
         {tab === "Skincare" && <SkinSetup />}
-        {tab === "Check-ins" && <SkinPhotos now={now} />}
       </div>
     </div>
   );

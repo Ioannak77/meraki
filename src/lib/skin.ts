@@ -1,4 +1,4 @@
-// Self care: skincare steps, repeating reminders (waxing, nails, hair…), and photo check-ins.
+// Self care: skincare steps and repeating reminders (waxing, nails, hair…).
 
 import { today } from "./clock";
 import { dayKey } from "./store";
@@ -22,12 +22,9 @@ export type SkinSettings = {
   amTime: string; // "08:00"
   pmTime: string; // "21:30"
   remind: boolean;
-  photoEvery: number; // days between check-in photos
 };
 
-export type SkinPhoto = { id: string; date: string; note?: string };
-
-export const DEFAULT_SKIN_SETTINGS: SkinSettings = { amTime: "08:00", pmTime: "21:30", remind: true, photoEvery: 14 };
+export const DEFAULT_SKIN_SETTINGS: SkinSettings = { amTime: "08:00", pmTime: "21:30", remind: true };
 
 /** A starter routine to edit, so the screen isn't empty on day one. */
 export function starterSteps(): SkinStep[] {
@@ -95,12 +92,6 @@ export function currentSlot(d = today()): Slot {
   return d.getHours() < 12 ? "am" : "pm";
 }
 
-export function nextPhotoDue(photos: SkinPhoto[], every: number) {
-  const last = [...photos].sort((a, b) => b.date.localeCompare(a.date))[0];
-  if (!last) return null; // no photo yet: due now
-  const [y, m, d] = last.date.split("-").map(Number);
-  return dayKey(new Date(y, m - 1, d + every));
-}
 
 // ---------- Repeating self-care reminders (waxing, nails, hair…) ----------
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { today as getToday } from "@/lib/clock";
 import Link from "next/link";
+import { useNow } from "@/lib/useNow";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Ring } from "@/components/Ring";
@@ -19,7 +19,7 @@ import {
 } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { SlotCard, dueSteps } from "@/components/skin/SlotCard";
-import { careIsDueSoon, currentSlot, nextPhotoDue } from "@/lib/skin";
+import { careIsDueSoon, currentSlot } from "@/lib/skin";
 import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
@@ -43,7 +43,7 @@ function greeting(hour: number) {
 export default function TodayPage() {
   const { tasks, moods, setMood, ready, routineDone, settings } = useStore();
   const [sheet, setSheet] = useState<Task | "new" | null>(null);
-  const now = useMemo(() => getToday(settings.testDate), [settings.testDate]);
+  const now = useNow();
 
   const routinesToday = useMemo(() => dueToday(now, settings.officeDays), [now, settings.officeDays]);
   const routineSteps = routinesToday.reduce(
@@ -75,8 +75,6 @@ export default function TodayPage() {
   const skin = useSkin();
   const skinSlot = currentSlot(now);
   const skinDueNow = dueSteps(skin.steps, skinSlot, now).length;
-  const nextPhoto = nextPhotoDue(skin.photos, skin.settings.photoEvery);
-  const photoDue = !nextPhoto || nextPhoto <= dayKey(now);
   const careDue = skin.items.some((i) => careIsDueSoon(i, now));
   // Everything due now that isn't a priority: today's tasks, late ones, and
   // ones showing early (an MOT two weeks before its date). Soonest first.
@@ -158,11 +156,6 @@ export default function TodayPage() {
           <div className="flex flex-col gap-2">
             <CareDueCard now={now} />
             {skinDueNow > 0 && <SlotCard slot={skinSlot} date={now} badge="Now" />}
-            {photoDue && (
-              <Link href="/self-care/" className="rounded-2xl bg-rose-soft px-4 py-3 text-sm text-rose">
-                📷 Time for a check-in photo →
-              </Link>
-            )}
           </div>
         )}
 
@@ -221,7 +214,7 @@ export default function TodayPage() {
 
         <ManageNow onEdit={setSheet} />
 
-        <WeekCard />
+        <WeekCard now={now} />
       </div>
 
       <button
@@ -338,10 +331,9 @@ function ManageNow({ onEdit }: { onEdit: (t: Task) => void }) {
   );
 }
 
-function WeekCard() {
+function WeekCard({ now }: { now: Date }) {
   const { tasks } = useStore();
   const days = useMemo(() => {
-    const now = getToday();
     const monday = new Date(now);
     monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
     return Array.from({ length: 7 }, (_, i) => {
@@ -352,11 +344,11 @@ function WeekCard() {
         key,
         letter: d.toLocaleDateString(undefined, { weekday: "narrow" }),
         count: tasks.filter((t) => t.completedAt && dayKey(new Date(t.completedAt)) === key).length,
-        isToday: key === dayKey(),
-        isFuture: key > dayKey(),
+        isToday: key === dayKey(now),
+        isFuture: key > dayKey(now),
       };
     });
-  }, [tasks]);
+  }, [tasks, now]);
   const max = Math.max(4, ...days.map((d) => d.count));
   const activeDays = days.filter((d) => d.count > 0).length;
 

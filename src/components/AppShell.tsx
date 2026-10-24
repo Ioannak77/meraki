@@ -5,7 +5,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useStore } from "@/lib/store";
+import { dayKey, useStore } from "@/lib/store";
+import { useNow } from "@/lib/useNow";
 import { Icon, type IconName } from "./icons";
 import { SkinReminder } from "./skin/SkinReminder";
 
@@ -49,6 +50,9 @@ function isActive(pathname: string, href: string) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // When the date changes (past midnight, or test mode), redraw every screen so
+  // nothing keeps showing yesterday.
+  const day = dayKey(useNow());
 
   return (
     <div className="md:flex md:min-h-screen">
@@ -87,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="pt-safe min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10">
+      <main key={day} className="pt-safe min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10">
         <TestDateBanner />
         <SkinReminder />
         {children}

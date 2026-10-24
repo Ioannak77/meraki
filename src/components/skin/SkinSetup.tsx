@@ -1,7 +1,6 @@
 "use client";
 
-// Set up: the steps (morning / evening, how often), reminder times and how
-// often to take a check-in photo.
+// Skincare set up: the morning / evening steps (how often) and reminder times.
 
 import { useState } from "react";
 import { WEEKDAY_SHORT, scheduleLabel, type SkinSchedule, type SkinStep, type Slot } from "@/lib/skin";
@@ -103,20 +102,6 @@ export function SkinSetup() {
           {perm === "granted" ? ", plus a notification" : ""}). Reminders with the app closed come once it&apos;s on your
           phone with notifications set up.
         </p>
-      </Card>
-
-      <Card>
-        <CardTitle>Check-in photos</CardTitle>
-        <Label>Remind me to take one</Label>
-        <Chips
-          options={[
-            { id: 7, label: "Every week" },
-            { id: 14, label: "Every 2 weeks" },
-            { id: 30, label: "Every month" },
-          ]}
-          value={settings.photoEvery}
-          onChange={(photoEvery) => updateSettings({ photoEvery })}
-        />
       </Card>
 
       {editing && <StepSheet step={editing} onClose={() => setEditing(null)} />}

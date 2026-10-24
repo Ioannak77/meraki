@@ -1,7 +1,6 @@
 "use client";
 
-import { today } from "@/lib/clock";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { BigCleanCard } from "@/components/BigCleanCard";
 import { RoutineCard } from "@/components/RoutineCard";
 import {
@@ -17,14 +16,15 @@ import {
   weekdayIndex,
 } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
+import { useNow } from "@/lib/useNow";
 
 const TABS = ["Today", "This week", "Month & year"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CleaningSchedulePage() {
-  const { ready, settings } = useStore();
+  const { ready } = useStore();
   const [tab, setTab] = useState<Tab>("Today");
-  const now = useMemo(() => today(settings.testDate), [settings.testDate]);
+  const now = useNow();
 
   if (!ready) return null;
 

@@ -1,16 +1,14 @@
 "use client";
 
-// Self-care data (skincare steps, repeating reminders, photos), kept in this
-// browser's localStorage (the photos themselves are in IndexedDB, see photos.ts).
+// Self-care data (skincare steps and repeating reminders), kept in this
+// browser's localStorage.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { removePhoto, savePhoto } from "./photos";
 import {
   DEFAULT_SKIN_SETTINGS,
   starterCareItems,
   starterSteps,
   type CareItem,
-  type SkinPhoto,
   type SkinSettings,
   type SkinStep,
 } from "./skin";
@@ -20,7 +18,6 @@ type SkinData = {
   steps: SkinStep[];
   done: Record<string, string[]>; // slotKey ("pm@2026-10-20") -> ticked step ids
   settings: SkinSettings;
-  photos: SkinPhoto[];
   items: CareItem[]; // repeating reminders: waxing, nails, hair…
 };
 
@@ -40,13 +37,12 @@ function load(): SkinData {
       return {
         steps: saved.steps ?? [],
         done: saved.done ?? {},
-        photos: saved.photos ?? [],
         items: saved.items ?? starterCareItems(),
         settings: { ...DEFAULT_SKIN_SETTINGS, ...saved.settings },
       };
     }
   } catch {}
-  return { steps: starterSteps(), done: {}, settings: DEFAULT_SKIN_SETTINGS, photos: [], items: starterCareItems() };
+  return { steps: starterSteps(), done: {}, settings: DEFAULT_SKIN_SETTINGS, items: starterCareItems() };
 }
 
 type SkinStore = SkinData & {
@@ -56,8 +52,6 @@ type SkinStore = SkinData & {
   moveStep: (id: string, dir: -1 | 1) => void;
   toggle: (slot: string, stepId: string) => void;
   updateSettings: (patch: Partial<SkinSettings>) => void;
-  addPhoto: (blob: Blob, date: string, note?: string) => Promise<void>;
-  deletePhoto: (id: string) => Promise<void>;
   saveItem: (i: Omit<CareItem, "id"> & { id?: string }) => void;
   deleteItem: (id: string) => void;
   markDone: (id: string, date: string) => void;
@@ -66,7 +60,7 @@ type SkinStore = SkinData & {
 const SkinContext = createContext<SkinStore | null>(null);
 
 export function SkinProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<SkinData>({ steps: [], done: {}, settings: DEFAULT_SKIN_SETTINGS, photos: [], items: [] });
+  const [data, setData] = useState<SkinData>({ steps: [], done: {}, settings: DEFAULT_SKIN_SETTINGS, items: [] });
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -122,16 +116,6 @@ export function SkinProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
   }, []);
 
-  const addPhoto = useCallback(async (blob: Blob, date: string, note?: string) => {
-    const id = newId();
-    await savePhoto(id, blob);
-    setData((d) => ({ ...d, photos: [...d.photos, { id, date, note: note?.trim() || undefined }] }));
-  }, []);
-
-  const deletePhoto = useCallback(async (id: string) => {
-    await removePhoto(id);
-    setData((d) => ({ ...d, photos: d.photos.filter((p) => p.id !== id) }));
-  }, []);
 
   const saveItem = useCallback((i: Omit<CareItem, "id"> & { id?: string }) => {
     setData((d) => {
@@ -147,8 +131,8 @@ export function SkinProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<SkinStore>(
-    () => ({ ...data, ready, saveStep, deleteStep, moveStep, toggle, updateSettings, addPhoto, deletePhoto, saveItem, deleteItem, markDone }),
-    [data, ready, saveStep, deleteStep, moveStep, toggle, updateSettings, addPhoto, deletePhoto, saveItem, deleteItem, markDone],
+    () => ({ ...data, ready, saveStep, deleteStep, moveStep, toggle, updateSettings, saveItem, deleteItem, markDone }),
+    [data, ready, saveStep, deleteStep, moveStep, toggle, updateSettings, saveItem, deleteItem, markDone],
   );
 
   return <SkinContext.Provider value={value}>{children}</SkinContext.Provider>;

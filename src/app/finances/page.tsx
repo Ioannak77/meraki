@@ -1,21 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { BillsTab } from "@/components/finance/Bills";
 import { BudgetsTab } from "@/components/finance/Budgets";
 import { GoalsTab } from "@/components/finance/Goals";
 import { OverviewTab, type FinanceTab } from "@/components/finance/Overview";
 import { FinanceSetup } from "@/components/finance/Setup";
 import { SpendingTab } from "@/components/finance/Spending";
-import { today } from "@/lib/clock";
 import { useFinance } from "@/lib/financeStore";
-import { useStore } from "@/lib/store";
+import { useNow } from "@/lib/useNow";
 
 export default function FinancesPage() {
-  const { settings } = useStore();
   const { ready, setupDone, has } = useFinance();
   const [tab, setTab] = useState<FinanceTab>("Overview");
-  const now = useMemo(() => today(settings.testDate), [settings.testDate]);
+  const now = useNow();
 
   if (!ready) return null;
   if (!setupDone) return <FinanceSetup />;
