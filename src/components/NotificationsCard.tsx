@@ -3,7 +3,7 @@
 // Settings > Notifications: turn on phone reminders and choose which ones.
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { deviceSubscribed, disablePush, enablePush, pushSupport, type PushSupport } from "@/lib/push";
+import { deviceSubscribed, disablePush, enablePush, pushSupport, sendTestPush, type PushSupport } from "@/lib/push";
 import { DEFAULT_PUSH, useStore, type PushPrefs } from "@/lib/store";
 import { getServerSyncState, getSyncState, subscribeSync } from "@/lib/sync";
 import { Icon } from "./icons";
@@ -61,7 +61,17 @@ export function NotificationsCard() {
       ) : support === "unsupported" ? (
         <p className="text-[15px] text-muted">This browser can&apos;t show notifications.</p>
       ) : here ? (
-        <p className="text-sm font-semibold text-sage-dark">On for this device ✓</p>
+        <>
+          <p className="text-sm font-semibold text-sage-dark">On for this device ✓</p>
+          <button
+            onClick={async () =>
+              setMessage((await sendTestPush()) ? "Test on its way. It arrives within 5 minutes." : "Couldn't send a test. Check your internet.")
+            }
+            className="mt-3 w-full rounded-2xl bg-sage-soft py-3 font-bold text-sage-dark"
+          >
+            Send me a test
+          </button>
+        </>
       ) : (
         <>
           <p className="text-[15px] text-muted">Gentle reminders on this device, even when Meraki is closed.</p>
@@ -126,7 +136,7 @@ export function NotificationsCard() {
         </>
       )}
 
-      {message && <p className="mt-3 text-[13px] text-peach">{message}</p>}
+      {message && <p className="mt-3 text-[13px] text-muted">{message}</p>}
     </section>
   );
 }

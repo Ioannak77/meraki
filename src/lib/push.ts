@@ -69,6 +69,20 @@ export async function disablePush() {
   await sub.unsubscribe();
 }
 
+/** A test notification, sent with the worker's next round (within 5 minutes). */
+export async function sendTestPush() {
+  const sb = supabase();
+  if (!sb || !syncUserId()) return false;
+  const { error } = await sb.from("push_queue").insert({
+    send_at: new Date().toISOString(),
+    title: "Meraki is all set 🌿",
+    body: "Notifications are working. You're doing great!",
+    url: `${BASE}/`,
+    tag: "test",
+  });
+  return !error;
+}
+
 /** Replace the upcoming reminders with a new list. */
 export async function uploadQueue(items: QueueItem[]) {
   const sb = supabase();
