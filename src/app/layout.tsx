@@ -4,6 +4,7 @@ import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { FinanceProvider } from "@/lib/financeStore";
 import { SkinProvider } from "@/lib/skinStore";
+import { GroceriesProvider } from "@/lib/groceriesStore";
 import { AppShell } from "@/components/AppShell";
 
 const nunito = Nunito({
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <StoreProvider>
           <FinanceProvider>
             <SkinProvider>
-              <AppShell>{children}</AppShell>
+              <GroceriesProvider>
+                <AppShell>{children}</AppShell>
+              </GroceriesProvider>
             </SkinProvider>
           </FinanceProvider>
         </StoreProvider>

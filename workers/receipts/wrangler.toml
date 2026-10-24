@@ -1,0 +1,12 @@
+name = "meraki-receipts"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Public values only. Secrets are set in the Cloudflare dashboard
+# (Settings > Variables and Secrets), never here:
+#   ANTHROPIC_API_KEY  - your Claude API key
+#   MERAKI_KEY         - a passcode you choose; Meraki sends it with each receipt
+[vars]
+# Sites allowed to send receipts (comma-separated): GitHub Pages + local dev
+ALLOWED_ORIGINS = "https://ioannak77.github.io,http://localhost:3000,http://localhost:3100,http://localhost:3200"

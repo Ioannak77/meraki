@@ -37,7 +37,8 @@ const NAV: { href: string; label: string; short?: string; icon: IconName; phone:
   { href: "/tasks/", label: "Tasks", icon: "tasks", phone: true },
   { href: "/cleaning/", label: "Cleaning schedule", short: "Cleaning", icon: "routines", phone: true },
   { href: "/calendar/", label: "Calendar", icon: "calendar", phone: false },
-  { href: "/finances/", label: "Finances", icon: "wallet", phone: true },
+  { href: "/finances/", label: "Finances", short: "Money", icon: "wallet", phone: true },
+  { href: "/groceries/", label: "Groceries", icon: "basket", phone: true },
   { href: "/tracker/", label: "Tracker", icon: "tracker", phone: true },
   { href: "/self-care/", label: "Self care", icon: "heart", phone: true },
   { href: "/insights/", label: "Insights", icon: "insights", phone: false },
@@ -103,10 +104,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             const Glyph = Icon[item.icon];
             const active = isActive(pathname, item.href);
             return (
-              <li key={item.href}>
+              <li key={item.href} className="min-w-0 flex-1">
                 <Link
                   href={item.href}
-                  className={`flex min-w-14 flex-col items-center gap-0.5 px-1 py-1 text-[11px] ${
+                  className={`flex min-w-0 flex-col items-center gap-0.5 px-0.5 py-1 text-[10px] ${
                     active ? "font-bold text-ink" : "text-muted"
                   }`}
                 >

@@ -46,6 +46,12 @@ export const Icon = {
       <path d="M5 20v-6M10 20V9M15 20v-8M20 20V5" />
     </svg>
   ),
+  basket: ({ className }: IconProps) => (
+    <svg {...base} className={className}>
+      <path d="M4 10h16l-1.6 8.5a2 2 0 0 1-2 1.5H7.6a2 2 0 0 1-2-1.5z" />
+      <path d="M8.5 10 11 4.5M15.5 10 13 4.5M9.5 14v2.5M14.5 14v2.5" />
+    </svg>
+  ),
   tracker: ({ className }: IconProps) => (
     <svg {...base} className={className}>
       <rect x="4" y="4" width="16" height="16" rx="3" />
