@@ -23,7 +23,7 @@ export type SyncState =
 
 export const syncConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 let client: SupabaseClient | null = null;
-function supabase() {
+export function supabase() {
   if (!client && syncConfigured) client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   return client;
 }
@@ -69,6 +69,10 @@ export function getServerSyncState() {
 
 let currentUser: string | null = null;
 let currentEmail = "";
+/** The signed-in user, or null. */
+export function syncUserId() {
+  return currentUser;
+}
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let running = false;
 

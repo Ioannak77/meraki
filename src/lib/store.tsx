@@ -45,6 +45,27 @@ export type Settings = {
   testDate?: string | null; // "YYYY-MM-DD" to pretend it is another day (testing only)
   todayHidden?: TodayCard[]; // cards switched off on the Today screen
   starterTasksRemoved?: boolean; // the first-day example tasks have been cleared
+  push?: PushPrefs; // phone notifications (synced, so every device plans the same reminders)
+};
+
+export type PushPrefs = {
+  on: boolean; // set once a device has turned notifications on
+  morning: boolean;
+  morningTime: string; // "08:00"
+  skincare: boolean;
+  care: boolean;
+  bills: boolean;
+  kind: boolean;
+};
+
+export const DEFAULT_PUSH: PushPrefs = {
+  on: false,
+  morning: true,
+  morningTime: "08:00",
+  skincare: true,
+  care: true,
+  bills: true,
+  kind: true,
 };
 
 /** Cards on the Today screen that can be switched off in Settings. */

@@ -5,8 +5,9 @@
 // -> 200 { shop, date, currency, total, discounts, items: [...] }
 
 import Anthropic from "@anthropic-ai/sdk";
+import { type PushEnv, pushConfigured, sendDuePushes } from "./push";
 
-interface Env {
+interface Env extends PushEnv {
   ANTHROPIC_API_KEY: string;
   MERAKI_KEY: string;
   ALLOWED_ORIGINS: string;
@@ -131,8 +132,13 @@ export default {
     }
   },
 
-  // Daily: a tiny query so the free Supabase project never pauses for being idle.
+  // Every 5 minutes: send due phone reminders. This also keeps the free Supabase project from
+  // pausing for being idle (before notifications are set up, a tiny query does that instead).
   async scheduled(_event: unknown, env: Env): Promise<void> {
+    if (pushConfigured(env)) {
+      await sendDuePushes(env);
+      return;
+    }
     if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return;
     await fetch(`${env.SUPABASE_URL}/rest/v1/meraki_data?select=key&limit=1`, {
       headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${env.SUPABASE_ANON_KEY}` },

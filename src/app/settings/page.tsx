@@ -2,6 +2,7 @@
 
 import { MoneySettingsCard } from "@/components/finance/SettingsCard";
 import { SyncCard } from "@/components/SyncCard";
+import { NotificationsCard } from "@/components/NotificationsCard";
 import { BackupCard } from "@/components/BackupCard";
 import { HomeScreenCard } from "@/components/HomeScreenCard";
 import { OtherSettingsCard } from "@/components/OtherSettingsCard";
@@ -72,6 +73,8 @@ export default function SettingsPage() {
       <HomeScreenCard />
 
       <SyncCard />
+
+      <NotificationsCard />
 
       <BackupCard />
 

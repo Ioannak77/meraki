@@ -7,13 +7,17 @@ compatibility_flags = ["nodejs_compat"]
 # (Settings > Variables and Secrets), never here:
 #   ANTHROPIC_API_KEY  - your Claude API key
 #   MERAKI_KEY         - a passcode you choose; Meraki sends it with each receipt
+#   VAPID_PRIVATE_KEY  - private notification key (from push-setup.local.txt)
+#   SUPABASE_SECRET_KEY - Supabase secret key, so it can read the reminder queue
 [vars]
 # Sites allowed to send receipts (comma-separated): GitHub Pages + local dev
 ALLOWED_ORIGINS = "https://ioannak77.github.io,http://localhost:3000,http://localhost:3100,http://localhost:3200"
 # Meraki's Supabase project (public values; filled in once the project exists).
 SUPABASE_URL = "https://najxrysykfwboefjubfn.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_-6qj1vQI3XmwWXXNavQG3Q__ez3994F"
+# Public half of the notification (VAPID) key; the private half is the VAPID_PRIVATE_KEY secret.
+VAPID_PUBLIC_KEY = "BGMF5XwqcfcJW-5inuhCMcIOT8q3JiKS54xslOSszGBjlNBxZenUsNga08ExSYysiFeK14OVheYqpEuHlg46JZg"
 
-# Daily keep-alive for Supabase (see scheduled() in src/index.ts).
+# Every 5 minutes: send due phone reminders, and keep Supabase awake (see scheduled() in src/index.ts).
 [triggers]
-crons = ["0 6 * * *"]
+crons = ["*/5 * * * *"]

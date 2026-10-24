@@ -43,3 +43,6 @@ next-env.d.ts
 # Cloudflare worker dependencies
 /workers/*/node_modules
 /workers/*/.wrangler
+
+# secrets for one-time setup
+*.local.txt
