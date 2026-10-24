@@ -17,7 +17,7 @@
 
 1. DONE (2026-10-24): phone setup. Paths under /meraki/, PNG icons, offline service worker (public/sw.js, built app only), home screen card in Settings.
 2. DONE (2026-10-24): Backup card in Settings (Save / Load backup, last backup date).
-3. IN PROGRESS (2026-10-24): sync built (src/lib/sync.ts, Settings > Sync, supabase/schema.sql, keep-alive cron in workers/receipts). Needs the new Supabase project: fill src/lib/syncConfig.ts and SUPABASE_* in workers/receipts/wrangler.toml.
+3. DONE (2026-10-24): sync via Supabase project "Meraki" (najxrysykfwboefjubfn): src/lib/sync.ts, Settings > Sync, supabase/schema.sql, daily keep-alive cron in workers/receipts. Email confirm is off; turn off new sign-ups once Ioanna has her account.
 4. Reminders when the app is closed (push via a worker, like PumpPal).
 5. Edit the cleaning schedule in the app (lists are hard-coded in `src/lib/cleaning.ts`).
 6. Later: Calendar and Insights pages (placeholders), choose which cards show on Today.
