@@ -10,6 +10,9 @@ interface Env {
   ANTHROPIC_API_KEY: string;
   MERAKI_KEY: string;
   ALLOWED_ORIGINS: string;
+  // Meraki's Supabase project (public values), for the daily keep-alive below.
+  SUPABASE_URL?: string;
+  SUPABASE_ANON_KEY?: string;
 }
 
 const MAX_IMAGE_BYTES = 4_000_000; // Meraki shrinks photos to ~200 KB; this is a safety cap
@@ -126,5 +129,13 @@ export default {
       if (err instanceof Anthropic.APIError) return json({ error: `Claude error ${err.status}` }, 502, headers);
       return json({ error: "Something went wrong" }, 500, headers);
     }
+  },
+
+  // Daily: a tiny query so the free Supabase project never pauses for being idle.
+  async scheduled(_event: unknown, env: Env): Promise<void> {
+    if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return;
+    await fetch(`${env.SUPABASE_URL}/rest/v1/meraki_data?select=key&limit=1`, {
+      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${env.SUPABASE_ANON_KEY}` },
+    });
   },
 };

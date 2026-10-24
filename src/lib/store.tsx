@@ -6,6 +6,7 @@
 
 import { setTestDate, today } from "./clock";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { markSaved } from "./sync";
 
 export type Energy = "low" | "normal" | "high";
 export type Mood = "great" | "okay" | "low";
@@ -187,6 +188,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      markSaved(STORAGE_KEY);
     } catch {}
   }, [data, ready]);
 

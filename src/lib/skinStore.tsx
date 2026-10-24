@@ -13,6 +13,7 @@ import {
   type SkinStep,
 } from "./skin";
 import { dayKey } from "./store";
+import { markSaved } from "./sync";
 
 type SkinData = {
   steps: SkinStep[];
@@ -73,6 +74,7 @@ export function SkinProvider({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      markSaved(STORAGE_KEY);
     } catch {}
   }, [data, ready]);
 

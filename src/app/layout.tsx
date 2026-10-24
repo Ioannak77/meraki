@@ -7,6 +7,7 @@ import { SkinProvider } from "@/lib/skinStore";
 import { GroceriesProvider } from "@/lib/groceriesStore";
 import { AppShell } from "@/components/AppShell";
 import { OfflineSupport } from "@/components/OfflineSupport";
+import { SyncStart } from "@/components/SyncStart";
 import { BASE } from "@/lib/base";
 
 const nunito = Nunito({
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <GroceriesProvider>
                 <AppShell>{children}</AppShell>
                 <OfflineSupport />
+                <SyncStart />
               </GroceriesProvider>
             </SkinProvider>
           </FinanceProvider>

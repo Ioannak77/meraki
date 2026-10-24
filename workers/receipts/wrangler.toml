@@ -10,3 +10,10 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # Sites allowed to send receipts (comma-separated): GitHub Pages + local dev
 ALLOWED_ORIGINS = "https://ioannak77.github.io,http://localhost:3000,http://localhost:3100,http://localhost:3200"
+# Meraki's Supabase project (public values; filled in once the project exists).
+SUPABASE_URL = ""
+SUPABASE_ANON_KEY = ""
+
+# Daily keep-alive for Supabase (see scheduled() in src/index.ts).
+[triggers]
+crons = ["0 6 * * *"]

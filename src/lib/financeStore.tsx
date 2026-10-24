@@ -24,6 +24,7 @@ import {
   type Txn,
 } from "./finance";
 import { today } from "./clock";
+import { markSaved } from "./sync";
 
 type FinanceData = {
   setupDone: boolean;
@@ -128,6 +129,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      markSaved(STORAGE_KEY);
     } catch {}
   }, [data, ready]);
 

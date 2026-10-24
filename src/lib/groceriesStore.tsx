@@ -5,6 +5,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReaderSettings, Receipt } from "./groceries";
+import { markSaved } from "./sync";
 
 type Data = { receipts: Receipt[]; reader: ReaderSettings };
 
@@ -43,6 +44,7 @@ export function GroceriesProvider({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      markSaved(STORAGE_KEY);
     } catch {}
   }, [data, ready]);
 
