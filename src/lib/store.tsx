@@ -75,7 +75,6 @@ export const TODAY_CARDS = [
   { id: "comingup", label: "Coming up" },
   { id: "cleaning", label: "Cleaning now" },
   { id: "quickadd", label: "Quick add" },
-  { id: "manage", label: "What can you manage right now?" },
   { id: "week", label: "This week" },
 ] as const;
 export type TodayCard = (typeof TODAY_CARDS)[number]["id"];

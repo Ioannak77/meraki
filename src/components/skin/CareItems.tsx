@@ -17,6 +17,7 @@ import {
 import { useSkin } from "@/lib/skinStore";
 import { dayKey } from "@/lib/store";
 import { Icon } from "../icons";
+import { Fold } from "../Fold";
 import { Card, CardTitle, Chips, DangerButton, Label, PrimaryButton, Sheet, inputClass } from "../finance/ui";
 
 const SHOW_BEFORE = [
@@ -76,15 +77,14 @@ export function CareDueCard({ now }: { now: Date }) {
   const due = sortItems(items.filter((i) => careIsDueSoon(i, now)), now);
   if (due.length === 0) return null;
   return (
-    <Card>
-      <CardTitle>Self-care reminders</CardTitle>
+    <Fold id="today-care" title="Self-care reminders">
       <ul className="divide-y divide-line">
         {due.map((i) => (
           <CareRow key={i.id} item={i} now={now} onEdit={() => setEditing(i)} />
         ))}
       </ul>
       {editing && <CareSheet item={editing} now={now} onClose={() => setEditing(null)} />}
-    </Card>
+    </Fold>
   );
 }
 

@@ -23,16 +23,8 @@ import { careIsDueSoon, currentSlot } from "@/lib/skin";
 import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
-import { dayKey, isDoneToday, isDueNow, todaysTasks, useStore, type Energy, type Mood, type Task, type TodayCard } from "@/lib/store";
-
-const MOODS: { mood: Mood; face: string; label: string }[] = [
-  { mood: "great", face: "😊", label: "Feeling good" },
-  { mood: "okay", face: "😐", label: "Okay" },
-  { mood: "low", face: "😔", label: "Low" },
-];
-
-const ENERGY_RANK: Record<Energy, number> = { low: 0, normal: 1, high: 2 };
-const TIME_CHOICES = [5, 10, 20, 30];
+import { Fold } from "@/components/Fold";
+import { dayKey, isDoneToday, todaysTasks, useStore, type Task, type TodayCard } from "@/lib/store";
 
 function greeting(hour: number) {
   if (hour < 12) return "Good morning";
@@ -41,7 +33,7 @@ function greeting(hour: number) {
 }
 
 export default function TodayPage() {
-  const { tasks, moods, setMood, ready, routineDone, settings } = useStore();
+  const { tasks, ready, routineDone, settings } = useStore();
   const [sheet, setSheet] = useState<Task | "new" | null>(null);
   const now = useNow();
 
@@ -69,12 +61,12 @@ export default function TodayPage() {
   );
   const prioritiesDone = priorities.filter((t) => t.completedAt).length;
   const todayDone = today.filter((t) => t.completedAt).length;
-  const mood = moods[dayKey()];
-  const moodFace = MOODS.find((m) => m.mood === mood)?.face;
   // Self care: skincare for this time of day, while it has steps due today.
   const skin = useSkin();
   const skinSlot = currentSlot(now, skin.settings.pmTime);
   const skinDueNow = dueSteps(skin.steps, skinSlot, now).length;
+  // Morning skincare that wasn't done by noon is let go for today.
+  const showSkin = skinDueNow > 0 && !(skinSlot === "am" && now.getHours() >= 12);
   const careDue = skin.items.some((i) => careIsDueSoon(i, now));
   // Everything due now that isn't a priority: today's tasks, late ones, and
   // ones showing early (an MOT two weeks before its date). Soonest first.
@@ -86,11 +78,6 @@ export default function TodayPage() {
       (a, b) =>
         Number(!!a.completedAt) - Number(!!b.completedAt) || (a.dueDate ?? "").localeCompare(b.dueDate ?? ""),
     );
-
-  function cycleMood() {
-    const i = MOODS.findIndex((m) => m.mood === mood);
-    setMood(MOODS[(i + 1) % MOODS.length].mood);
-  }
 
   if (!ready) return null;
 
@@ -112,7 +99,7 @@ export default function TodayPage() {
         </Link>
       </header>
 
-      <section className="mt-6 flex justify-between gap-2 sm:justify-start sm:gap-8">
+      <section className="mt-6 flex justify-center gap-8 sm:gap-12">
         <Ring value={prioritiesDone} max={priorities.length} color="var(--color-sage)" label="Priorities">
           {prioritiesDone}/{priorities.length}
         </Ring>
@@ -122,79 +109,74 @@ export default function TodayPage() {
         <Ring value={routineSteps.done} max={routineSteps.total} color="var(--color-sky)" label="Cleaning">
           {routineSteps.done}/{routineSteps.total}
         </Ring>
-        <button onClick={cycleMood} className="flex flex-col items-center gap-1.5" aria-label="Set today's mood">
-          <span className="grid size-[68px] place-items-center rounded-full bg-peach-soft text-3xl md:size-20">
-            {moodFace ?? <span className="text-sm text-peach">How?</span>}
-          </span>
-          <span className="text-xs text-muted md:text-sm">{MOODS.find((m) => m.mood === mood)?.label ?? "Mood"}</span>
-        </button>
       </section>
 
       <div className="mt-6 grid gap-4 lg:grid-flow-dense lg:grid-cols-2">
-        {show("priorities") && (
-        <Card className="lg:row-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">Your priorities today</h2>
-            {priorities.length > 0 && (
-              <span className="rounded-full bg-sage-soft px-3 py-1 text-sm font-semibold text-sage-dark">
+        {show("priorities") && priorities.length > 0 && (
+          <Fold
+            id="today-priorities"
+            title="Your priorities today"
+            className="lg:row-span-2"
+            right={
+              <span className="shrink-0 rounded-full bg-sage-soft px-3 py-1 text-sm font-semibold text-sage-dark">
                 {priorities.length - prioritiesDone === 0 ? "All done" : `${priorities.length - prioritiesDone} left`}
               </span>
-            )}
-          </div>
-          {priorities.length === 0 ? (
-            <p className="py-4 text-muted">
-              Nothing marked as a priority. Pick up to three small things that would make today feel okay.
-            </p>
-          ) : (
+            }
+          >
             <ul className="divide-y divide-line">
               {priorities.map((t) => (
                 <TaskRow key={t.id} task={t} onEdit={setSheet} />
               ))}
             </ul>
-          )}
-          <p className="mt-2 text-sm text-muted">Three essentials. Everything else is optional.</p>
-        </Card>
+            <p className="mt-2 text-sm text-muted">Three essentials. Everything else is optional.</p>
+          </Fold>
         )}
 
-        {show("selfcare") && skin.ready && (skinDueNow > 0 || careDue) && (
-          <div className="flex flex-col gap-2">
+        {show("selfcare") && skin.ready && (showSkin || careDue) && (
+          <Fold id="today-selfcare" title="Self care" variant="group">
             <CareDueCard now={now} />
-            {skinDueNow > 0 && <SlotCard slot={skinSlot} date={now} badge="Now" />}
-          </div>
+            {showSkin && <SlotCard slot={skinSlot} date={now} badge="Now" />}
+          </Fold>
         )}
 
         {show("comingup") && comingUp.length > 0 && (
-          <Card>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Coming up</h2>
-              <Link href="/tasks/" className="text-sm font-semibold text-sage-dark">
+          <Fold
+            id="today-comingup"
+            title="Coming up"
+            right={
+              <Link href="/tasks/" className="shrink-0 text-sm font-semibold text-sage-dark">
                 All tasks →
               </Link>
-            </div>
+            }
+          >
             <ul className="divide-y divide-line">
               {comingUp.map((t) => (
                 <TaskRow key={t.id} task={t} onEdit={setSheet} />
               ))}
             </ul>
-          </Card>
+          </Fold>
         )}
 
         {show("cleaning") && (
-        <div className="flex flex-col gap-4 lg:col-span-2 lg:grid lg:grid-cols-2">
-          <div className="flex items-center justify-between lg:col-span-2">
-            <h2 className="text-lg font-bold">Cleaning now</h2>
-            <Link href="/cleaning/" className="text-sm font-semibold text-sage-dark">
+        <Fold
+          id="today-cleaning"
+          title="Cleaning now"
+          variant="group"
+          className="lg:col-span-2 lg:grid lg:grid-cols-2"
+          right={
+            <Link href="/cleaning/" className="shrink-0 text-sm font-semibold text-sage-dark">
               Cleaning schedule →
             </Link>
-          </div>
+          }
+        >
           {dailyNow.map((r) => (
-            <RoutineCard key={r.id} routine={r} date={now} badge="Now" />
+            <RoutineCard key={r.id} routine={r} date={now} badge="Now" collapsible />
           ))}
           {monthEndOpen ? (
             <BigCleanCard routines={nonDaily} date={now} />
           ) : (
             nonDaily.map((r) => (
-              <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} />
+              <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible />
             ))
           )}
           {!monthEndOpen && (
@@ -202,13 +184,12 @@ export default function TodayPage() {
               Big clean ({monthLists.map((r) => r.name).join(", ")}) is on the month-end weekend, {monthEndLabel(now)}.
             </Link>
           )}
-        </div>
+        </Fold>
         )}
 
         {show("quickadd") && (
-        <Card>
-          <h2 className="mb-3 text-lg font-bold">Quick add</h2>
-          <div className="grid grid-cols-4 gap-2">
+        <Fold id="today-quickadd" title="Quick add">
+          <div className="mt-1 grid grid-cols-4 gap-2">
             <QuickAdd label="Task" tone="bg-sky-soft text-sky" onClick={() => setSheet("new")} icon={<Icon.plus className="size-5" />} />
             <Link href="/cleaning/" className="flex flex-col items-center gap-1 rounded-2xl bg-sage-soft py-3 text-sm font-semibold text-sage">
               <Icon.leaf className="size-5" />
@@ -223,10 +204,8 @@ export default function TodayPage() {
               Receipt
             </Link>
           </div>
-        </Card>
+        </Fold>
         )}
-
-        {show("manage") && <ManageNow onEdit={setSheet} />}
 
         {show("week") && <WeekCard now={now} />}
       </div>
@@ -242,10 +221,6 @@ export default function TodayPage() {
       {sheet && <TaskSheet task={sheet} onClose={() => setSheet(null)} />}
     </div>
   );
-}
-
-function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`rounded-3xl bg-card p-5 shadow-[0_1px_2px_rgba(60,50,40,0.04)] ${className}`}>{children}</section>;
 }
 
 function QuickAdd({
@@ -274,77 +249,6 @@ function QuickAdd({
   );
 }
 
-/** "What can you manage right now?": pick time + energy, get one suggestion. */
-function ManageNow({ onEdit }: { onEdit: (t: Task) => void }) {
-  const { tasks } = useStore();
-  const [minutes, setMinutes] = useState(10);
-  const [energy, setEnergy] = useState<Energy>("low");
-  const [skipped, setSkipped] = useState<string[]>([]);
-  const [asked, setAsked] = useState(false);
-
-  const suggestion = useMemo(() => {
-    const fits = tasks.filter(
-      (t) =>
-        !t.completedAt &&
-        !skipped.includes(t.id) &&
-        (t.minutes ?? 5) <= (minutes >= 30 ? Infinity : minutes) &&
-        ENERGY_RANK[t.energy] <= ENERGY_RANK[energy],
-    );
-    // Due now first (incl. month tasks in their last week), then priorities, then shortest.
-    return fits.sort((a, b) => {
-      const due = (t: Task) => (isDueNow(t) ? 0 : 1);
-      return due(a) - due(b) || Number(b.isEssential) - Number(a.isEssential) || (a.minutes ?? 5) - (b.minutes ?? 5);
-    })[0];
-  }, [tasks, minutes, energy, skipped]);
-
-  const chip = (active: boolean) =>
-    `flex-1 rounded-full py-2 text-sm transition-colors ${active ? "bg-ink text-cream font-semibold" : "bg-cream text-ink/70"}`;
-
-  return (
-    <Card>
-      <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
-        <Icon.bolt className="size-5 text-sun" /> What can you manage right now?
-      </h2>
-      <div className="flex gap-1.5">
-        {TIME_CHOICES.map((m) => (
-          <button key={m} className={chip(minutes === m)} onClick={() => { setMinutes(m); setSkipped([]); }}>
-            {m === 30 ? "30+" : `${m} min`}
-          </button>
-        ))}
-      </div>
-      <div className="mt-2 flex gap-1.5">
-        {(["low", "normal", "high"] as Energy[]).map((en) => (
-          <button key={en} className={chip(energy === en)} onClick={() => { setEnergy(en); setSkipped([]); }}>
-            {en[0].toUpperCase() + en.slice(1)} energy
-          </button>
-        ))}
-      </div>
-
-      {!asked ? (
-        <button onClick={() => setAsked(true)} className="mt-4 w-full rounded-2xl bg-ink py-3.5 font-bold text-cream">
-          Find a suitable task
-        </button>
-      ) : suggestion ? (
-        <div className="mt-3 rounded-2xl bg-cream px-3">
-          <ul>
-            <TaskRow task={suggestion} onEdit={onEdit} />
-          </ul>
-          <button
-            onClick={() => setSkipped((s) => [...s, suggestion.id])}
-            className="w-full pb-3 text-sm font-semibold text-muted"
-          >
-            Not this one, show another
-          </button>
-        </div>
-      ) : (
-        <p className="mt-4 rounded-2xl bg-cream p-4 text-center text-muted">
-          Nothing fits right now. Resting counts too.
-        </p>
-      )}
-    </Card>
-  );
-}
-
 function WeekCard({ now }: { now: Date }) {
   const { tasks } = useStore();
   const days = useMemo(() => {
@@ -367,9 +271,8 @@ function WeekCard({ now }: { now: Date }) {
   const activeDays = days.filter((d) => d.count > 0).length;
 
   return (
-    <Card>
-      <h2 className="text-lg font-bold">This week</h2>
-      <div className="mt-4 flex h-28 items-end justify-between gap-2">
+    <Fold id="today-week" title="This week">
+      <div className="mt-2 flex h-28 items-end justify-between gap-2">
         {days.map((d) => (
           <div key={d.key} className="flex flex-1 flex-col items-center gap-1.5">
             <div className="flex h-20 w-3 items-end overflow-hidden rounded-full bg-line">
@@ -387,6 +290,6 @@ function WeekCard({ now }: { now: Date }) {
           ? "A fresh week. One small tick puts a bar here."
           : `You showed up on ${activeDays} ${activeDays === 1 ? "day" : "days"} this week. Missed days don't erase that.`}
       </p>
-    </Card>
+    </Fold>
   );
 }
