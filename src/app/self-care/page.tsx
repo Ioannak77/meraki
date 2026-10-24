@@ -12,11 +12,11 @@ const TABS = ["Today", "Reminders", "Skincare"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function SelfCarePage() {
-  const { ready } = useSkin();
+  const { ready, settings } = useSkin();
   const [tab, setTab] = useState<Tab>("Today");
   const now = useNow();
   if (!ready) return null;
-  const slot = currentSlot(now);
+  const slot = currentSlot(now, settings.pmTime);
 
   return (
     <div className="mx-auto max-w-3xl">

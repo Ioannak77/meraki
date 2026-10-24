@@ -73,7 +73,7 @@ export default function TodayPage() {
   const moodFace = MOODS.find((m) => m.mood === mood)?.face;
   // Self care: skincare for this time of day, while it has steps due today.
   const skin = useSkin();
-  const skinSlot = currentSlot(now);
+  const skinSlot = currentSlot(now, skin.settings.pmTime);
   const skinDueNow = dueSteps(skin.steps, skinSlot, now).length;
   const careDue = skin.items.some((i) => careIsDueSoon(i, now));
   // Everything due now that isn't a priority: today's tasks, late ones, and

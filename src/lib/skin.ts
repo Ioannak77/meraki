@@ -87,9 +87,14 @@ export function minutesOf(time: string) {
   return h * 60 + (m || 0);
 }
 
-/** Which slot to show first right now: morning until noon, evening after. */
-export function currentSlot(d = today()): Slot {
-  return d.getHours() < 12 ? "am" : "pm";
+/**
+ * Which slot is "now": evening from 3 hours before your evening time (18:30
+ * for a 21:30 routine), morning before that, so the middle of the day still
+ * shows the morning list.
+ */
+export function currentSlot(d = today(), pmTime = DEFAULT_SKIN_SETTINGS.pmTime): Slot {
+  const mins = d.getHours() * 60 + d.getMinutes();
+  return mins >= minutesOf(pmTime) - 180 ? "pm" : "am";
 }
 
 
