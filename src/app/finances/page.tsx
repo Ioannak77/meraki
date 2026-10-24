@@ -12,7 +12,9 @@ import { useNow } from "@/lib/useNow";
 
 export default function FinancesPage() {
   const { ready, setupDone, has } = useFinance();
-  const [tab, setTab] = useState<FinanceTab>("Overview");
+  // Quick add "Bill" on Today links here with #new-bill.
+  const [newBill] = useState(() => typeof window !== "undefined" && window.location.hash === "#new-bill");
+  const [tab, setTab] = useState<FinanceTab>(newBill ? "Bills" : "Overview");
   const now = useNow();
 
   if (!ready) return null;
@@ -46,7 +48,7 @@ export default function FinancesPage() {
 
       <div className="mt-4">
         {current === "Overview" && <OverviewTab now={now} go={setTab} />}
-        {current === "Bills" && <BillsTab now={now} />}
+        {current === "Bills" && <BillsTab now={now} startNew={newBill} />}
         {current === "Spending" && <SpendingTab now={now} />}
         {current === "Budgets" && <BudgetsTab now={now} />}
         {current === "Goals" && <GoalsTab now={now} />}

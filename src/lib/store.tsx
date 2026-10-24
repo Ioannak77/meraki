@@ -42,7 +42,34 @@ type Data = {
 export type Settings = {
   officeDays: number[]; // 0 = Monday … 6 = Sunday
   testDate?: string | null; // "YYYY-MM-DD" to pretend it is another day (testing only)
+  todayHidden?: TodayCard[]; // cards switched off on the Today screen
+  starterTasksRemoved?: boolean; // the first-day example tasks have been cleared
 };
+
+/** Cards on the Today screen that can be switched off in Settings. */
+export const TODAY_CARDS = [
+  { id: "priorities", label: "Your priorities today" },
+  { id: "selfcare", label: "Self care (skincare and reminders)" },
+  { id: "comingup", label: "Coming up" },
+  { id: "cleaning", label: "Cleaning now" },
+  { id: "quickadd", label: "Quick add" },
+  { id: "manage", label: "What can you manage right now?" },
+  { id: "week", label: "This week" },
+] as const;
+export type TodayCard = (typeof TODAY_CARDS)[number]["id"];
+
+// The example tasks the very first version came with; removed once from saved data.
+const STARTER_TITLES = [
+  "Evening skincare",
+  "Take vitamins",
+  "Kitchen reset",
+  "Review spending",
+  "Book vet appointment",
+  "Deep clean bathroom",
+  "Order pet food",
+  "Plan next week",
+  "Update CV",
+];
 
 const DEFAULT_SETTINGS: Settings = { officeDays: [2, 3] }; // Wednesday and Thursday
 
@@ -50,12 +77,6 @@ const STORAGE_KEY = "meraki.v1";
 
 export function dayKey(d = today()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function addDays(days: number) {
-  const d = today();
-  d.setDate(d.getDate() + days);
-  return dayKey(d);
 }
 
 function newId() {
@@ -83,36 +104,13 @@ function withNewAreas(saved: Area[]) {
 }
 
 function seed(): Data {
-  const now = today().toISOString();
-  const areas = DEFAULT_AREAS;
-  const t = (title: string, areaId: string, extra: Partial<Task> = {}): Task => ({
-    id: newId(),
-    title,
-    areaId,
-    dueDate: dayKey(),
-    minutes: 5,
-    energy: "low",
-    isEssential: false,
-    completedAt: null,
-    createdAt: now,
-    ...extra,
-  });
   return {
-    areas,
-    tasks: [
-      t("Take vitamins", "care", { isEssential: true, minutes: 1 }),
-      t("Kitchen reset", "home", { isEssential: true, minutes: 10, energy: "normal" }),
-      t("Review spending", "finance", { isEssential: true, minutes: 5 }),
-      t("Book vet appointment", "life", { minutes: 5 }),
-      t("Deep clean bathroom", "home", { dueDate: addDays(5), minutes: 45, energy: "high" }),
-      t("Order pet food", "pari", { minutes: 5 }),
-      t("Plan next week", "life", { dueDate: addDays(6), minutes: 15, energy: "normal" }),
-      t("Update CV", "life", { dueDate: null, minutes: 30, energy: "high" }),
-    ],
+    areas: DEFAULT_AREAS,
+    tasks: [],
     moods: {},
     routineDone: {},
     routineTimes: {},
-    settings: DEFAULT_SETTINGS,
+    settings: { ...DEFAULT_SETTINGS, starterTasksRemoved: true },
   };
 }
 
@@ -121,6 +119,11 @@ function load(): Data {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Data>;
+      // One-time clean-up: drop the untouched example tasks from the first version.
+      if (!saved.settings?.starterTasksRemoved) {
+        saved.tasks = (saved.tasks ?? []).filter((t) => t.completedAt || !STARTER_TITLES.includes(t.title));
+        saved.settings = { ...DEFAULT_SETTINGS, ...saved.settings, starterTasksRemoved: true };
+      }
       return {
         routineDone: {},
         routineTimes: {},

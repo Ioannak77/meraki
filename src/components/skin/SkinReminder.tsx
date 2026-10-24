@@ -91,7 +91,7 @@ export function SkinReminder() {
     };
   }, [ready, steps, done, settings, items, appSettings.testDate]);
 
-  if (!pending || dismissed === pending.key || pathname.startsWith("/self-care")) return null;
+  if (!pending || dismissed === pending.key || pathname.startsWith("/self-care") || pathname === "/") return null; // Today shows it as a card already
 
   return (
     <div className="mx-auto mb-4 flex max-w-5xl items-center gap-3 rounded-2xl bg-rose-soft px-4 py-2.5 text-sm text-ink">

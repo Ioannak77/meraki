@@ -44,9 +44,9 @@ export function upcomingBills(bills: Bill[], payday: number | null, now: Date, d
     .sort((a, b) => a.due.getTime() - b.due.getTime());
 }
 
-export function BillsTab({ now }: { now: Date }) {
+export function BillsTab({ now, startNew = false }: { now: Date; startNew?: boolean }) {
   const { bills, paid, togglePaid, income, has, txns } = useFinance();
-  const [editing, setEditing] = useState<Bill | "new" | null>(null);
+  const [editing, setEditing] = useState<Bill | "new" | null>(startNew ? "new" : null);
   const kinds = useAllowedKinds();
 
   const upcoming = useMemo(() => upcomingBills(bills, income?.payday ?? null, now, 45), [bills, income, now]);

@@ -2,6 +2,7 @@
 
 import { MoneySettingsCard } from "@/components/finance/SettingsCard";
 import { TestingCard } from "@/components/TestingCard";
+import { TodayCardsSettings } from "@/components/TodayCardsSettings";
 import { WEEKDAYS, formatMinutes, plannedMinutes, weeklyPlan } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 
@@ -63,6 +64,8 @@ export default function SettingsPage() {
           ))}
         </ul>
       </section>
+
+      <TodayCardsSettings />
 
       <MoneySettingsCard />
 

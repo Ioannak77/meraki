@@ -23,7 +23,7 @@ import { careIsDueSoon, currentSlot } from "@/lib/skin";
 import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
-import { dayKey, isDoneToday, isDueNow, todaysTasks, useStore, type Energy, type Mood, type Task } from "@/lib/store";
+import { dayKey, isDoneToday, isDueNow, todaysTasks, useStore, type Energy, type Mood, type Task, type TodayCard } from "@/lib/store";
 
 const MOODS: { mood: Mood; face: string; label: string }[] = [
   { mood: "great", face: "😊", label: "Feeling good" },
@@ -78,6 +78,8 @@ export default function TodayPage() {
   const careDue = skin.items.some((i) => careIsDueSoon(i, now));
   // Everything due now that isn't a priority: today's tasks, late ones, and
   // ones showing early (an MOT two weeks before its date). Soonest first.
+  const hidden = settings.todayHidden ?? [];
+  const show = (card: TodayCard) => !hidden.includes(card);
   const comingUp = today
     .filter((t) => !t.isEssential)
     .sort(
@@ -129,6 +131,7 @@ export default function TodayPage() {
       </section>
 
       <div className="mt-6 grid gap-4 lg:grid-flow-dense lg:grid-cols-2">
+        {show("priorities") && (
         <Card className="lg:row-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Your priorities today</h2>
@@ -151,15 +154,16 @@ export default function TodayPage() {
           )}
           <p className="mt-2 text-sm text-muted">Three essentials. Everything else is optional.</p>
         </Card>
+        )}
 
-        {skin.ready && (skinDueNow > 0 || careDue) && (
+        {show("selfcare") && skin.ready && (skinDueNow > 0 || careDue) && (
           <div className="flex flex-col gap-2">
             <CareDueCard now={now} />
             {skinDueNow > 0 && <SlotCard slot={skinSlot} date={now} badge="Now" />}
           </div>
         )}
 
-        {comingUp.length > 0 && (
+        {show("comingup") && comingUp.length > 0 && (
           <Card>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">Coming up</h2>
@@ -175,6 +179,7 @@ export default function TodayPage() {
           </Card>
         )}
 
+        {show("cleaning") && (
         <div className="flex flex-col gap-4 lg:col-span-2 lg:grid lg:grid-cols-2">
           <div className="flex items-center justify-between lg:col-span-2">
             <h2 className="text-lg font-bold">Cleaning now</h2>
@@ -198,7 +203,9 @@ export default function TodayPage() {
             </Link>
           )}
         </div>
+        )}
 
+        {show("quickadd") && (
         <Card>
           <h2 className="mb-3 text-lg font-bold">Quick add</h2>
           <div className="grid grid-cols-4 gap-2">
@@ -207,14 +214,21 @@ export default function TodayPage() {
               <Icon.leaf className="size-5" />
               Cleaning
             </Link>
-            <QuickAdd label="Bill" tone="bg-peach-soft text-peach" soon icon={<Icon.bill className="size-5" />} />
-            <QuickAdd label="Note" tone="bg-cream text-muted" soon icon={<Icon.note className="size-5" />} />
+            <Link href="/finances/#new-bill" className="flex flex-col items-center gap-1 rounded-2xl bg-peach-soft py-3 text-sm font-semibold text-peach">
+              <Icon.bill className="size-5" />
+              Bill
+            </Link>
+            <Link href="/groceries/" className="flex flex-col items-center gap-1 rounded-2xl bg-rose-soft py-3 text-sm font-semibold text-rose">
+              <Icon.basket className="size-5" />
+              Receipt
+            </Link>
           </div>
         </Card>
+        )}
 
-        <ManageNow onEdit={setSheet} />
+        {show("manage") && <ManageNow onEdit={setSheet} />}
 
-        <WeekCard now={now} />
+        {show("week") && <WeekCard now={now} />}
       </div>
 
       <button
