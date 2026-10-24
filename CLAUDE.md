@@ -16,7 +16,7 @@
 ## Agreed next steps (Ioanna said "remind me later", 2026-10-24) — raise these after the page-by-page review
 
 1. DONE (2026-10-24): phone setup. Paths under /meraki/, PNG icons, offline service worker (public/sw.js, built app only), home screen card in Settings.
-2. Backup: Export / Import data in Settings (everything is in one browser's storage).
+2. DONE (2026-10-24): Backup card in Settings (Save / Load backup, last backup date).
 3. Sync phone + iPad (Supabase like PumpPal, with a keep-alive so the free tier doesn't pause).
 4. Reminders when the app is closed (push via a worker, like PumpPal).
 5. Edit the cleaning schedule in the app (lists are hard-coded in `src/lib/cleaning.ts`).

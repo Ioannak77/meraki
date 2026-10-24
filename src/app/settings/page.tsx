@@ -1,6 +1,7 @@
 "use client";
 
 import { MoneySettingsCard } from "@/components/finance/SettingsCard";
+import { BackupCard } from "@/components/BackupCard";
 import { HomeScreenCard } from "@/components/HomeScreenCard";
 import { OtherSettingsCard } from "@/components/OtherSettingsCard";
 import { TestingCard } from "@/components/TestingCard";
@@ -68,6 +69,8 @@ export default function SettingsPage() {
       </section>
 
       <HomeScreenCard />
+
+      <BackupCard />
 
       <TodayCardsSettings />
 
