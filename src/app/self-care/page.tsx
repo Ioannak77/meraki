@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CareDueCard, CareReminders } from "@/components/skin/CareItems";
 import { SkinSetup } from "@/components/skin/SkinSetup";
 import { SlotCard } from "@/components/skin/SlotCard";
@@ -15,7 +15,21 @@ export default function SelfCarePage() {
   const { ready, settings, items } = useSkin();
   // Reminders don't know when they're due until they know when you last did them.
   const needDate = items.filter((i) => i.lastDone === null).length;
+  // Settings links here with #reminders or #skincare.
   const [tab, setTab] = useState<Tab>("Today");
+  useEffect(() => {
+    const read = () => {
+      const h = window.location.hash;
+      if (h === "#reminders") setTab("Reminders");
+      else if (h === "#skincare") setTab("Skincare");
+    };
+    const t = setTimeout(read, 0);
+    window.addEventListener("hashchange", read);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("hashchange", read);
+    };
+  }, []);
   const now = useNow();
   if (!ready) return null;
   const slot = currentSlot(now, settings.pmTime);

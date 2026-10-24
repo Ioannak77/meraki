@@ -1,6 +1,7 @@
 "use client";
 
 import { MoneySettingsCard } from "@/components/finance/SettingsCard";
+import { OtherSettingsCard } from "@/components/OtherSettingsCard";
 import { TestingCard } from "@/components/TestingCard";
 import { TodayCardsSettings } from "@/components/TodayCardsSettings";
 import { WEEKDAYS, formatMinutes, plannedMinutes, weeklyPlan } from "@/lib/cleaning";
@@ -68,6 +69,8 @@ export default function SettingsPage() {
       <TodayCardsSettings />
 
       <MoneySettingsCard />
+
+      <OtherSettingsCard />
 
       <TestingCard />
     </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 // Settings > Testing: pretend it's another day, to preview the month-end,
 // every-3-months and twice-a-year lists before they're really due.
 
@@ -16,6 +18,7 @@ function monthEndDay(offset: number) {
 export function TestingCard() {
   const { settings, updateSettings } = useStore();
   const active = settings.testDate ?? null;
+  const [open, setOpen] = useState(Boolean(settings.testDate));
 
   const presets = [0, 1, 2].map((offset) => {
     const d = monthEndDay(offset);
@@ -28,7 +31,12 @@ export function TestingCard() {
 
   return (
     <section className="mt-5 rounded-3xl border-2 border-dashed border-line bg-card p-5">
-      <h2 className="text-lg font-bold">Testing</h2>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center justify-between text-left">
+        <h2 className="text-lg font-bold">Advanced · Testing</h2>
+        <span className="text-sm text-muted">{open ? "Hide" : "Show"}</span>
+      </button>
+      {open && (
+      <>
       <p className="text-[15px] text-muted">
         Pretend it&apos;s another day to see how month-end, every-3-months and twice-a-year lists will look. Ticks made
         while testing are saved for that pretend day only.
@@ -64,6 +72,8 @@ export function TestingCard() {
         >
           Back to real today
         </button>
+      )}
+      </>
       )}
     </section>
   );

@@ -4,7 +4,7 @@
 // check it, save. Then see receipts by month, each item's price history, and
 // spending per shop.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import {
@@ -41,6 +41,11 @@ export function GroceriesView({ now }: { now: Date }) {
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<(Omit<Receipt, "id"> & { id?: string }) | null>(null);
   const [setup, setSetup] = useState(false);
+  // Settings links here with #reader.
+  useEffect(() => {
+    const t = setTimeout(() => window.location.hash === "#reader" && setSetup(true), 0);
+    return () => clearTimeout(t);
+  }, []);
   const connected = !!reader.url && !!reader.passcode;
 
   async function onPhoto(file: File) {
