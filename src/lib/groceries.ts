@@ -1,4 +1,4 @@
-// Groceries: receipts read by the meraki-receipts worker (Claude), plus the
+// Groceries: receipts read by the meraki worker (Claude), plus the
 // helpers for item prices and shops.
 
 export type GroceryCategory = "groceries" | "household" | "pet" | "personal" | "other";

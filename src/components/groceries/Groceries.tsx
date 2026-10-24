@@ -1,6 +1,6 @@
 "use client";
 
-// Groceries: snap a receipt, Claude reads it (via the meraki-receipts worker),
+// Groceries: snap a receipt, Claude reads it (via the meraki worker),
 // check it, save. Then see receipts by month, each item's price history, and
 // spending per shop.
 
@@ -388,14 +388,14 @@ function ReaderSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Receipt reader" onClose={onClose}>
       <p className="text-[15px] text-muted">
-        Receipts are read by your own small server (the <strong>meraki-receipts</strong> Cloudflare worker), which asks
+        Receipts are read by your own small server (the <strong>meraki</strong> Cloudflare worker), which asks
         Claude. Paste its address and the passcode you set there.
       </p>
       <Label>Worker address</Label>
       <input
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://meraki-receipts.….workers.dev"
+        placeholder="https://meraki.….workers.dev"
         className={inputClass}
         inputMode="url"
         autoCapitalize="off"
