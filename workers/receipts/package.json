@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "build": "echo Nothing to build: wrangler bundles the worker on deploy",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
