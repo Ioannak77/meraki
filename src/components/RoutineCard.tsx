@@ -15,6 +15,9 @@ const GROUP_STYLE: Record<Routine["group"], { tone: string; bar: string; label: 
   "twice-a-year": { tone: "bg-rose-soft text-rose", bar: "bg-rose", label: "Every 6 months" },
 };
 
+/** Saved in the next round's list to start it (it isn't a real step). */
+const ROUND_MARKER = "__round";
+
 /** Ticked vs. required steps. Optional steps ("if needed") never hold you back. */
 export function routineProgress(routine: Routine, ticked: string[], date = today()) {
   const required = stepsOn(routine, date).filter((s) => !s.optional);
@@ -40,8 +43,12 @@ export function RoutineCard({
   const { routineDone, routineTimes, toggleStep } = useStore();
   const [open, setOpen] = useState(startOpen);
   const [timing, setTiming] = useState(false);
-  const key = occurrenceKey(routine, date);
-  const ticked = routineDone[key] ?? [];
+  // After meals can be done again for each meal: rounds are saved as "meals@day", "meals@day#2"…
+  const base = occurrenceKey(routine, date);
+  let round = 1;
+  if (routine.repeat) while (routineDone[`${base}#${round + 1}`]) round++;
+  const key = round === 1 ? base : `${base}#${round}`;
+  const ticked = (routineDone[key] ?? []).filter((id) => id !== ROUND_MARKER);
   const daySteps = stepsOn(routine, date);
   const { done, total, complete } = routineProgress(routine, ticked, date);
   const style = GROUP_STYLE[routine.group];
@@ -65,6 +72,7 @@ export function RoutineCard({
             {badge && <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">{badge}</span>}
           </span>
           <span className="block truncate text-[13px] text-muted">
+            {round > 1 ? `Meal ${round} today · ` : ""}
             {subtitle ?? routine.note ?? style.label} · ~{formatMinutes(plannedMinutes(routine, date))}
           </span>
         </span>
@@ -111,6 +119,15 @@ export function RoutineCard({
             })}
           </ul>
 
+          {complete && routine.repeat && (
+            <button
+              type="button"
+              onClick={() => toggleStep(`${base}#${round + 1}`, ROUND_MARKER)}
+              className="mt-3 w-full rounded-2xl bg-sage-soft py-3 text-[15px] font-semibold text-sage-dark"
+            >
+              Done for this meal ✓ · Again after the next one
+            </button>
+          )}
           {complete ? (
             timedSeconds ? (
               <p className="mt-3 rounded-2xl bg-sage-soft py-3 text-center text-[15px] font-semibold text-sage-dark">

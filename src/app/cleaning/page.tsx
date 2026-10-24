@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { BigCleanCard } from "@/components/BigCleanCard";
-import { RoutineCard } from "@/components/RoutineCard";
+import { RoutineCard, routineProgress } from "@/components/RoutineCard";
 import {
   CLEANING,
   weeklyPlan,
   MONTHS,
   WEEKDAYS,
   currentDayPart,
+  occurrenceKey,
+  type DayPart,
   dueToday,
   inEndOfMonthWindow,
   monthEndLabel,
@@ -55,13 +57,16 @@ export default function CleaningSchedulePage() {
 }
 
 function TodayTab({ now }: { now: Date }) {
-  const { settings } = useStore();
+  const { settings, routineDone } = useStore();
   const part = currentDayPart(now);
   const due = dueToday(now, settings.officeDays);
   const monthLists = routinesForMonth(now);
   const todaySlot = weeklyPlan(settings.officeDays)[weekdayIndex(now)];
   const isOffice = settings.officeDays.includes(weekdayIndex(now));
   const bigClean = inEndOfMonthWindow(now);
+  // Only the list for now (and today's weekly one) starts open; earlier ones go quiet.
+  const order: DayPart[] = ["morning", "meals", "evening"];
+  const isPast = (p: DayPart) => order.indexOf(p) < order.indexOf(part);
   return (
     <>
       {isOffice && (
@@ -80,8 +85,12 @@ function TodayTab({ now }: { now: Date }) {
             subtitle={
               r.when.kind === "weekly" && todaySlot.movedFrom !== undefined
                 ? `Swapped with ${WEEKDAYS[todaySlot.movedFrom]}`
-                : undefined
+                : r.when.kind === "daily" && isPast(r.when.part) && !routineProgress(r, routineDone[occurrenceKey(r, now)] ?? [], now).complete
+                  ? "Missed it? No worries"
+                  : undefined
             }
+            collapsible
+            startOpen={r.when.kind !== "daily" || r.when.part === part}
           />
         ))}
       {bigClean ? (

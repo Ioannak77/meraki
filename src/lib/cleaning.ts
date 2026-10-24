@@ -49,6 +49,7 @@ export type Routine = {
   group: RoutineGroup;
   when: RoutineWhen;
   note?: string;
+  repeat?: boolean; // can be done several times a day (After meals)
   steps: Step[];
 };
 
@@ -86,6 +87,7 @@ export const CLEANING: Routine[] = [
     group: "daily",
     when: { kind: "daily", part: "meals" },
     note: "After each meal",
+    repeat: true,
     steps: [
       ...steps("meals", [
         ["Wash the dishes", 10, "Kitchen"],
