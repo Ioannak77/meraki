@@ -14,6 +14,10 @@ create table if not exists public.meraki_data (
 
 alter table public.meraki_data enable row level security;
 
+-- Only signed-in users can reach the table at all (the rule below then limits them to their own rows).
+revoke all on public.meraki_data from anon;
+grant select, insert, update, delete on public.meraki_data to authenticated;
+
 drop policy if exists "own rows" on public.meraki_data;
 create policy "own rows" on public.meraki_data
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
