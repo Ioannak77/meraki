@@ -26,7 +26,7 @@ export function pushConfigured(env: PushEnv) {
 function db(env: PushEnv, path: string, init: RequestInit = {}) {
   return fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
-    headers: { apikey: env.SUPABASE_SECRET_KEY!, "Content-Type": "application/json", Prefer: "return=minimal", ...init.headers },
+    headers: { apikey: env.SUPABASE_SECRET_KEY!.trim(), "Content-Type": "application/json", Prefer: "return=minimal", ...init.headers },
   });
 }
 

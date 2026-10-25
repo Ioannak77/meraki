@@ -52,3 +52,7 @@ $$;
 
 revoke all on function public.meraki_replace_queue(jsonb) from public, anon;
 grant execute on function public.meraki_replace_queue(jsonb) to authenticated;
+
+-- The meraki worker reads the queue with the project's secret key (the service role). New tables
+-- aren't exposed automatically in this project, so give that role access explicitly.
+grant select, insert, update, delete on public.push_subscriptions, public.push_queue to service_role;
