@@ -24,6 +24,7 @@ import { careIsDueSoon, currentSlot } from "@/lib/skin";
 import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
+import { AddMenu } from "@/components/AddMenu";
 import { Fold } from "@/components/Fold";
 import { dayKey, isDoneToday, todaysTasks, useStore, type Task, type TodayCard } from "@/lib/store";
 
@@ -225,13 +226,7 @@ export default function TodayPage() {
         {show("week") && <WeekCard now={now} />}
       </div>
 
-      <button
-        onClick={() => setSheet("new")}
-        aria-label="Add a task"
-        className="fixed bottom-24 right-5 z-10 grid size-14 place-items-center rounded-full bg-sage-dark text-white shadow-lg md:hidden"
-      >
-        <Icon.plus className="size-7" />
-      </button>
+      <AddMenu onNewTask={() => setSheet("new")} />
 
       {sheet && <TaskSheet task={sheet} onClose={() => setSheet(null)} />}
     </div>

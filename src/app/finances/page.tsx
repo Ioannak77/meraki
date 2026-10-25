@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdviceTab } from "@/components/finance/Advice";
 import { BillsTab } from "@/components/finance/Bills";
 import { BudgetsTab } from "@/components/finance/Budgets";
@@ -13,9 +13,18 @@ import { useNow } from "@/lib/useNow";
 
 export default function FinancesPage() {
   const { ready, setupDone, has } = useFinance();
-  // Quick add "Bill" on Today links here with #new-bill.
-  const [newBill] = useState(() => typeof window !== "undefined" && window.location.hash === "#new-bill");
-  const [tab, setTab] = useState<FinanceTab>(newBill ? "Bills" : "Overview");
+  const [tab, setTab] = useState<FinanceTab>("Overview");
+  // Today's + menu and Quick add "Bill" link here with #new-bill. Read after mounting: on an
+  // in-app link the hash is set after the page starts.
+  const [newBill, setNewBill] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (window.location.hash !== "#new-bill") return;
+      setNewBill(true);
+      setTab("Bills");
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
   const now = useNow();
 
   if (!ready) return null;
