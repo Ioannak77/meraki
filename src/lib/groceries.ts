@@ -1,7 +1,7 @@
 // Groceries: receipts read by the meraki worker (Claude), plus the
 // helpers for item prices and shops.
 
-import { accessToken } from "./sync";
+import { workerPost } from "./worker";
 
 export type GroceryCategory = "groceries" | "household" | "pet" | "personal" | "other";
 
@@ -56,27 +56,9 @@ export async function photoToBase64(file: File, max = 1600): Promise<string> {
   return dataUrl.slice(dataUrl.indexOf(",") + 1);
 }
 
-/** The meraki worker (workers/receipts), which asks Claude to read the photo. */
-const READER_URL = "https://meraki.constantinouioanna7.workers.dev";
-
 /** Sends the photo to the receipt reader. Throws an Error with a friendly message. */
 export async function readReceipt(image: string): Promise<Omit<Receipt, "id">> {
-  // The worker only reads receipts for someone signed in to Meraki (Settings > Sync).
-  const token = await accessToken();
-  if (!token) throw new Error("Sign in under Settings → Sync to read receipts.");
-  let res: Response;
-  try {
-    res = await fetch(`${READER_URL}/read`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ image }),
-    });
-  } catch {
-    throw new Error("Couldn't reach the receipt reader. Check your connection and try again.");
-  }
-  const body = (await res.json().catch(() => ({}))) as Partial<Read> & { error?: string };
-  if (!res.ok) throw new Error(body.error ?? `The receipt reader said no (${res.status}).`);
-  const r = body as Read;
+  const r = await workerPost<Read>("/read", { image }, "receipt reader");
   return {
     shop: r.shop,
     date: r.date,

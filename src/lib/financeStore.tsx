@@ -25,6 +25,7 @@ import {
 } from "./finance";
 import { today } from "./clock";
 import { markSaved } from "./sync";
+import type { Advice } from "./advice";
 
 type FinanceData = {
   setupDone: boolean;
@@ -41,7 +42,10 @@ type FinanceData = {
   goals: Goal[];
   customCategories: Category[]; // your own, e.g. "Car maintenance", "Limassol"
   trackers: Tracker[];
+  advice?: SavedAdvice | null; // the latest money check-in from Claude (Money > Advice)
 };
+
+export type SavedAdvice = { at: string; question: string; result: Advice };
 
 /** A Tracker tab: easy access to the money in a few categories (and bills). */
 export type Tracker = { id: string; name: string; categories: CategoryId[]; billIds: string[] };
@@ -83,6 +87,7 @@ export type ImportResult = { added: number; duplicates: number; billsMarkedPaid:
 
 type FinanceStore = FinanceData & {
   ready: boolean;
+  saveAdvice: (a: SavedAdvice | null) => void;
   has: (m: ModuleId) => boolean;
   saveSetup: (modules: ModuleId[]) => void;
   setIncome: (income: Income | null) => void;
@@ -287,10 +292,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTracker = useCallback((id: string) => setData((d) => ({ ...d, trackers: d.trackers.filter((t) => t.id !== id) })), []);
 
+  const saveAdvice = useCallback((advice: SavedAdvice | null) => setData((d) => ({ ...d, advice })), []);
+
   const value = useMemo<FinanceStore>(
     () => ({
       ...data,
       ready,
+      saveAdvice,
       has: (m) => data.modules.includes(m),
       saveSetup,
       setIncome,
@@ -313,6 +321,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     [
       data,
       ready,
+      saveAdvice,
       saveSetup,
       setIncome,
       saveBill,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AdviceTab } from "@/components/finance/Advice";
 import { BillsTab } from "@/components/finance/Bills";
 import { BudgetsTab } from "@/components/finance/Budgets";
 import { GoalsTab } from "@/components/finance/Goals";
@@ -26,6 +27,7 @@ export default function FinancesPage() {
   if (has("imports") || has("groceries") || has("pet") || has("allowance") || has("summary")) tabs.push("Spending");
   if (has("allowance") || has("pet") || has("groceries")) tabs.push("Budgets");
   if (has("savings")) tabs.push("Goals");
+  tabs.push("Advice");
   const current = tabs.includes(tab) ? tab : "Overview";
 
   return (
@@ -52,6 +54,7 @@ export default function FinancesPage() {
         {current === "Spending" && <SpendingTab now={now} />}
         {current === "Budgets" && <BudgetsTab now={now} />}
         {current === "Goals" && <GoalsTab now={now} />}
+        {current === "Advice" && <AdviceTab now={now} />}
       </div>
     </div>
   );

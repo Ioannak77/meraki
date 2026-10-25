@@ -21,7 +21,7 @@ import { dueLabel, upcomingBills } from "./Bills";
 import { ImportSheet, spendingByCategory } from "./Spending";
 import { Bar, Card, CardTitle, Label, MoneyInput, PrimaryButton, Sheet } from "./ui";
 
-export type FinanceTab = "Overview" | "Bills" | "Spending" | "Budgets" | "Goals";
+export type FinanceTab = "Overview" | "Bills" | "Spending" | "Budgets" | "Goals" | "Advice";
 
 export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => void }) {
   const { income, bills, paid, billActuals, txns, weeklyAllowance, has } = useFinance();
