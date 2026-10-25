@@ -203,8 +203,14 @@ export default function TodayPage() {
         </Fold>
         )}
 
-        {show("week") && <WeekCard now={now} />}
       </div>
+
+      {/* Outside the grid so it always comes last, even when the iPad's two columns fill gaps. */}
+      {show("week") && (
+        <div className="mt-4">
+          <WeekCard now={now} />
+        </div>
+      )}
 
       <AddMenu onNewTask={() => setSheet("new")} />
 
