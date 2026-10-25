@@ -18,6 +18,7 @@ import {
   occurrenceKey,
   routinesForMonth,
   weekdayIndex,
+  weeklyPlan,
 } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { SlotCard, dueSteps } from "@/components/skin/SlotCard";
@@ -26,6 +27,10 @@ import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
 import { AddMenu } from "@/components/AddMenu";
+import { dueDates, money, paidKey } from "@/lib/finance";
+import { useFinance } from "@/lib/financeStore";
+import { useGroceries } from "@/lib/groceriesStore";
+import { kindWordFor } from "@/lib/kindWords";
 import { Fold } from "@/components/Fold";
 import { dayKey, isDoneToday, todaysTasks, useStore, type Task, type TodayCard } from "@/lib/store";
 
@@ -72,6 +77,8 @@ export default function TodayPage() {
   const todayDone = today.filter((t) => t.completedAt).length;
   // Self care: skincare for this time of day, while it has steps due today.
   const skin = useSkin();
+  const finance = useFinance();
+  const groceries = useGroceries();
   const skinSlot = currentSlot(now, skin.settings.pmTime);
   const skinDueNow = dueSteps(skin.steps, skinSlot, now).length;
   // Morning skincare that wasn't done by noon is let go for today.
@@ -89,6 +96,20 @@ export default function TodayPage() {
         Number(!!a.completedAt) - Number(!!b.completedAt) || (a.dueDate ?? "").localeCompare(b.dueDate ?? ""),
     );
 
+  // Bills due today or tomorrow (unpaid), shown in Coming up.
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const billsSoon = finance.bills
+    .flatMap((b) => dueDates(b, startToday, tomorrow).map((due) => ({ bill: b, due })))
+    .filter((x) => !finance.paid[paidKey(x.bill, x.due)]);
+  const shoppingLeft = groceries.list.filter((i) => !i.done).length;
+  // From 8pm: a look at tomorrow, to get ready.
+  const evening = now.getHours() >= 20;
+  const tomorrowKey = dayKey(tomorrow);
+  const tomorrowTasks = tasks.filter((t) => !t.completedAt && t.dueDate === tomorrowKey);
+  const tomorrowBills = finance.bills.filter((b) => dueDates(b, tomorrow, tomorrow).some((d) => !finance.paid[paidKey(b, d)]));
+  const tomorrowClean = inEndOfMonthWindow(tomorrow) ? "Big clean" : weeklyPlan(settings.officeDays)[weekdayIndex(tomorrow)].routine.name;
+
   if (!ready) return null;
 
   return (
@@ -101,7 +122,8 @@ export default function TodayPage() {
               {now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
             </p>
             <h1 className="text-[26px] font-bold leading-tight md:text-4xl">{greeting(now.getHours())}</h1>
-            <p className="text-[15px] text-muted md:text-lg">Let&apos;s make today manageable.</p>
+            {/* Today's kind word: the same one as the afternoon notification. */}
+            <p className="text-[15px] text-muted md:text-lg">{kindWordFor(dayKey(now)).text}</p>
           </div>
         </div>
         {/* Calendar always; Insights and Settings on phones, where they aren't in the tab bar. */}
@@ -118,17 +140,30 @@ export default function TodayPage() {
         </div>
       </header>
 
+      {/* Only rings with something to count. */}
       <section className="mt-6 flex justify-center gap-8 sm:gap-12">
-        <Ring value={prioritiesDone} max={priorities.length} color="var(--color-sage)" label="Priorities">
-          {prioritiesDone}/{priorities.length}
-        </Ring>
-        <Ring value={todayDone} max={today.length} color="var(--color-peach)" label="Today">
-          {todayDone}/{today.length}
-        </Ring>
-        <Ring value={routineSteps.done} max={routineSteps.total} color="var(--color-sky)" label="Cleaning">
-          {routineSteps.done}/{routineSteps.total}
-        </Ring>
+        {priorities.length > 0 && (
+          <Ring value={prioritiesDone} max={priorities.length} color="var(--color-sage)" label="Priorities">
+            {prioritiesDone}/{priorities.length}
+          </Ring>
+        )}
+        {today.length > 0 && (
+          <Ring value={todayDone} max={today.length} color="var(--color-peach)" label="Today">
+            {todayDone}/{today.length}
+          </Ring>
+        )}
+        {routineSteps.total > 0 && (
+          <Ring value={routineSteps.done} max={routineSteps.total} color="var(--color-sky)" label="Cleaning">
+            {routineSteps.done}/{routineSteps.total}
+          </Ring>
+        )}
       </section>
+
+      {shoppingLeft > 0 && (
+        <Link href="/groceries/" className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-full bg-card px-4 py-2 text-sm font-semibold text-ink/80">
+          <Icon.basket className="size-4" /> {shoppingLeft} {shoppingLeft === 1 ? "thing" : "things"} on your shopping list ›
+        </Link>
+      )}
 
       <div className="mt-6 grid items-start gap-4 lg:grid-flow-dense lg:grid-cols-2">
         {show("priorities") && priorities.length > 0 && (
@@ -159,7 +194,7 @@ export default function TodayPage() {
           </Fold>
         )}
 
-        {show("comingup") && comingUp.length > 0 && (
+        {show("comingup") && (comingUp.length > 0 || billsSoon.length > 0) && (
           <Fold
             id="today-comingup"
             title="Coming up"
@@ -170,6 +205,21 @@ export default function TodayPage() {
             }
           >
             <ul className="divide-y divide-line">
+              {billsSoon.map(({ bill, due }) => (
+                <li key={paidKey(bill, due)} className="flex items-center gap-3 py-3">
+                  <button
+                    type="button"
+                    onClick={() => finance.togglePaid(paidKey(bill, due))}
+                    aria-label={`Mark ${bill.name} as paid`}
+                    className="grid size-7 shrink-0 place-items-center rounded-lg border-2 border-line bg-card"
+                  />
+                  <Link href="/finances/#bills" className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold">Pay {bill.name}</span>
+                    <span className="block text-[13px] text-muted">{money(bill.amount)}</span>
+                  </Link>
+                  <span className="shrink-0 text-xs text-peach">{dayKey(due) === dayKey(startToday) ? "Today" : "Tomorrow"}</span>
+                </li>
+              ))}
               {comingUp.map((t) => (
                 <TaskRow key={t.id} task={t} onEdit={setSheet} />
               ))}
@@ -208,6 +258,25 @@ export default function TodayPage() {
         )}
 
       </div>
+
+      {evening && (tomorrowTasks.length > 0 || tomorrowBills.length > 0 || tomorrowClean) && (
+        <section className="mt-4 rounded-3xl bg-card p-5">
+          <h2 className="flex items-center gap-2 text-lg font-bold">
+            <Icon.moon className="size-5 text-muted" /> Tomorrow
+          </h2>
+          <ul className="mt-2 space-y-1.5 text-[15px]">
+            {tomorrowTasks.map((t) => (
+              <li key={t.id}>• {t.title}</li>
+            ))}
+            {tomorrowBills.map((b) => (
+              <li key={b.id}>
+                • Pay {b.name} <span className="text-muted">· {money(b.amount)}</span>
+              </li>
+            ))}
+            <li className="text-muted">• Cleaning: {tomorrowClean}</li>
+          </ul>
+        </section>
+      )}
 
       {/* Outside the grid so it always comes last, even when the iPad's two columns fill gaps. */}
       {show("week") && (
