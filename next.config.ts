@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
   // Lets devices on the same Wi-Fi use the dev server.
   allowedDevOrigins: ["192.168.*.*"],
 
+  // Dev server only: localhost:3000/ (outside /meraki) opens Meraki instead of a 404.
+  // Static export can't redirect, so builds leave it out.
+  ...(process.env.NODE_ENV === "development"
+    ? { redirects: async () => [{ source: "/", destination: "/meraki/", basePath: false as const, permanent: false }] }
+    : {}),
+
   turbopack: {
     rules: {
       "*.css": {
