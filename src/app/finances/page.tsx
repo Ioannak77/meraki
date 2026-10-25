@@ -21,6 +21,8 @@ export default function FinancesPage() {
     const t = setTimeout(() => {
       // The old Tracker page (home screen shortcuts, old links) sends you here with #tracker.
       if (window.location.hash === "#tracker") return setTab("Tracker");
+      // Bill notifications open Bills, where the Paid button is.
+      if (window.location.hash === "#bills") return setTab("Bills");
       if (window.location.hash !== "#new-bill") return;
       setNewBill(true);
       setTab("Bills");

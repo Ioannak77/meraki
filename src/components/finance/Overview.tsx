@@ -24,7 +24,7 @@ import { Bar, Card, CardTitle, Label, MoneyInput, PrimaryButton, Sheet } from ".
 export type FinanceTab = "Overview" | "Bills" | "Spending" | "Goals" | "Tracker" | "Advice";
 
 export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => void }) {
-  const { income, bills, paid, billActuals, txns, weeklyAllowance, has } = useFinance();
+  const { income, bills, paid, billActuals, txns, weeklyAllowance, has, advice } = useFinance();
   const { goals, plan } = useSavings(now);
   const [editingIncome, setEditingIncome] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -252,7 +252,8 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
         </Card>
       )}
 
-      {has("summary") && hasMonth && (
+      {/* With income set, the payday card above already says what came in, went out and is left. */}
+      {has("summary") && hasMonth && !income && (
         <Card>
           <CardTitle>{now.toLocaleDateString(undefined, { month: "long" })} summary</CardTitle>
           <ul className="space-y-2 text-[15px]">
@@ -267,6 +268,33 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
             </li>
           </ul>
         </Card>
+      )}
+
+      {/* The latest money check-in from Advice, or an invitation to get one. */}
+      {(income || bills.length > 0 || txns.length > 0) && (
+        <button
+          type="button"
+          onClick={() => go("Advice")}
+          className="flex items-center gap-3 rounded-3xl bg-card p-5 text-left lg:col-span-2"
+        >
+          <span className="text-2xl">✨</span>
+          <span className="min-w-0 flex-1">
+            {advice ? (
+              <>
+                <span className="block text-xs text-muted">
+                  Latest check-in · {new Date(advice.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                </span>
+                <span className="block text-[15px] font-semibold leading-snug">{advice.result.headline}</span>
+              </>
+            ) : (
+              <>
+                <span className="block text-[15px] font-semibold">Get your money check-in</span>
+                <span className="block text-sm text-muted">What&apos;s going well, what to watch, what to try</span>
+              </>
+            )}
+          </span>
+          <span className="text-muted">›</span>
+        </button>
       )}
 
       {editingIncome && <IncomeSheet income={income} onClose={() => setEditingIncome(false)} />}

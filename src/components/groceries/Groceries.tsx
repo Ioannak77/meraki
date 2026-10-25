@@ -252,14 +252,16 @@ const CATEGORY_CHOICES = GROCERY_CATEGORIES.map((c) => ({ id: c.id, label: c.lab
 /** Check what was read, fix anything, save. */
 function ReviewSheet({ receipt, onClose }: { receipt: Omit<Receipt, "id"> & { id?: string }; onClose: () => void }) {
   const { saveReceipt, deleteReceipt } = useGroceries();
-  const { has, addTxn } = useFinance();
+  const { has, addTxn, txns } = useFinance();
   const [shop, setShop] = useState(receipt.shop);
   const [date, setDate] = useState(receipt.date);
   const [total, setTotal] = useState<number | null>(receipt.total || null);
   const [items, setItems] = useState<ReceiptItem[]>(receipt.items);
   const [editing, setEditing] = useState<number | null>(null);
   // If bank statements are imported, the same shop already shows up there.
-  const [toMoney, setToMoney] = useState(!receipt.id && !has("imports"));
+  // On by default, so your spending in Money is complete. Off when a statement you've imported
+  // already covers that day (the card payment is on it). Later imports skip a matching payment.
+  const [toMoney, setToMoney] = useState(() => !receipt.id && !txns.some((t) => t.source === "import" && t.date >= receipt.date));
 
   const itemsSum = items.reduce((t, i) => t + i.price, 0) - receipt.discounts;
   const mismatch = total !== null && Math.abs(itemsSum - total) > 0.05;
@@ -345,7 +347,7 @@ function ReviewSheet({ receipt, onClose }: { receipt: Omit<Receipt, "id"> & { id
           <input type="checkbox" checked={toMoney} onChange={(e) => setToMoney(e.target.checked)} className="size-5 accent-sage" />
           <span className="text-[15px]">
             Also add to Money as Groceries
-            {has("imports") && <span className="block text-xs text-muted">Leave off if this shop is on your bank statements, so it isn&apos;t counted twice.</span>}
+            {has("imports") && <span className="block text-xs text-muted">If you import a bank statement later, this payment won&apos;t be counted twice.</span>}
           </span>
         </label>
       )}

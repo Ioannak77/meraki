@@ -88,7 +88,7 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin }:
           const next = nextDue(b, day);
           if (!next || dayKey(next) !== dayKey(day) || paid[paidKey(b, next)]) continue;
           // The "tomorrow" reminder goes out the evening before, on day `d`.
-          add(at(d, time), `${label}: ${b.name}`, `${money(b.amount)}. Tap to mark it paid.`, "/finances/", `bill-${b.id}-${dayKey(next)}-${time}`);
+          add(at(d, time), `${label}: ${b.name}`, `${money(b.amount)}. Tap to mark it paid.`, "/finances/#bills", `bill-${b.id}-${dayKey(next)}-${time}`);
         }
       }
     }

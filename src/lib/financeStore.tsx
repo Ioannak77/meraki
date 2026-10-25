@@ -178,9 +178,20 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const seen = new Set(data.txns.map((t) => t.hash));
       const added: Txn[] = [];
       let duplicates = 0;
+      // Spending you already added by hand (or from a receipt): the same amount within 3 days
+      // on the statement is that payment, so it isn't counted twice.
+      const byHand = data.txns.filter((t) => t.source === "manual" && t.amount < 0);
+      const matched = new Set<string>();
+      const daysApart = (a: string, b: string) => Math.abs(new Date(a + "T12:00:00").getTime() - new Date(b + "T12:00:00").getTime()) / 86_400_000;
       for (const line of lines) {
         const hash = txnHash(line.date, line.amount, line.description);
         if (seen.has(hash)) {
+          duplicates++;
+          continue;
+        }
+        const same = line.amount < 0 && byHand.find((t) => !matched.has(t.id) && Math.abs(t.amount - line.amount) < 0.01 && daysApart(t.date, line.date) <= 3);
+        if (same) {
+          matched.add(same.id);
           duplicates++;
           continue;
         }
