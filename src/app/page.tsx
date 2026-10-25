@@ -214,7 +214,7 @@ export default function TodayPage() {
               <Icon.bill className="size-5" />
               Bill
             </Link>
-            <Link href="/groceries/" className="flex flex-col items-center gap-1 rounded-2xl bg-rose-soft py-3 text-sm font-semibold text-rose">
+            <Link href="/groceries/#receipts" className="flex flex-col items-center gap-1 rounded-2xl bg-rose-soft py-3 text-sm font-semibold text-rose">
               <Icon.basket className="size-5" />
               Receipt
             </Link>

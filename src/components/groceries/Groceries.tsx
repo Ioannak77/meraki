@@ -4,7 +4,7 @@
 // receipts: snap one, Claude reads it (via the meraki worker), check it, save.
 // Then see receipts by month, each item's price history, and spending per shop.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import {
@@ -21,7 +21,7 @@ import { ShoppingList } from "./ShoppingList";
 import { dayKey } from "@/lib/store";
 import { Card, CardTitle, Chips, DangerButton, Label, MoneyInput, PrimaryButton, Sheet, inputClass } from "../finance/ui";
 
-const TABS = ["List", "Receipts", "Prices", "Shops"] as const;
+const TABS = ["List", "Receipts", "Prices"] as const;
 type Tab = (typeof TABS)[number];
 
 function niceDate(key: string) {
@@ -38,6 +38,11 @@ function monthLabel(key: string) {
 export function GroceriesView({ now }: { now: Date }) {
   const { receipts } = useGroceries();
   const [tab, setTab] = useState<Tab>("List");
+  // Today's "Receipt" quick add links here with #receipts.
+  useEffect(() => {
+    const t = setTimeout(() => window.location.hash === "#receipts" && setTab("Receipts"), 0);
+    return () => clearTimeout(t);
+  }, []);
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<(Omit<Receipt, "id"> & { id?: string }) | null>(null);
@@ -61,45 +66,10 @@ export function GroceriesView({ now }: { now: Date }) {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="flex items-center justify-between md:mt-4">
-        <h1 className="text-[26px] font-bold md:text-3xl">Groceries</h1>
-      </div>
+      <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Groceries</h1>
 
-      <Card className="mt-4">
-        <p className="text-sm text-muted">This month</p>
-        <p className="text-[32px] font-bold leading-tight">{money(monthTotal)}</p>
-        <label
-          className={`mt-4 block cursor-pointer rounded-2xl py-4 text-center text-[17px] font-bold text-white ${
-            reading ? "bg-sage" : "bg-sage-dark"
-          }`}
-        >
-          {reading ? "Reading your receipt…" : "📷 Snap a receipt"}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            disabled={reading}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (f) void onPhoto(f);
-            }}
-          />
-        </label>
-        {error && <p className="mt-3 text-[15px] text-peach">{error}</p>}
-        <button
-          type="button"
-          onClick={() => setReview({ shop: "", date: dayKey(now), total: 0, discounts: 0, items: [] })}
-          className="mt-3 w-full py-1 text-sm font-semibold text-muted"
-        >
-          or type one in
-        </button>
-      </Card>
-
-      {/* Prices and Shops only mean something once there are receipts. */}
       <div className="mt-4 flex gap-1 rounded-full bg-card p-1">
-        {TABS.filter((t) => receipts.length > 0 || t === "List" || t === "Receipts").map((t) => (
+        {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -112,9 +82,48 @@ export function GroceriesView({ now }: { now: Date }) {
 
       <div className="mt-4">
         {tab === "List" && <ShoppingList />}
-        {tab === "Receipts" && <ReceiptList onOpen={(r) => setReview(r)} />}
-        {tab === "Prices" && <Prices />}
-        {tab === "Shops" && <Shops now={now} />}
+        {tab === "Receipts" && (
+          <div className="grid gap-4">
+            <Card>
+              <p className="text-sm text-muted">This month</p>
+              <p className="text-[32px] font-bold leading-tight">{money(monthTotal)}</p>
+              <label
+                className={`mt-4 block cursor-pointer rounded-2xl py-4 text-center text-[17px] font-bold text-white ${
+                  reading ? "bg-sage" : "bg-sage-dark"
+                }`}
+              >
+                {reading ? "Reading your receipt…" : "📷 Snap a receipt"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={reading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void onPhoto(f);
+                  }}
+                />
+              </label>
+              {error && <p className="mt-3 text-[15px] text-peach">{error}</p>}
+              <button
+                type="button"
+                onClick={() => setReview({ shop: "", date: dayKey(now), total: 0, discounts: 0, items: [] })}
+                className="mt-3 w-full py-1 text-sm font-semibold text-muted"
+              >
+                or type one in
+              </button>
+            </Card>
+            <ReceiptList onOpen={(r) => setReview(r)} />
+          </div>
+        )}
+        {tab === "Prices" && (
+          <div className="grid gap-4">
+            <Shops now={now} />
+            <Prices />
+          </div>
+        )}
       </div>
 
       {review && <ReviewSheet receipt={review} onClose={() => setReview(null)} />}
@@ -127,7 +136,7 @@ function ReceiptList({ onOpen }: { onOpen: (r: Receipt) => void }) {
   if (receipts.length === 0) {
     return (
       <Card>
-        <p className="text-muted">No receipts yet. Snap one after your next shop.</p>
+        <p className="text-muted">No receipts yet. Snap one after your next shop, and its prices fill in your list.</p>
       </Card>
     );
   }
@@ -168,6 +177,7 @@ function Prices() {
   const items = priceHistory(receipts).filter((i) => i.name.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <Card>
+      <CardTitle>Item prices</CardTitle>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search an item, e.g. milk" className={inputClass} />
       {items.length === 0 ? (
         <p className="py-4 text-muted">{receipts.length ? "No match." : "Prices show up here once you've saved receipts."}</p>
