@@ -138,25 +138,22 @@ async function pushKey(meta: Meta, key: string) {
   writeBase(key, value);
 }
 
-/** Restart the app, but not while you're typing: wait until you leave the field. */
-function reloadWhenIdle() {
-  const typing = () => {
-    const el = document.activeElement;
-    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el as HTMLElement).isContentEditable);
-  };
-  if (!typing()) return location.reload();
-  const later = () =>
-    setTimeout(() => {
-      if (typing()) return;
-      document.removeEventListener("focusout", later);
-      location.reload();
-    }, 800);
-  document.addEventListener("focusout", later);
+/** True while you're typing in a field. */
+function typing() {
+  const el = document.activeElement;
+  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el as HTMLElement).isContentEditable);
 }
 
 /** Pull remote changes, push local ones. Restarts the app if anything came down. */
 export async function syncNow() {
   if (!currentUser || running || !navigator.onLine) return;
+  // Never sync under your fingers: anything that came down would be overwritten by what's on
+  // screen when you save. Try again shortly instead.
+  if (typing()) {
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => void syncNow(), 15_000);
+    return;
+  }
   const meta = readMeta();
   if (!meta || meta.userId !== currentUser) return;
   running = true;
@@ -191,7 +188,7 @@ export async function syncNow() {
     writeMeta(meta);
     setOn({ lastSync: meta.lastSync, error: null });
     // The stores read localStorage when they start, so restart the app to show what came down.
-    if (pulled) reloadWhenIdle();
+    if (pulled) location.reload();
   } catch {
     setOn({ error: "Couldn't sync. It will try again when you're back online." });
   } finally {
