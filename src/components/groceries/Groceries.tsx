@@ -4,7 +4,7 @@
 // check it, save. Then see receipts by month, each item's price history, and
 // spending per shop.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import {
@@ -35,25 +35,18 @@ function monthLabel(key: string) {
 }
 
 export function GroceriesView({ now }: { now: Date }) {
-  const { receipts, reader } = useGroceries();
+  const { receipts } = useGroceries();
   const [tab, setTab] = useState<Tab>("Receipts");
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<(Omit<Receipt, "id"> & { id?: string }) | null>(null);
-  const [setup, setSetup] = useState(false);
-  // Settings links here with #reader.
-  useEffect(() => {
-    const t = setTimeout(() => window.location.hash === "#reader" && setSetup(true), 0);
-    return () => clearTimeout(t);
-  }, []);
-  const connected = !!reader.url && !!reader.passcode;
 
   async function onPhoto(file: File) {
     setError(null);
     setReading(true);
     try {
       const image = await photoToBase64(file);
-      const read = await readReceipt(reader, image);
+      const read = await readReceipt(image);
       setReview({ ...read, date: read.date || dayKey(now) });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't read that receipt.");
@@ -69,39 +62,30 @@ export function GroceriesView({ now }: { now: Date }) {
     <div className="mx-auto max-w-3xl">
       <div className="flex items-center justify-between md:mt-4">
         <h1 className="text-[26px] font-bold md:text-3xl">Groceries</h1>
-        {connected && (
-          <button type="button" onClick={() => setSetup(true)} className="text-sm font-semibold text-sage-dark">
-            Reader settings
-          </button>
-        )}
       </div>
 
       <Card className="mt-4">
         <p className="text-sm text-muted">This month</p>
         <p className="text-[32px] font-bold leading-tight">{money(monthTotal)}</p>
-        {connected ? (
-          <label
-            className={`mt-4 block cursor-pointer rounded-2xl py-4 text-center text-[17px] font-bold text-white ${
-              reading ? "bg-sage" : "bg-sage-dark"
-            }`}
-          >
-            {reading ? "Reading your receipt…" : "📷 Snap a receipt"}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              disabled={reading}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void onPhoto(f);
-              }}
-            />
-          </label>
-        ) : (
-          <PrimaryButton onClick={() => setSetup(true)}>Set up the receipt reader</PrimaryButton>
-        )}
+        <label
+          className={`mt-4 block cursor-pointer rounded-2xl py-4 text-center text-[17px] font-bold text-white ${
+            reading ? "bg-sage" : "bg-sage-dark"
+          }`}
+        >
+          {reading ? "Reading your receipt…" : "📷 Snap a receipt"}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            disabled={reading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void onPhoto(f);
+            }}
+          />
+        </label>
         {error && <p className="mt-3 text-[15px] text-peach">{error}</p>}
         <button
           type="button"
@@ -134,7 +118,6 @@ export function GroceriesView({ now }: { now: Date }) {
       </div>
 
       {review && <ReviewSheet receipt={review} onClose={() => setReview(null)} />}
-      {setup && <ReaderSheet onClose={() => setSetup(false)} />}
     </div>
   );
 }
@@ -377,47 +360,6 @@ function ReviewSheet({ receipt, onClose }: { receipt: Omit<Receipt, "id"> & { id
           }}
         />
       )}
-    </Sheet>
-  );
-}
-
-function ReaderSheet({ onClose }: { onClose: () => void }) {
-  const { reader, setReader } = useGroceries();
-  const [url, setUrl] = useState(reader.url);
-  const [passcode, setPasscode] = useState(reader.passcode);
-  return (
-    <Sheet title="Receipt reader" onClose={onClose}>
-      <p className="text-[15px] text-muted">
-        Receipts are read by your own small server (the <strong>meraki</strong> Cloudflare worker), which asks
-        Claude. Paste its address and the passcode you set there.
-      </p>
-      <Label>Worker address</Label>
-      <input
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://meraki.….workers.dev"
-        className={inputClass}
-        inputMode="url"
-        autoCapitalize="off"
-      />
-      <Label>Passcode</Label>
-      <input
-        value={passcode}
-        onChange={(e) => setPasscode(e.target.value)}
-        type="password"
-        placeholder="The MERAKI_KEY you chose"
-        className={inputClass}
-      />
-      <p className="mt-2 text-xs text-muted">Saved on this device only. Each receipt costs a few cents of Claude usage.</p>
-      <PrimaryButton
-        disabled={!url.trim() || !passcode}
-        onClick={() => {
-          setReader({ url: url.trim(), passcode });
-          onClose();
-        }}
-      >
-        Save
-      </PrimaryButton>
     </Sheet>
   );
 }

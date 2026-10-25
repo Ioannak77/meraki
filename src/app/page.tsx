@@ -13,6 +13,7 @@ import {
   dueToday,
   inEndOfMonthWindow,
   monthEndLabel,
+  monthEndSaturday,
   occurrenceKey,
   routinesForMonth,
   weekdayIndex,
@@ -53,6 +54,11 @@ export default function TodayPage() {
   const dailyNow = routinesToday.filter((r) => r.when.kind === "daily" && r.when.part === part);
   const nonDaily = routinesToday.filter((r) => r.when.kind !== "daily");
   const monthLists = routinesForMonth(now);
+  // A heads-up about the month-end Big clean, in the week before it.
+  const daysToBigClean = Math.round(
+    (monthEndSaturday(now).getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86_400_000,
+  );
+  const bigCleanSoon = !monthEndOpen && daysToBigClean > 0 && daysToBigClean <= 7;
 
   const today = useMemo(() => todaysTasks(tasks), [tasks]);
   const priorities = useMemo(
@@ -111,7 +117,7 @@ export default function TodayPage() {
         </Ring>
       </section>
 
-      <div className="mt-6 grid gap-4 lg:grid-flow-dense lg:grid-cols-2">
+      <div className="mt-6 grid items-start gap-4 lg:grid-flow-dense lg:grid-cols-2">
         {show("priorities") && priorities.length > 0 && (
           <Fold
             id="today-priorities"
@@ -162,7 +168,7 @@ export default function TodayPage() {
           id="today-cleaning"
           title="Cleaning now"
           variant="group"
-          className="lg:col-span-2 lg:grid lg:grid-cols-2"
+          className="lg:col-span-2 lg:grid lg:grid-cols-2 lg:items-start"
           right={
             <Link href="/cleaning/" className="shrink-0 text-sm font-semibold text-sage-dark">
               Cleaning schedule →
@@ -179,7 +185,7 @@ export default function TodayPage() {
               <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible />
             ))
           )}
-          {!monthEndOpen && (
+          {bigCleanSoon && (
             <Link href="/cleaning/" className="rounded-3xl bg-card/60 p-4 text-[15px] text-muted lg:col-span-2">
               Big clean ({monthLists.map((r) => r.name).join(", ")}) is on the month-end weekend, {monthEndLabel(now)}.
             </Link>

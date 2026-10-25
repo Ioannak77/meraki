@@ -61,10 +61,19 @@ function cors(origin: string | null, env: Env): Record<string, string> {
     ? {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "content-type, x-meraki-key",
+        "Access-Control-Allow-Headers": "content-type, x-meraki-key, authorization",
         Vary: "Origin",
       }
     : {};
+}
+
+/** Signed in to Meraki (a Supabase session for this project), or the old passcode. */
+async function allowed(request: Request, env: Env) {
+  if (env.MERAKI_KEY && request.headers.get("x-meraki-key") === env.MERAKI_KEY) return true;
+  const auth = request.headers.get("authorization");
+  if (!auth?.startsWith("Bearer ") || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return false;
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: auth } });
+  return res.ok;
 }
 
 function json(body: unknown, status: number, headers: Record<string, string>) {
@@ -79,8 +88,8 @@ export default {
       return json({ error: "not found" }, 404, headers);
     }
     if (!headers["Access-Control-Allow-Origin"]) return json({ error: "origin not allowed" }, 403, headers);
-    if (!env.MERAKI_KEY || request.headers.get("x-meraki-key") !== env.MERAKI_KEY) {
-      return json({ error: "wrong passcode" }, 401, headers);
+    if (!(await allowed(request, env))) {
+      return json({ error: "Sign in under Settings → Sync to read receipts." }, 401, headers);
     }
 
     let image: string;

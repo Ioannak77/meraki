@@ -69,6 +69,11 @@ export function getServerSyncState() {
 
 let currentUser: string | null = null;
 let currentEmail = "";
+/** The signed-in session's token (for the receipt reader), or null. */
+export async function accessToken() {
+  const { data } = (await supabase()?.auth.getSession()) ?? { data: { session: null } };
+  return data.session?.access_token ?? null;
+}
 /** The signed-in user, or null. */
 export function syncUserId() {
   return currentUser;

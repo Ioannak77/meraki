@@ -7,7 +7,6 @@ import Link from "next/link";
 const LINKS = [
   { href: "/self-care/#skincare", label: "Skincare times", note: "Morning and evening steps and times" },
   { href: "/self-care/#reminders", label: "Self-care reminders", note: "Waxing, nails, hair and more" },
-  { href: "/groceries/#reader", label: "Receipt reader", note: "Connect the AI that reads your receipts" },
 ];
 
 export function OtherSettingsCard() {
