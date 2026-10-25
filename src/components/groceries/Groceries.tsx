@@ -38,7 +38,7 @@ function monthLabel(key: string) {
 export function GroceriesView({ now }: { now: Date }) {
   const { receipts } = useGroceries();
   const [tab, setTab] = useState<Tab>("List");
-  // Today's "Receipt" quick add links here with #receipts.
+  // Today's + menu ("Receipt") links here with #receipts.
   useEffect(() => {
     const t = setTimeout(() => window.location.hash === "#receipts" && setTab("Receipts"), 0);
     return () => clearTimeout(t);

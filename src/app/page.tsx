@@ -203,26 +203,6 @@ export default function TodayPage() {
         </Fold>
         )}
 
-        {show("quickadd") && (
-        <Fold id="today-quickadd" title="Quick add">
-          <div className="mt-1 grid grid-cols-4 gap-2">
-            <QuickAdd label="Task" tone="bg-sky-soft text-sky" onClick={() => setSheet("new")} icon={<Icon.plus className="size-5" />} />
-            <Link href="/cleaning/" className="flex flex-col items-center gap-1 rounded-2xl bg-sage-soft py-3 text-sm font-semibold text-sage">
-              <Icon.leaf className="size-5" />
-              Cleaning
-            </Link>
-            <Link href="/finances/#new-bill" className="flex flex-col items-center gap-1 rounded-2xl bg-peach-soft py-3 text-sm font-semibold text-peach">
-              <Icon.bill className="size-5" />
-              Bill
-            </Link>
-            <Link href="/groceries/#receipts" className="flex flex-col items-center gap-1 rounded-2xl bg-rose-soft py-3 text-sm font-semibold text-rose">
-              <Icon.basket className="size-5" />
-              Receipt
-            </Link>
-          </div>
-        </Fold>
-        )}
-
         {show("week") && <WeekCard now={now} />}
       </div>
 
@@ -230,32 +210,6 @@ export default function TodayPage() {
 
       {sheet && <TaskSheet task={sheet} onClose={() => setSheet(null)} />}
     </div>
-  );
-}
-
-function QuickAdd({
-  label,
-  icon,
-  tone,
-  onClick,
-  soon,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  tone: string;
-  onClick?: () => void;
-  soon?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={soon}
-      className={`flex flex-col items-center gap-1 rounded-2xl py-3 text-sm font-semibold ${tone} disabled:opacity-60`}
-    >
-      {icon}
-      {label}
-      {soon && <span className="text-[10px] font-normal opacity-80">soon</span>}
-    </button>
   );
 }
 

@@ -14,7 +14,7 @@ import { useNow } from "@/lib/useNow";
 export default function FinancesPage() {
   const { ready, setupDone, has } = useFinance();
   const [tab, setTab] = useState<FinanceTab>("Overview");
-  // Today's + menu and Quick add "Bill" link here with #new-bill. Read after mounting: on an
+  // Today's + menu ("Bill") links here with #new-bill. Read after mounting: on an
   // in-app link the hash is set after the page starts.
   const [newBill, setNewBill] = useState(false);
   useEffect(() => {
