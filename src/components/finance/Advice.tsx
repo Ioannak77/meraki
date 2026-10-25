@@ -48,7 +48,7 @@ export function AdviceTab({ now }: { now: Date }) {
 
   const a = saved?.result;
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <Card className="lg:col-span-2">
         <h2 className="text-lg font-bold">Ask about your money</h2>
         <p className="text-[15px] text-muted">

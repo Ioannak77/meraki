@@ -17,7 +17,7 @@ export function SkinSetup() {
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       {(["am", "pm"] as Slot[]).map((slot) => (
         <Card key={slot}>
           <CardTitle

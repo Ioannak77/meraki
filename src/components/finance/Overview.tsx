@@ -67,7 +67,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   const hasMonth = monthIn > 0 || monthBills > 0 || monthSpent > 0;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       {stepsLeft > 0 && (
         <Card className="lg:col-span-2">
           <CardTitle action={<span className="text-sm text-muted">{steps.length - stepsLeft} of {steps.length} done</span>}>

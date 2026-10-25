@@ -42,7 +42,7 @@ export function BudgetsTab({ now }: { now: Date }) {
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       {has("allowance") && (
         <Card>
           <CardTitle

@@ -54,7 +54,7 @@ export function SpendingTab({ now }: { now: Date }) {
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <div className="flex gap-2 lg:col-span-2">
         {has("imports") && (
           <button

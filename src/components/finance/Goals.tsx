@@ -38,7 +38,7 @@ export function GoalsTab({ now }: { now: Date }) {
   const hasEmergency = goals.some((g) => g.emergency);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <Card className="lg:col-span-2">
         <CardTitle>What you can save</CardTitle>
         {!incomeAmount || !stats.months.length ? (

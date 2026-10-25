@@ -114,7 +114,7 @@ function TrackerBody({ tracker, now, onEdit, lines }: { tracker: Tracker; now: D
   const trackedBills = bills.filter((b) => tracker.billIds.includes(b.id));
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <Card className="lg:col-span-2">
         <div className="flex items-start justify-between gap-3">
           <div>
