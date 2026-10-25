@@ -93,7 +93,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <section className="mt-4 rounded-3xl bg-card p-3 md:p-5">
+      <section className="mt-4 rounded-3xl bg-card p-2 md:p-5">
         <div className="grid grid-cols-7 text-center text-xs font-semibold text-muted">
           {WEEKDAYS.map((d) => (
             <span key={d} className="py-1">
@@ -101,29 +101,43 @@ export default function CalendarPage() {
             </span>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-0.5 md:gap-1">
           {Array.from({ length: lead }, (_, i) => (
             <span key={`pad-${i}`} />
           ))}
           {days.map((d) => {
             const key = dayKey(d);
-            const dots = [...new Set((byDay.get(key) ?? []).filter((e) => e.kind !== "clean" && !e.done).map((e) => e.kind))];
+            // The day's tasks, bills, Big clean and self care, by name (cleaning lists only in the day's list below).
+            const named = (byDay.get(key) ?? []).filter((e) => e.kind !== "clean").sort((a, b) => order(a) - order(b));
+            const shown = named.slice(0, 3);
             const isPicked = key === picked;
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => setPicked(key)}
-                className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl text-[15px] md:aspect-[4/3] ${
-                  isPicked ? "bg-ink text-cream" : key === todayKey ? "bg-sage-soft font-bold text-sage-dark" : key < todayKey ? "text-muted" : ""
-                }`}
+                className={`flex min-h-[76px] min-w-0 flex-col items-stretch gap-0.5 rounded-xl p-0.5 text-left md:min-h-[104px] md:p-1 ${
+                  isPicked ? "ring-2 ring-ink" : ""
+                } ${key < todayKey ? "opacity-60" : ""}`}
               >
-                {d.getDate()}
-                <span className="flex h-1.5 gap-0.5">
-                  {dots.map((k) => (
-                    <span key={k} className={`size-1.5 rounded-full ${DOT[k]}`} />
-                  ))}
+                <span
+                  className={`grid size-6 shrink-0 place-items-center self-center rounded-full text-[13px] md:self-start ${
+                    key === todayKey ? "bg-sage-dark font-bold text-white" : ""
+                  }`}
+                >
+                  {d.getDate()}
                 </span>
+                {shown.map((e, i) => (
+                  <span
+                    key={i}
+                    className={`line-clamp-2 break-words rounded-md px-1 py-0.5 text-[9px] font-semibold leading-tight md:text-[11px] ${CHIP[e.kind]} ${
+                      e.done ? "line-through opacity-60" : ""
+                    }`}
+                  >
+                    {e.kind === "big" ? "Big clean" : e.label}
+                  </span>
+                ))}
+                {named.length > shown.length && <span className="text-center text-[9px] text-muted md:text-[11px]">+{named.length - shown.length}</span>}
               </button>
             );
           })}
@@ -155,6 +169,14 @@ export default function CalendarPage() {
     </div>
   );
 }
+
+const CHIP: Record<Entry["kind"], string> = {
+  task: "bg-peach-soft text-peach",
+  bill: "bg-rose-soft text-rose",
+  big: "bg-sky-soft text-sky",
+  care: "bg-sage-soft text-sage-dark",
+  clean: "bg-cream text-muted",
+};
 
 function order(e: Entry) {
   return { big: 0, bill: 1, task: 2, care: 3, clean: 4 }[e.kind] + (e.done ? 10 : 0);
