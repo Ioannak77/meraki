@@ -54,7 +54,9 @@ export function SkinReminder() {
       const now = today(appSettings.testDate);
       const mins = now.getHours() * 60 + now.getMinutes();
       // The latest slot whose time has passed (evening wins once it's evening).
-      const slot: Slot | null = mins >= minutesOf(settings.pmTime) ? "pm" : mins >= minutesOf(settings.amTime) ? "am" : null;
+      // Morning skincare not done by noon is let go for the day, as on Today.
+      const slot: Slot | null =
+        mins >= minutesOf(settings.pmTime) ? "pm" : mins >= minutesOf(settings.amTime) && mins < 12 * 60 ? "am" : null;
       const key = slot ? slotKey(slot, now) : "";
       const left = slot ? dueSteps(steps, slot, now).filter((s) => !(done[key] ?? []).includes(s.id)).length : 0;
       // Repeating reminders that are due today or overdue.

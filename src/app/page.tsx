@@ -91,7 +91,7 @@ export default function TodayPage() {
     <div className="mx-auto max-w-5xl">
       <header className="flex items-center justify-between gap-4 md:mt-4">
         <div className="flex items-center gap-3">
-          {now.getHours() < 18 ? <Icon.sun className="size-11 shrink-0" /> : <Icon.moon className="size-10 shrink-0" />}
+          {now.getHours() < 18 ? <Icon.sun className="hidden size-11 shrink-0 md:block" /> : <Icon.moon className="hidden size-10 shrink-0 md:block" />}
           <div>
             <p className="text-xs uppercase tracking-wider text-muted">
               {now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
@@ -100,9 +100,18 @@ export default function TodayPage() {
             <p className="text-[15px] text-muted md:text-lg">Let&apos;s make today manageable.</p>
           </div>
         </div>
-        <Link href="/settings/" aria-label="Settings" className="grid size-11 shrink-0 place-items-center rounded-full bg-card text-muted md:hidden">
-          <Icon.settings className="size-5" />
-        </Link>
+        {/* Calendar, Insights and Settings aren't in the phone tab bar, so they live here. */}
+        <div className="flex shrink-0 gap-1.5 md:hidden">
+          <Link href="/calendar/" aria-label="Calendar" className="grid size-9 place-items-center rounded-full bg-card text-muted">
+            <Icon.calendar className="size-5" />
+          </Link>
+          <Link href="/insights/" aria-label="Insights" className="grid size-9 place-items-center rounded-full bg-card text-muted">
+            <Icon.insights className="size-5" />
+          </Link>
+          <Link href="/settings/" aria-label="Settings" className="grid size-9 place-items-center rounded-full bg-card text-muted">
+            <Icon.settings className="size-5" />
+          </Link>
+        </div>
       </header>
 
       <section className="mt-6 flex justify-center gap-8 sm:gap-12">

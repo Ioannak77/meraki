@@ -1,11 +1,170 @@
-import { ComingSoon } from "@/components/ComingSoon";
+"use client";
+
+// Calendar: one month at a glance. Each day shows what's planned (tasks, bills, the Big clean,
+// self care); tap a day to see it in full. Weekly cleaning is shown in the day's list, not as a dot,
+// since every day has one.
+
+import Link from "next/link";
+import { useState } from "react";
+import { MONTHS, WEEKDAYS, cleaningLists, isDueOn, monthEndOwner, weeklyPlan, weekdayIndex } from "@/lib/cleaning";
+import { dueDates, money, paidKey } from "@/lib/finance";
+import { useFinance } from "@/lib/financeStore";
+import { careNextDue } from "@/lib/skin";
+import { useSkin } from "@/lib/skinStore";
+import { dayKey, useStore } from "@/lib/store";
+import { useNow } from "@/lib/useNow";
+
+type Entry = { kind: "task" | "bill" | "clean" | "care" | "big"; label: string; detail?: string; done?: boolean; href: string };
+
+const DOT: Record<Entry["kind"], string> = {
+  task: "bg-peach",
+  bill: "bg-rose",
+  big: "bg-sky",
+  care: "bg-sage",
+  clean: "bg-line",
+};
 
 export default function CalendarPage() {
+  const { ready, tasks, settings } = useStore();
+  const finance = useFinance();
+  const skin = useSkin();
+  const now = useNow();
+  const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [picked, setPicked] = useState(() => dayKey(now));
+
+  if (!ready) return null;
+
+  const first = month;
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  const lead = weekdayIndex(first);
+  const days = Array.from({ length: last.getDate() }, (_, i) => new Date(first.getFullYear(), first.getMonth(), i + 1));
+  const plan = weeklyPlan(settings.officeDays);
+
+  // Everything planned per day of the shown month.
+  const byDay = new Map<string, Entry[]>();
+  const add = (key: string, e: Entry) => byDay.set(key, [...(byDay.get(key) ?? []), e]);
+  for (const t of tasks) {
+    if (!t.dueDate || !t.dueDate.startsWith(dayKey(first).slice(0, 7))) continue;
+    add(t.dueDate, { kind: "task", label: t.title, done: !!t.completedAt, detail: t.wholeMonth ? "by the end of the month" : undefined, href: "/tasks/" });
+  }
+  for (const b of finance.bills) {
+    for (const d of dueDates(b, first, last)) {
+      add(dayKey(d), { kind: "bill", label: b.name, detail: money(b.amount), done: !!finance.paid[paidKey(b, d)], href: "/finances/" });
+    }
+  }
+  for (const it of skin.items) {
+    const due = careNextDue(it);
+    if (due?.startsWith(dayKey(first).slice(0, 7))) add(due, { kind: "care", label: it.name, href: "/self-care/" });
+  }
+  for (const d of days) {
+    const key = dayKey(d);
+    if (monthEndOwner(d)) {
+      const big = cleaningLists().filter((r) => r.when.kind === "monthly" && isDueOn(r, d, settings.officeDays));
+      add(key, { kind: "big", label: "Big clean", detail: big.map((r) => r.name).join(", "), href: "/cleaning/" });
+    } else {
+      const r = plan[weekdayIndex(d)].routine;
+      add(key, { kind: "clean", label: `Cleaning: ${r.name}`, detail: settings.officeDays.includes(weekdayIndex(d)) ? "office day" : undefined, href: "/cleaning/" });
+    }
+  }
+
+  const todayKey = dayKey(now);
+  const pickedEntries = (byDay.get(picked) ?? []).sort((a, b) => order(a) - order(b));
+  const pickedDate = new Date(picked + "T12:00:00");
+  const shift = (by: number) => {
+    const next = new Date(first.getFullYear(), first.getMonth() + by, 1);
+    setMonth(next);
+    setPicked(dayKey(next.getMonth() === now.getMonth() && next.getFullYear() === now.getFullYear() ? now : next));
+  };
+
   return (
-    <ComingSoon
-      title="Calendar"
-      milestone="Milestone 2"
-      points={["Week and month view of tasks, cleaning and bills", "Appointments next to your cleaning schedule"]}
-    />
+    <div className="mx-auto max-w-3xl">
+      <div className="flex items-center justify-between md:mt-4">
+        <h1 className="text-[26px] font-bold md:text-3xl">Calendar</h1>
+        <div className="flex items-center gap-1">
+          <button onClick={() => shift(-1)} aria-label="Previous month" className="grid size-10 place-items-center rounded-full bg-card text-lg">
+            ‹
+          </button>
+          <span className="w-36 text-center font-semibold">
+            {MONTHS[first.getMonth()]} {first.getFullYear()}
+          </span>
+          <button onClick={() => shift(1)} aria-label="Next month" className="grid size-10 place-items-center rounded-full bg-card text-lg">
+            ›
+          </button>
+        </div>
+      </div>
+
+      <section className="mt-4 rounded-3xl bg-card p-3 md:p-5">
+        <div className="grid grid-cols-7 text-center text-xs font-semibold text-muted">
+          {WEEKDAYS.map((d) => (
+            <span key={d} className="py-1">
+              {d.slice(0, 1)}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: lead }, (_, i) => (
+            <span key={`pad-${i}`} />
+          ))}
+          {days.map((d) => {
+            const key = dayKey(d);
+            const dots = [...new Set((byDay.get(key) ?? []).filter((e) => e.kind !== "clean" && !e.done).map((e) => e.kind))];
+            const isPicked = key === picked;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setPicked(key)}
+                className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl text-[15px] md:aspect-[4/3] ${
+                  isPicked ? "bg-ink text-cream" : key === todayKey ? "bg-sage-soft font-bold text-sage-dark" : key < todayKey ? "text-muted" : ""
+                }`}
+              >
+                {d.getDate()}
+                <span className="flex h-1.5 gap-0.5">
+                  {dots.map((k) => (
+                    <span key={k} className={`size-1.5 rounded-full ${DOT[k]}`} />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted">
+          <Legend tone={DOT.task} label="Task" />
+          <Legend tone={DOT.bill} label="Bill" />
+          <Legend tone={DOT.big} label="Big clean" />
+          <Legend tone={DOT.care} label="Self care" />
+        </div>
+      </section>
+
+      <section className="mt-4 rounded-3xl bg-card p-5">
+        <h2 className="text-lg font-bold">
+          {picked === todayKey ? "Today" : pickedDate.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
+        </h2>
+        <ul className="mt-1 divide-y divide-line">
+          {pickedEntries.map((e, i) => (
+            <li key={i}>
+              <Link href={e.href} className="flex items-center gap-3 py-3">
+                <span className={`size-2.5 shrink-0 rounded-full ${DOT[e.kind]}`} />
+                <span className={`flex-1 text-[15px] ${e.done ? "text-muted line-through" : ""}`}>{e.label}</span>
+                {e.detail && <span className="shrink-0 text-right text-[13px] text-muted">{e.detail}</span>}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function order(e: Entry) {
+  return { big: 0, bill: 1, task: 2, care: 3, clean: 4 }[e.kind] + (e.done ? 10 : 0);
+}
+
+function Legend({ tone, label }: { tone: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={`size-2 rounded-full ${tone}`} />
+      {label}
+    </span>
   );
 }
