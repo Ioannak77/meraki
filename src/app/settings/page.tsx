@@ -112,7 +112,7 @@ export default function SettingsPage() {
           onClick={() => setOpen("office")}
         />
         <LinkRow href="/cleaning/" icon="routines" tone="bg-sage-soft text-sage-dark" label="Cleaning lists" note="Edit them in Cleaning schedule › Edit" />
-        <LinkRow href="/self-care/#skincare" icon="sun" tone="bg-rose-soft text-rose" label="Skincare" note="Morning and evening steps and times" />
+        <LinkRow href="/self-care/#skincare" icon="sun" tone="bg-rose-soft text-rose" label="Skincare and daily self care" note="Steps and times, in Self care › Set up" />
       </Group>
 
       <Group title="Money">

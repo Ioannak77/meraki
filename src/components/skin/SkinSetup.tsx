@@ -1,9 +1,12 @@
 "use client";
 
-// Skincare set up: the morning / evening steps (how often) and reminder times.
+// Self care > Set up: morning and evening skincare steps, daily self care (vitamins, water…),
+// and the skincare times. "Low" on a step puts it on the grocery list.
 
 import { useState } from "react";
 import { WEEKDAY_SHORT, scheduleLabel, type SkinSchedule, type SkinStep, type Slot } from "@/lib/skin";
+import Link from "next/link";
+import { useGroceries } from "@/lib/groceriesStore";
 import { useSkin } from "@/lib/skinStore";
 import { dayKey } from "@/lib/store";
 import { Card, CardTitle, Chips, DangerButton, Label, PrimaryButton, Sheet, inputClass } from "../finance/ui";
@@ -11,14 +14,18 @@ import { SLOT_TITLE } from "./SlotCard";
 
 export function SkinSetup() {
   const { steps, moveStep, settings, updateSettings } = useSkin();
+  const { addToList } = useGroceries();
   const [editing, setEditing] = useState<SkinStep | { slot: Slot } | null>(null);
-  const [perm, setPerm] = useState<NotificationPermission | "unsupported">(() =>
-    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
-  );
+  const [low, setLow] = useState<string | null>(null); // last product put on the grocery list
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
-      {(["am", "pm"] as Slot[]).map((slot) => (
+      {low && (
+        <p className="rounded-2xl bg-sage-soft px-4 py-3 text-[15px] text-sage-dark lg:col-span-2">
+          Added <strong>{low}</strong> to your grocery list ✓
+        </p>
+      )}
+      {(["am", "pm", "day"] as Slot[]).map((slot) => (
         <Card key={slot}>
           <CardTitle
             action={
@@ -33,6 +40,11 @@ export function SkinSetup() {
           >
             {SLOT_TITLE[slot]}
           </CardTitle>
+          {slot === "day" && !steps.some((s) => s.slot === "day") && (
+            <p className="text-[15px] text-muted">
+              Small things for any time of day: vitamins, a big glass of water, a stretch, a walk with Pari… Tap + Step to add one.
+            </p>
+          )}
           <ul className="divide-y divide-line">
             {steps
               .filter((s) => s.slot === slot)
@@ -44,6 +56,17 @@ export function SkinSetup() {
                       {scheduleLabel(s.schedule)}
                       {s.note ? ` · ${s.note}` : ""}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addToList(s.name);
+                      setLow(s.name);
+                    }}
+                    aria-label={`${s.name} is running low: add to the grocery list`}
+                    className="shrink-0 rounded-full bg-cream px-2.5 py-1 text-xs font-semibold text-muted"
+                  >
+                    Low
                   </button>
                   <button type="button" onClick={() => moveStep(s.id, -1)} aria-label={`Move ${s.name} up`} className="px-2 text-muted">
                     ↑
@@ -58,7 +81,7 @@ export function SkinSetup() {
       ))}
 
       <Card>
-        <CardTitle>Reminders</CardTitle>
+        <CardTitle>Times</CardTitle>
         <div className="grid grid-cols-2 gap-3">
           <label className="text-sm text-muted">
             Morning
@@ -79,28 +102,11 @@ export function SkinSetup() {
             />
           </label>
         </div>
-        <label className="mt-4 flex items-center gap-3 rounded-2xl bg-cream px-4 py-3">
-          <input
-            type="checkbox"
-            checked={settings.remind}
-            onChange={(e) => updateSettings({ remind: e.target.checked })}
-            className="size-5 accent-sage"
-          />
-          <span className="text-[15px]">Remind me at these times</span>
-        </label>
-        {settings.remind && perm === "default" && (
-          <button
-            type="button"
-            onClick={async () => setPerm(await Notification.requestPermission())}
-            className="mt-3 w-full rounded-2xl bg-sage-soft py-3 text-sm font-bold text-sage-dark"
-          >
-            Allow notifications on this device
-          </button>
-        )}
-        <p className="mt-3 text-xs text-muted">
-          For now reminders come while Meraki is open (a banner at the top
-          {perm === "granted" ? ", plus a notification" : ""}). Reminders with the app closed come once it&apos;s on your
-          phone with notifications set up.
+        <p className="mt-3 text-sm text-muted">
+          Your skincare shows as &ldquo;Now&rdquo; from these times. Phone reminders:{" "}
+          <Link href="/settings/" className="font-semibold text-sage-dark">
+            Settings › Notifications
+          </Link>
         </p>
       </Card>
 
@@ -140,6 +146,7 @@ function StepSheet({ step, onClose }: { step: SkinStep | { slot: Slot }; onClose
         options={[
           { id: "am", label: "Morning" },
           { id: "pm", label: "Evening" },
+          { id: "day", label: "Any time (daily)" },
         ]}
         value={slot}
         onChange={setSlot}

@@ -8,11 +8,12 @@ import { currentSlot } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
 import { useNow } from "@/lib/useNow";
 
-const TABS = ["Today", "Reminders", "Skincare"] as const;
+const TABS = ["Today", "Reminders", "Set up"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function SelfCarePage() {
-  const { ready, settings, items } = useSkin();
+  const { ready, settings, items, steps } = useSkin();
+  const hasDaily = steps.some((s) => s.slot === "day");
   // Reminders don't know when they're due until they know when you last did them.
   const needDate = items.filter((i) => i.lastDone === null).length;
   // Settings links here with #reminders or #skincare.
@@ -21,7 +22,7 @@ export default function SelfCarePage() {
     const read = () => {
       const h = window.location.hash;
       if (h === "#reminders") setTab("Reminders");
-      else if (h === "#skincare") setTab("Skincare");
+      else if (h === "#skincare") setTab("Set up");
     };
     const t = setTimeout(read, 0);
     window.addEventListener("hashchange", read);
@@ -74,10 +75,11 @@ export default function SelfCarePage() {
             {(slot === "am" ? (["am", "pm"] as const) : (["pm", "am"] as const)).map((s) => (
               <SlotCard key={s} slot={s} date={now} badge={s === slot ? "Now" : undefined} startOpen={s === slot} />
             ))}
+            {hasDaily && <SlotCard slot="day" date={now} />}
           </div>
         )}
         {tab === "Reminders" && <CareReminders now={now} />}
-        {tab === "Skincare" && <SkinSetup />}
+        {tab === "Set up" && <SkinSetup />}
       </div>
     </div>
   );

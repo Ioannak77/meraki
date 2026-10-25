@@ -1,14 +1,14 @@
 "use client";
 
-// One skincare slot (morning or evening) for a day: tick the steps that are due.
+// One self-care list for a day (morning skincare, evening skincare or daily self care): tick the steps that are due.
 
 import { useState } from "react";
 import { isStepDue, slotKey, type Slot } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
 import { Icon } from "../icons";
 
-export const SLOT_LABEL: Record<Slot, string> = { am: "Morning", pm: "Evening" };
-export const SLOT_TITLE: Record<Slot, string> = { am: "Morning skincare", pm: "Evening skincare" };
+export const SLOT_LABEL: Record<Slot, string> = { am: "Morning", pm: "Evening", day: "Daily" };
+export const SLOT_TITLE: Record<Slot, string> = { am: "Morning skincare", pm: "Evening skincare", day: "Daily self care" };
 
 export function dueSteps(steps: ReturnType<typeof useSkin>["steps"], slot: Slot, d: Date) {
   return steps.filter((s) => s.slot === slot && isStepDue(s, d));
@@ -27,7 +27,7 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
     <section className="rounded-3xl bg-card p-5">
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 text-left">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-soft text-rose">
-          {slot === "am" ? <Icon.sun className="size-6" /> : <Icon.moon className="size-6" />}
+          {slot === "am" ? <Icon.sun className="size-6" /> : slot === "pm" ? <Icon.moon className="size-6" /> : <Icon.heart className="size-6" />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
@@ -35,7 +35,7 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
             {badge && <span className="rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">{badge}</span>}
           </span>
           <span className="block text-[13px] text-muted">
-            {slot === "am" ? settings.amTime : settings.pmTime}
+            {slot === "am" ? settings.amTime : slot === "pm" ? settings.pmTime : "Any time today"}
           </span>
         </span>
         <span className={`shrink-0 text-sm font-semibold ${complete ? "text-sage-dark" : "text-muted"}`}>

@@ -74,6 +74,7 @@ export default function TodayPage() {
   const skinDueNow = dueSteps(skin.steps, skinSlot, now).length;
   // Morning skincare that wasn't done by noon is let go for today.
   const showSkin = skinDueNow > 0 && !(skinSlot === "am" && now.getHours() >= 12);
+  const dailyDue = dueSteps(skin.steps, "day", now).length > 0;
   const careDue = skin.items.some((i) => careIsDueSoon(i, now));
   // Everything due now that isn't a priority: today's tasks, late ones, and
   // ones showing early (an MOT two weeks before its date). Soonest first.
@@ -148,10 +149,11 @@ export default function TodayPage() {
           </Fold>
         )}
 
-        {show("selfcare") && skin.ready && (showSkin || careDue) && (
+        {show("selfcare") && skin.ready && (showSkin || careDue || dailyDue) && (
           <Fold id="today-selfcare" title="Self care" variant="group">
             <CareDueCard now={now} />
             {showSkin && <SlotCard slot={skinSlot} date={now} badge="Now" />}
+            {dailyDue && <SlotCard slot="day" date={now} />}
           </Fold>
         )}
 

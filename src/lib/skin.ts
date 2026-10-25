@@ -3,7 +3,8 @@
 import { today } from "./clock";
 import { dayKey } from "./store";
 
-export type Slot = "am" | "pm";
+// am/pm: skincare at your morning and evening times. day: daily self care (vitamins, water…), any time.
+export type Slot = "am" | "pm" | "day";
 
 export type SkinSchedule =
   | { kind: "daily" }
@@ -21,10 +22,9 @@ export type SkinStep = {
 export type SkinSettings = {
   amTime: string; // "08:00"
   pmTime: string; // "21:30"
-  remind: boolean;
 };
 
-export const DEFAULT_SKIN_SETTINGS: SkinSettings = { amTime: "08:00", pmTime: "21:30", remind: true };
+export const DEFAULT_SKIN_SETTINGS: SkinSettings = { amTime: "08:00", pmTime: "21:30" };
 
 /** A starter routine to edit, so the screen isn't empty on day one. */
 export function starterSteps(): SkinStep[] {

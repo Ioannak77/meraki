@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation";
 import { dayKey } from "@/lib/store";
 import { useNow } from "@/lib/useNow";
 import { Icon, type IconName } from "./icons";
-import { SkinReminder } from "./skin/SkinReminder";
 
 // `short` is the label under the icon in the phone tab bar, where space is tight.
 const NAV: { href: string; label: string; short?: string; icon: IconName; phone: boolean }[] = [
@@ -70,7 +69,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main key={day} className="pt-safe min-w-0 flex-1 px-4 pb-44 md:px-8 md:pb-28">
-        <SkinReminder />
         {children}
       </main>
 
