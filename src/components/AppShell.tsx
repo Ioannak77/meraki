@@ -5,31 +5,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { dayKey, useStore } from "@/lib/store";
+import { dayKey } from "@/lib/store";
 import { useNow } from "@/lib/useNow";
 import { Icon, type IconName } from "./icons";
 import { SkinReminder } from "./skin/SkinReminder";
-
-/** Reminder that the app is pretending it's another day (Settings > Testing). */
-function TestDateBanner() {
-  const { settings, updateSettings } = useStore();
-  if (!settings.testDate) return null;
-  const label = new Date(settings.testDate + "T12:00:00").toLocaleDateString(undefined, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-  return (
-    <div className="mx-auto mb-4 flex max-w-5xl items-center justify-between gap-3 rounded-2xl bg-sun/30 px-4 py-2.5 text-sm">
-      <span>
-        <strong>Test mode:</strong> pretending it&apos;s {label}
-      </span>
-      <button onClick={() => updateSettings({ testDate: null })} className="shrink-0 font-bold underline">
-        Back to today
-      </button>
-    </div>
-  );
-}
 
 // `short` is the label under the icon in the phone tab bar, where space is tight.
 const NAV: { href: string; label: string; short?: string; icon: IconName; phone: boolean }[] = [
@@ -91,8 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main key={day} className="pt-safe min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10">
-        <TestDateBanner />
+      <main key={day} className="pt-safe min-w-0 flex-1 px-4 pb-44 md:px-8 md:pb-28">
         <SkinReminder />
         {children}
       </main>

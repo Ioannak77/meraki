@@ -4,13 +4,13 @@
 // localStorage and synced. The photo itself is not kept, only what was read.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ListItem, ReaderSettings, Receipt } from "./groceries";
+import type { ListItem, Receipt } from "./groceries";
 import { markSaved } from "./sync";
 
-type Data = { receipts: Receipt[]; reader: ReaderSettings; list: ListItem[] };
+type Data = { receipts: Receipt[]; list: ListItem[] };
 
 const STORAGE_KEY = "meraki.groceries.v1";
-const EMPTY: Data = { receipts: [], reader: { url: "", passcode: "" }, list: [] };
+const EMPTY: Data = { receipts: [], list: [] };
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -22,7 +22,6 @@ type Store = Data & {
   ready: boolean;
   saveReceipt: (r: Omit<Receipt, "id"> & { id?: string }) => string;
   deleteReceipt: (id: string) => void;
-  setReader: (r: ReaderSettings) => void;
   addToList: (name: string) => void;
   updateListItem: (id: string, patch: Partial<ListItem>) => void;
   removeFromList: (id: string) => void;
@@ -38,8 +37,13 @@ export function GroceriesProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time load from localStorage
-      if (raw) setData({ ...EMPTY, ...(JSON.parse(raw) as Partial<Data>) });
+      if (raw) {
+        // The old receipt-reader address and passcode aren't used any more: drop them.
+        const saved = JSON.parse(raw) as Partial<Data> & { reader?: unknown };
+        delete saved.reader;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time load from localStorage
+        setData({ ...EMPTY, ...saved });
+      }
     } catch {}
     setReady(true);
   }, []);
@@ -62,7 +66,6 @@ export function GroceriesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deleteReceipt = useCallback((id: string) => setData((d) => ({ ...d, receipts: d.receipts.filter((r) => r.id !== id) })), []);
-  const setReader = useCallback((reader: ReaderSettings) => setData((d) => ({ ...d, reader })), []);
 
   const addToList = useCallback((name: string) => {
     const clean = name.trim();
@@ -82,8 +85,8 @@ export function GroceriesProvider({ children }: { children: React.ReactNode }) {
   const clearTicked = useCallback(() => setData((d) => ({ ...d, list: d.list.filter((i) => !i.done) })), []);
 
   const value = useMemo<Store>(
-    () => ({ ...data, ready, saveReceipt, deleteReceipt, setReader, addToList, updateListItem, removeFromList, clearTicked }),
-    [data, ready, saveReceipt, deleteReceipt, setReader, addToList, updateListItem, removeFromList, clearTicked],
+    () => ({ ...data, ready, saveReceipt, deleteReceipt, addToList, updateListItem, removeFromList, clearTicked }),
+    [data, ready, saveReceipt, deleteReceipt, addToList, updateListItem, removeFromList, clearTicked],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

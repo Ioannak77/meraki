@@ -4,7 +4,7 @@
 // localStorage. The shapes match supabase/schema.sql so syncing can be added
 // later without changing the screens.
 
-import { setTestDate, today } from "./clock";
+import { today } from "./clock";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { markSaved } from "./sync";
 import { setCleaning, type Routine } from "./cleaning";
@@ -45,7 +45,6 @@ type Data = {
 
 export type Settings = {
   officeDays: number[]; // 0 = Monday … 6 = Sunday
-  testDate?: string | null; // "YYYY-MM-DD" to pretend it is another day (testing only)
   todayHidden?: TodayCard[]; // cards switched off on the Today screen
   starterTasksRemoved?: boolean; // the first-day example tasks have been cleared
   push?: PushPrefs; // phone notifications (synced, so every device plans the same reminders)
@@ -197,8 +196,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<Data>({ areas: [], tasks: [], moods: {}, routineDone: {}, routineTimes: {}, settings: DEFAULT_SETTINGS });
   const [ready, setReady] = useState(false);
 
-  // Testing: make every screen see the chosen day as "today".
-  setTestDate(data.settings.testDate ?? null);
   // Every screen reads the cleaning schedule through cleaningLists().
   setCleaning(data.cleaning);
 

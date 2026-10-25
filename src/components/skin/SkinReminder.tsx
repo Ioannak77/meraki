@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { today } from "@/lib/clock";
 import { careDaysLeft, minutesOf, slotKey, type Slot } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
-import { dayKey, useStore } from "@/lib/store";
+import { dayKey } from "@/lib/store";
 import { SLOT_LABEL, dueSteps } from "./SlotCard";
 
 const NOTIFIED_KEY = "meraki.skin.notified"; // slot keys already notified / dismissed
@@ -42,7 +42,6 @@ function notify(title: string, body: string) {
 type Pending = { icon: string; title: string; detail: string; key: string };
 
 export function SkinReminder() {
-  const { settings: appSettings } = useStore();
   const { ready, steps, done, settings, items } = useSkin();
   const pathname = usePathname();
   const [pending, setPending] = useState<Pending | null>(null);
@@ -51,7 +50,7 @@ export function SkinReminder() {
   useEffect(() => {
     if (!ready || !settings.remind) return;
     function check() {
-      const now = today(appSettings.testDate);
+      const now = today();
       const mins = now.getHours() * 60 + now.getMinutes();
       // The latest slot whose time has passed (evening wins once it's evening).
       // Morning skincare not done by noon is let go for the day, as on Today.
@@ -91,7 +90,7 @@ export function SkinReminder() {
       clearTimeout(first);
       clearInterval(id);
     };
-  }, [ready, steps, done, settings, items, appSettings.testDate]);
+  }, [ready, steps, done, settings, items]);
 
   if (!pending || dismissed === pending.key || pathname.startsWith("/self-care") || pathname === "/") return null; // Today shows it as a card already
 

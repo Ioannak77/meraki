@@ -6,7 +6,6 @@ import { NotificationsCard } from "@/components/NotificationsCard";
 import { BackupCard } from "@/components/BackupCard";
 import { HomeScreenCard } from "@/components/HomeScreenCard";
 import { OtherSettingsCard } from "@/components/OtherSettingsCard";
-import { TestingCard } from "@/components/TestingCard";
 import { TodayCardsSettings } from "@/components/TodayCardsSettings";
 import { WEEKDAYS, formatMinutes, plannedMinutes, weeklyPlan } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
@@ -83,8 +82,6 @@ export default function SettingsPage() {
       <MoneySettingsCard />
 
       <OtherSettingsCard />
-
-      <TestingCard />
     </div>
   );
 }

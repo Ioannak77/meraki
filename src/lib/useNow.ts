@@ -7,10 +7,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { today } from "./clock";
-import { useStore } from "./store";
 
 export function useNow() {
-  const { settings } = useStore();
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -30,6 +28,6 @@ export function useNow() {
 
   return useMemo(() => {
     void tick; // re-read the clock on every tick
-    return today(settings.testDate);
-  }, [tick, settings.testDate]);
+    return today();
+  }, [tick]);
 }

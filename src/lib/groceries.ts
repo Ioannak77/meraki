@@ -32,7 +32,6 @@ export type Receipt = {
   txnId?: string; // set when it was also added to Money
 };
 
-export type ReaderSettings = { url: string; passcode: string };
 
 /** What the worker returns (snake_case, straight from the schema). */
 type Read = {

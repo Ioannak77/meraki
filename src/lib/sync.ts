@@ -2,14 +2,24 @@
 //
 // Each store keeps its whole state under one localStorage key and calls markSaved() after
 // writing it. Changed keys are pushed a moment later; remote changes are pulled when the app
-// opens or comes back to the front. If both sides changed, the newest change wins.
+// opens, comes back to the front, or every two minutes. If both sides changed, the changes are
+// merged item by item (merge.ts).
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { merge3 } from "./merge";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./syncConfig";
 
 export const SYNCED_KEYS = ["meraki.v1", "meraki.finance.v1", "meraki.skin.v1", "meraki.groceries.v1"];
 // Kept outside the "meraki." prefix so backups don't carry it.
 const META_KEY = "merakiSync.meta";
+// What each key looked like at the last sync, so changes made on two devices can be merged.
+const BASE_PREFIX = "merakiSync.base.";
+const readBase = (key: string) => localStorage.getItem(BASE_PREFIX + key);
+const writeBase = (key: string, value: string) => {
+  try {
+    localStorage.setItem(BASE_PREFIX + key, value);
+  } catch {}
+};
 
 type KeyMeta = { hash: string; remoteAt: string | null; editedAt: string | null };
 type Meta = { userId: string; lastSync: string | null; keys: Record<string, KeyMeta> };
@@ -125,6 +135,23 @@ async function pushKey(meta: Meta, key: string) {
     .single();
   if (error) throw error;
   meta.keys[key] = { hash: hash(value), remoteAt: (data as { updated_at: string }).updated_at, editedAt: null };
+  writeBase(key, value);
+}
+
+/** Restart the app, but not while you're typing: wait until you leave the field. */
+function reloadWhenIdle() {
+  const typing = () => {
+    const el = document.activeElement;
+    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el as HTMLElement).isContentEditable);
+  };
+  if (!typing()) return location.reload();
+  const later = () =>
+    setTimeout(() => {
+      if (typing()) return;
+      document.removeEventListener("focusout", later);
+      location.reload();
+    }, 800);
+  document.addEventListener("focusout", later);
 }
 
 /** Pull remote changes, push local ones. Restarts the app if anything came down. */
@@ -143,9 +170,17 @@ export async function syncNow() {
       const km = meta.keys[key] ?? { hash: "", remoteAt: null, editedAt: null };
       const localChanged = local !== null && hash(local) !== km.hash;
       const remoteChanged = !!row && row.updated_at !== km.remoteAt;
-      if (row && remoteChanged && (!localChanged || !km.editedAt || row.updated_at > km.editedAt)) {
+      const base = readBase(key);
+      if (row && remoteChanged && localChanged && base !== null) {
+        // Both devices changed this since they last agreed: keep both sets of changes.
+        const merged = JSON.stringify(merge3(JSON.parse(base), JSON.parse(local!), JSON.parse(row.value)));
+        localStorage.setItem(key, merged);
+        await pushKey(meta, key);
+        pulled = true;
+      } else if (row && remoteChanged && (!localChanged || !km.editedAt || row.updated_at > km.editedAt)) {
         localStorage.setItem(key, row.value);
         meta.keys[key] = { hash: hash(row.value), remoteAt: row.updated_at, editedAt: null };
+        writeBase(key, row.value);
         pulled = true;
       } else if (localChanged) {
         await pushKey(meta, key);
@@ -156,7 +191,7 @@ export async function syncNow() {
     writeMeta(meta);
     setOn({ lastSync: meta.lastSync, error: null });
     // The stores read localStorage when they start, so restart the app to show what came down.
-    if (pulled) location.reload();
+    if (pulled) reloadWhenIdle();
   } catch {
     setOn({ error: "Couldn't sync. It will try again when you're back online." });
   } finally {
@@ -211,6 +246,10 @@ export function startSync() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") void syncNow();
   });
+  // A device left open (the computer) also checks every two minutes, so it doesn't fall behind.
+  setInterval(() => {
+    if (document.visibilityState === "visible") void syncNow();
+  }, 120_000);
   window.addEventListener("online", () => void syncNow());
 }
 
@@ -228,4 +267,5 @@ export async function signIn(email: string, password: string, create: boolean) {
 export async function signOut() {
   await supabase()?.auth.signOut();
   localStorage.removeItem(META_KEY);
+  for (const key of SYNCED_KEYS) localStorage.removeItem(BASE_PREFIX + key);
 }

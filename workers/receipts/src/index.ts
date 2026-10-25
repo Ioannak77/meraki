@@ -12,7 +12,6 @@ import { type PushEnv, pushConfigured, sendDuePushes } from "./push";
 
 interface Env extends PushEnv {
   ANTHROPIC_API_KEY: string;
-  MERAKI_KEY: string;
   ALLOWED_ORIGINS: string;
   // Meraki's Supabase project (public values), for the daily keep-alive below.
   SUPABASE_URL?: string;
@@ -97,15 +96,14 @@ function cors(origin: string | null, env: Env): Record<string, string> {
     ? {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "content-type, x-meraki-key, authorization",
+        "Access-Control-Allow-Headers": "content-type, authorization",
         Vary: "Origin",
       }
     : {};
 }
 
-/** Signed in to Meraki (a Supabase session for this project), or the old passcode. */
+/** Signed in to Meraki (a Supabase session for this project). */
 async function allowed(request: Request, env: Env) {
-  if (env.MERAKI_KEY && request.headers.get("x-meraki-key") === env.MERAKI_KEY) return true;
   const auth = request.headers.get("authorization");
   if (!auth?.startsWith("Bearer ") || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return false;
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: auth } });
