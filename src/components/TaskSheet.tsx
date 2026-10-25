@@ -4,7 +4,17 @@
 // Only the title is required, so capturing a task takes one field and one tap.
 
 import { useState } from "react";
-import { LEAD_CHOICES, dayKey, leadDays, monthEndKey, useStore, type Energy, type Task } from "@/lib/store";
+import {
+  LEAD_CHOICES,
+  REPEAT_CHOICES,
+  dayKey,
+  leadDays,
+  monthEndKey,
+  useStore,
+  type Repeat,
+  type Task,
+  type TaskStep,
+} from "@/lib/store";
 import { Icon } from "./icons";
 import { NewChip } from "./NewChip";
 
@@ -40,8 +50,11 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
     setWholeMonth(month && date !== null);
   }
   const [minutes, setMinutes] = useState<number | null>(existing?.minutes ?? 5);
-  const [energy, setEnergy] = useState<Energy>(existing?.energy ?? "normal");
   const [isEssential, setIsEssential] = useState(existing?.isEssential ?? false);
+  const [repeat, setRepeat] = useState<Repeat | null>(existing?.repeat ?? null);
+  const [steps, setSteps] = useState<TaskStep[]>(existing?.steps ?? []);
+  const [newStep, setNewStep] = useState("");
+  const [remindTime, setRemindTime] = useState(existing?.remindAt?.slice(11, 16) ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   function save(e: React.FormEvent) {
@@ -55,8 +68,12 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
       wholeMonth: wholeMonth || undefined,
       showBefore: dueDate && showBefore !== null ? showBefore : undefined,
       minutes,
-      energy,
+      energy: existing?.energy ?? "normal",
       isEssential,
+      repeat,
+      steps: [...steps, ...(newStep.trim() ? [{ id: Math.random().toString(36).slice(2, 9), title: newStep.trim(), done: false }] : [])],
+      // On the due day (or today, for a task without a date).
+      remindAt: remindTime ? `${dueDate ?? dayKey()}T${remindTime}` : null,
     };
     if (existing) updateTask(existing.id, input);
     else addTask(input);
@@ -79,6 +96,33 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
             <Icon.close className="size-6" />
           </button>
         </div>
+
+        {existing && !existing.completedAt && (
+          <div className="mb-3 flex gap-2">
+            {[
+              ["Tomorrow", 1],
+              ["Next week", 7],
+            ].map(([label, days]) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  const due = dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + Number(days)));
+                  updateTask(existing.id, {
+                    dueDate: due,
+                    wholeMonth: undefined,
+                    remindAt: existing.remindAt ? `${due}T${existing.remindAt.slice(11, 16)}` : existing.remindAt,
+                  });
+                  onClose();
+                }}
+                className="flex-1 rounded-2xl bg-sky-soft py-2.5 text-sm font-bold text-sky"
+              >
+                → {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <input
           autoFocus={!existing}
@@ -176,20 +220,96 @@ export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () =
           </>
         )}
 
+        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Repeats</p>
+        <div className="flex flex-wrap gap-2">
+          {REPEAT_CHOICES.map((c) => (
+            <button
+              key={c.label}
+              type="button"
+              className={chip(JSON.stringify(repeat) === JSON.stringify(c.repeat))}
+              onClick={() => setRepeat(c.repeat)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        {repeat && <p className="mt-2 text-xs text-muted">When you tick it off, the next one appears by itself.</p>}
+
+        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Remind me at</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="time"
+            aria-label="Reminder time"
+            value={remindTime}
+            onChange={(e) => setRemindTime(e.target.value)}
+            className="rounded-2xl bg-cream px-4 py-3 text-base text-ink"
+          />
+          {remindTime ? (
+            <button type="button" onClick={() => setRemindTime("")} className="text-sm font-semibold text-muted underline">
+              No reminder
+            </button>
+          ) : (
+            <span className="text-sm text-muted">{dueDate ? "on the day" : "today"}, as a phone notification</span>
+          )}
+        </div>
+
+        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Small steps</p>
+        {steps.length > 0 && (
+          <ul className="mb-2 divide-y divide-line rounded-2xl bg-cream px-3">
+            {steps.map((st) => (
+              <li key={st.id} className="flex items-center gap-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => setSteps((all) => all.map((x) => (x.id === st.id ? { ...x, done: !x.done } : x)))}
+                  aria-label={st.done ? `Mark ${st.title} as not done` : `Mark ${st.title} as done`}
+                  className={`grid size-6 shrink-0 place-items-center rounded-md border-2 ${st.done ? "border-sage bg-sage text-white" : "border-line bg-card"}`}
+                >
+                  {st.done && <Icon.check className="size-3.5" />}
+                </button>
+                <span className={`flex-1 text-[15px] ${st.done ? "text-muted line-through" : ""}`}>{st.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setSteps((all) => all.filter((x) => x.id !== st.id))}
+                  aria-label={`Remove ${st.title}`}
+                  className="px-1 text-muted"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2">
+          <input
+            value={newStep}
+            onChange={(e) => setNewStep(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || !newStep.trim()) return;
+              e.preventDefault();
+              setSteps((all) => [...all, { id: Math.random().toString(36).slice(2, 9), title: newStep.trim(), done: false }]);
+              setNewStep("");
+            }}
+            placeholder="Break it down, e.g. find a garage"
+            className="w-full rounded-2xl border border-line bg-cream px-4 py-3 text-base outline-none focus:border-sage"
+          />
+          <button
+            type="button"
+            disabled={!newStep.trim()}
+            onClick={() => {
+              setSteps((all) => [...all, { id: Math.random().toString(36).slice(2, 9), title: newStep.trim(), done: false }]);
+              setNewStep("");
+            }}
+            className="shrink-0 rounded-2xl bg-sage-soft px-4 font-bold text-sage-dark disabled:opacity-40"
+          >
+            Add
+          </button>
+        </div>
+
         <p className="mb-2 mt-5 text-sm font-semibold text-muted">How long</p>
         <div className="flex flex-wrap gap-2">
           {MINUTE_CHOICES.map((m) => (
             <button key={m} type="button" className={chip(minutes === m)} onClick={() => setMinutes(m)}>
               {m === 60 ? "1 h" : `${m} min`}
-            </button>
-          ))}
-        </div>
-
-        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Energy it needs</p>
-        <div className="flex gap-2">
-          {(["low", "normal", "high"] as Energy[]).map((en) => (
-            <button key={en} type="button" className={chip(energy === en)} onClick={() => setEnergy(en)}>
-              {en[0].toUpperCase() + en.slice(1)}
             </button>
           ))}
         </div>

@@ -38,7 +38,7 @@ function groupAll(open: Task[]) {
 }
 
 export default function TasksPage() {
-  const { tasks, areas, ready, addTask } = useStore();
+  const { tasks, areas, ready, addTask, updateTask } = useStore();
   const [filter, setFilter] = useState<Filter>("All");
   const [area, setArea] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Task | "new" | null>(null);
@@ -133,9 +133,21 @@ export default function TasksPage() {
       ) : filter === "All" ? (
         groupAll(shown).map((g) => (
           <section key={g.title} className="mt-4 rounded-3xl bg-card px-5 py-3">
-            <h2 className={`text-sm font-bold uppercase tracking-wider ${g.title === "Overdue" ? "text-peach" : "text-muted"}`}>
-              {g.title} · {g.tasks.length}
-            </h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className={`text-sm font-bold uppercase tracking-wider ${g.title === "Overdue" ? "text-peach" : "text-muted"}`}>
+                {g.title} · {g.tasks.length}
+              </h2>
+              {/* Old dates, cleared in one go. */}
+              {g.title === "Overdue" && (
+                <button
+                  type="button"
+                  onClick={() => g.tasks.forEach((t) => updateTask(t.id, { dueDate: dayKey(), wholeMonth: undefined }))}
+                  className="shrink-0 text-sm font-semibold text-sage-dark"
+                >
+                  Move all to today
+                </button>
+              )}
+            </div>
             <ul className="divide-y divide-line">
               {g.tasks.map((t) => (
                 <TaskRow key={t.id} task={t} onEdit={setSheet} />

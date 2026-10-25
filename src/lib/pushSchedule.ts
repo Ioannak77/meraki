@@ -98,5 +98,17 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin }:
       add(new Date(d.getFullYear(), d.getMonth(), d.getDate(), w.hour, w.minute), "A little reminder 💛", w.text, "/", `kind-${key}`);
     }
   }
+  // Tasks with "Remind me at": the notification goes out whatever the morning-plan setting is.
+  const horizon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + DAYS);
+  for (const t of tasks) {
+    if (t.completedAt || !t.remindAt) continue;
+    const [date, time] = t.remindAt.split("T");
+    const [y, m, d] = date.split("-").map(Number);
+    const [h, mi] = time.split(":").map(Number);
+    const when = new Date(y, m - 1, d, h, mi);
+    if (when > horizon) continue;
+    const left = t.steps?.filter((s) => !s.done).length ?? 0;
+    add(when, `⏰ ${t.title}`, left ? `${left} small ${left === 1 ? "step" : "steps"} to go. You've got this.` : "Tap to open your tasks.", "/tasks/", `task-${t.id}-${t.remindAt}`);
+  }
   return out.sort((a, b) => a.send_at.localeCompare(b.send_at));
 }

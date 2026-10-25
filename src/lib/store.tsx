@@ -28,7 +28,37 @@ export type Task = {
   isEssential: boolean; // shows under "Your priorities today"
   completedAt: string | null; // ISO timestamp
   createdAt: string;
+  repeat?: Repeat | null; // ticking it off makes the next one
+  nextId?: string; // the next one made from this repeating task (so unticking can take it back)
+  steps?: TaskStep[]; // small steps inside the task
+  remindAt?: string | null; // "YYYY-MM-DDTHH:MM": a phone notification then
 };
+
+export type Repeat = { every: number; unit: "day" | "week" | "month" | "year" };
+export type TaskStep = { id: string; title: string; done: boolean };
+
+export const REPEAT_CHOICES: { label: string; repeat: Repeat | null }[] = [
+  { label: "Doesn't repeat", repeat: null },
+  { label: "Every week", repeat: { every: 1, unit: "week" } },
+  { label: "Every 2 weeks", repeat: { every: 2, unit: "week" } },
+  { label: "Every month", repeat: { every: 1, unit: "month" } },
+  { label: "Every 3 months", repeat: { every: 3, unit: "month" } },
+  { label: "Every year", repeat: { every: 1, unit: "year" } },
+];
+
+export function repeatLabel(r: Repeat) {
+  const unit = r.every === 1 ? r.unit : `${r.unit}s`;
+  return r.every === 1 ? `Every ${unit}` : `Every ${r.every} ${unit}`;
+}
+
+/** The date a repeat lands on after `from` ("YYYY-MM-DD"). Months keep the day, or the month's last day. */
+export function advanceDate(from: string, r: Repeat, wholeMonth = false) {
+  const [y, m, d] = from.split("-").map(Number);
+  if (r.unit === "day" || r.unit === "week") return dayKey(new Date(y, m - 1, d + r.every * (r.unit === "week" ? 7 : 1)));
+  const months = r.unit === "year" ? 12 * r.every : r.every;
+  const last = new Date(y, m - 1 + months + 1, 0).getDate();
+  return dayKey(new Date(y, m - 1 + months, wholeMonth ? last : Math.min(d, last)));
+}
 
 type Data = {
   areas: Area[];
@@ -233,12 +263,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleTask = useCallback((id: string) => {
-    setData((d) => ({
-      ...d,
-      tasks: d.tasks.map((t) =>
-        t.id === id ? { ...t, completedAt: t.completedAt ? null : today().toISOString() } : t,
-      ),
-    }));
+    setData((d) => {
+      const t = d.tasks.find((x) => x.id === id);
+      if (!t) return d;
+      let tasks = d.tasks;
+      if (!t.completedAt) {
+        // Done. A repeating task makes its next one.
+        let nextId = t.nextId;
+        if (t.repeat && !nextId) {
+          nextId = newId();
+          const from = t.dueDate ?? dayKey();
+          const due = advanceDate(from, t.repeat, t.wholeMonth);
+          const next: Task = {
+            ...t,
+            id: nextId,
+            dueDate: due,
+            isEssential: false,
+            completedAt: null,
+            createdAt: today().toISOString(),
+            nextId: undefined,
+            steps: t.steps?.map((st) => ({ ...st, done: false })),
+            remindAt: t.remindAt ? `${due}T${t.remindAt.slice(11, 16)}` : t.remindAt,
+          };
+          tasks = [...tasks, next];
+        }
+        tasks = tasks.map((x) => (x.id === id ? { ...x, completedAt: today().toISOString(), nextId } : x));
+      } else {
+        // Undone. Take back the next one, if you haven't touched it yet.
+        const next = t.nextId ? tasks.find((x) => x.id === t.nextId) : undefined;
+        const untouched = next && !next.completedAt && next.title === t.title;
+        tasks = tasks
+          .filter((x) => !(untouched && x.id === next!.id))
+          .map((x) => (x.id === id ? { ...x, completedAt: null, nextId: untouched ? undefined : x.nextId } : x));
+      }
+      return { ...d, tasks };
+    });
   }, []);
 
   const deleteTask = useCallback((id: string) => {

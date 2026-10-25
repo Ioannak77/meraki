@@ -14,7 +14,7 @@ export const TONE_CLASSES: Record<Tone, string> = {
 };
 
 export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit: (t: Task) => void; showArea?: boolean }) {
-  const { toggleTask, areaById } = useStore();
+  const { toggleTask, updateTask, areaById } = useStore();
   const [popped, setPopped] = useState(false);
   const area = areaById(task.areaId);
   const done = !!task.completedAt;
@@ -53,13 +53,31 @@ export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit:
           {task.title}
         </span>
         <span className="block truncate text-[13px] text-muted">
-          {[task.minutes ? `${task.minutes} min` : null, area?.name].filter(Boolean).join(" · ")}
+          {[
+            task.repeat ? "↻" : null,
+            task.remindAt ? `⏰ ${task.remindAt.slice(11, 16)}` : null,
+            task.steps?.length ? `${task.steps.filter((s) => s.done).length}/${task.steps.length} steps` : null,
+            task.minutes ? `${task.minutes} min` : null,
+            area?.name,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
       </button>
 
       <span className={`shrink-0 text-xs ${label === "Overdue" || label === "Today" || label.startsWith("by ") ? "text-peach" : "text-muted"}`}>
         {done ? "Done" : label}
       </span>
+      {!done && (
+        <button
+          onClick={() => updateTask(task.id, { isEssential: !task.isEssential })}
+          aria-pressed={task.isEssential}
+          aria-label={task.isEssential ? `${task.title}: not a priority today` : `Make ${task.title} a priority today`}
+          className={`shrink-0 p-1 text-lg leading-none ${task.isEssential ? "text-sun" : "text-line"}`}
+        >
+          ★
+        </button>
+      )}
       <button onClick={() => onEdit(task)} aria-label={`Edit ${task.title}`} className="shrink-0 p-1 text-muted">
         <Icon.more className="size-5" />
       </button>
