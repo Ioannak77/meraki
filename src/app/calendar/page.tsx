@@ -11,10 +11,19 @@ import { dueDates, money, paidKey } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { careNextDue } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
-import { dayKey, useStore } from "@/lib/store";
+import { TaskSheet } from "@/components/TaskSheet";
+import { advanceDate, dayKey, useStore, type Task } from "@/lib/store";
 import { useNow } from "@/lib/useNow";
 
-type Entry = { kind: "task" | "bill" | "clean" | "care" | "big"; label: string; detail?: string; done?: boolean; href: string };
+type Entry = {
+  kind: "task" | "bill" | "clean" | "care" | "big";
+  label: string;
+  detail?: string;
+  done?: boolean;
+  href: string;
+  task?: Task; // tasks open in place
+  ahead?: boolean; // a future repeat of a repeating task (not made yet)
+};
 
 const DOT: Record<Entry["kind"], string> = {
   task: "bg-peach",
@@ -31,6 +40,7 @@ export default function CalendarPage() {
   const now = useNow();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [picked, setPicked] = useState(() => dayKey(now));
+  const [sheet, setSheet] = useState<Task | "new" | null>(null);
 
   if (!ready) return null;
 
@@ -43,9 +53,18 @@ export default function CalendarPage() {
   // Everything planned per day of the shown month.
   const byDay = new Map<string, Entry[]>();
   const add = (key: string, e: Entry) => byDay.set(key, [...(byDay.get(key) ?? []), e]);
+  const monthKey = dayKey(first).slice(0, 7);
   for (const t of tasks) {
-    if (!t.dueDate || !t.dueDate.startsWith(dayKey(first).slice(0, 7))) continue;
-    add(t.dueDate, { kind: "task", label: t.title, done: !!t.completedAt, detail: t.wholeMonth ? "by the end of the month" : undefined, href: "/tasks/" });
+    if (!t.dueDate) continue;
+    if (t.dueDate.startsWith(monthKey)) {
+      add(t.dueDate, { kind: "task", label: t.title, done: !!t.completedAt, detail: t.wholeMonth ? "by the end of the month" : undefined, href: "/tasks/", task: t });
+    }
+    // Repeating tasks: their next turns, shown faintly so the months ahead aren't empty.
+    if (t.repeat && !t.completedAt) {
+      for (let due = advanceDate(t.dueDate, t.repeat, t.wholeMonth), n = 0; due.slice(0, 7) <= monthKey && n < 400; due = advanceDate(due, t.repeat, t.wholeMonth), n++) {
+        if (due.startsWith(monthKey)) add(due, { kind: "task", label: t.title, detail: "repeats", href: "/tasks/", ahead: true });
+      }
+    }
   }
   for (const b of finance.bills) {
     for (const d of dueDates(b, first, last)) {
@@ -81,10 +100,21 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between md:mt-4">
         <h1 className="text-[26px] font-bold md:text-3xl">Calendar</h1>
         <div className="flex items-center gap-1">
+          {(first.getMonth() !== now.getMonth() || first.getFullYear() !== now.getFullYear()) && (
+            <button
+              onClick={() => {
+                setMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+                setPicked(dayKey(now));
+              }}
+              className="mr-1 rounded-full bg-sage-soft px-3 py-2 text-sm font-semibold text-sage-dark"
+            >
+              Today
+            </button>
+          )}
           <button onClick={() => shift(-1)} aria-label="Previous month" className="grid size-10 place-items-center rounded-full bg-card text-lg">
             ‹
           </button>
-          <span className="w-36 text-center font-semibold">
+          <span className="w-32 text-center font-semibold md:w-36">
             {MONTHS[first.getMonth()]} {first.getFullYear()}
           </span>
           <button onClick={() => shift(1)} aria-label="Next month" className="grid size-10 place-items-center rounded-full bg-card text-lg">
@@ -132,7 +162,7 @@ export default function CalendarPage() {
                     key={i}
                     className={`line-clamp-2 break-words rounded-md px-1 py-0.5 text-[9px] font-semibold leading-tight md:text-[11px] ${CHIP[e.kind]} ${
                       e.done ? "line-through opacity-60" : ""
-                    }`}
+                    } ${e.ahead ? "opacity-50" : ""}`}
                   >
                     {e.kind === "big" ? "Big clean" : e.label}
                   </span>
@@ -161,9 +191,9 @@ export default function CalendarPage() {
             <div key={g.title} className="mt-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted">{g.title}</h3>
               <ul className="divide-y divide-line">
-                {items.map((e, i) => (
-                  <li key={i}>
-                    <Link href={e.href} className="flex items-center gap-3 py-3">
+                {items.map((e, i) => {
+                  const body = (
+                    <>
                       <span className={`size-2.5 shrink-0 rounded-full ${DOT[e.kind]}`} />
                       <span className={`flex-1 text-[15px] ${e.done ? "text-muted line-through" : ""}`}>
                         {e.kind === "bill" ? `Pay ${e.label}` : e.label}
@@ -178,15 +208,40 @@ export default function CalendarPage() {
                       {e.kind !== "bill" && e.kind !== "big" && !e.done && e.detail && (
                         <span className="shrink-0 text-right text-[13px] text-muted">{e.detail}</span>
                       )}
-                    </Link>
-                  </li>
-                ))}
+                    </>
+                  );
+                  return (
+                    <li key={i} className={e.ahead ? "opacity-60" : ""}>
+                      {/* Tasks open right here; a future repeat isn't a task yet. */}
+                      {e.task ? (
+                        <button type="button" onClick={() => setSheet(e.task!)} className="flex w-full items-center gap-3 py-3 text-left">
+                          {body}
+                        </button>
+                      ) : e.ahead ? (
+                        <div className="flex items-center gap-3 py-3">{body}</div>
+                      ) : (
+                        <Link href={e.href} className="flex items-center gap-3 py-3">
+                          {body}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           );
         })}
         {pickedEntries.length === 0 && <p className="mt-2 text-muted">Nothing planned.</p>}
+        <button
+          type="button"
+          onClick={() => setSheet("new")}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-sage-soft py-3 font-bold text-sage-dark"
+        >
+          + Add a task on this day
+        </button>
       </section>
+
+      {sheet && <TaskSheet task={sheet} defaultDate={picked} onClose={() => setSheet(null)} />}
     </div>
   );
 }

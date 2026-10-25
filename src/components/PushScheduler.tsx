@@ -25,12 +25,13 @@ export function PushScheduler() {
   const items = ready
     ? buildQueue({
         now: today(),
-        prefs: prefs.on ? prefs : { ...prefs, morning: false, skincare: false, care: false, bills: false, kind: false },
+        prefs: prefs.on ? prefs : { ...prefs, morning: false, skincare: false, care: false, bills: false, kind: false, weekly: false },
         tasks: store.tasks,
         officeDays: store.settings.officeDays,
         bills: finance.bills,
         paid: finance.paid,
         skin: { amTime: skin.settings.amTime, pmTime: skin.settings.pmTime, done: skin.done, items: skin.items },
+        routineDone: store.routineDone,
       })
     : null;
   const json = items ? JSON.stringify(items) : null;

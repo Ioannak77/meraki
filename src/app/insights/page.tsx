@@ -57,10 +57,14 @@ export default function InsightsPage() {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const countFrom = firstUse && firstUse > dayKey(monthStart) ? new Date(firstUse + "T00:00:00") : monthStart;
   const lists = new Map<string, { name: string; due: number; done: number }>();
+  let skipped = 0;
   for (let d = countFrom; firstUse && d <= today; d = addDays(d, 1)) {
     for (const r of dueToday(d, settings.officeDays)) {
       if (r.when.kind === "monthly") continue; // the Big clean is counted on its own weekend
-      if (isSkipped(routineDone, r, d)) continue; // skipped on purpose: not a miss
+      if (isSkipped(routineDone, r, d)) {
+        skipped++; // skipped on purpose: not a miss
+        continue;
+      }
       const entry = lists.get(r.id) ?? { name: r.name, due: 0, done: 0 };
       entry.due++;
       if (routineProgress(r, routineDone[occurrenceKey(r, d)] ?? [], d).complete) entry.done++;
@@ -76,9 +80,12 @@ export default function InsightsPage() {
   // Skincare this month.
   let amDays = 0;
   let pmDays = 0;
+  let dailyDays = 0;
+  const hasDaily = skin.steps.some((st) => st.slot === "day");
   for (let d = new Date(today.getFullYear(), today.getMonth(), 1); d <= today; d = addDays(d, 1)) {
     if (skin.done[slotKey("am", d)]?.length) amDays++;
     if (skin.done[slotKey("pm", d)]?.length) pmDays++;
+    if (skin.done[slotKey("day", d)]?.length) dailyDays++;
   }
 
   // Money: spending (not income or transfers) and groceries, last 6 months.
@@ -127,6 +134,11 @@ export default function InsightsPage() {
                 🌿 Going well: <strong>{easiest.name}</strong> ({easiest.done} of {easiest.due})
               </p>
             )}
+            {skipped > 0 && (
+              <p className="mt-1 text-[15px] text-muted">
+                {skipped} {skipped === 1 ? "day" : "days"} skipped, and that&apos;s okay.
+              </p>
+            )}
             {hardest && hardest !== easiest && hardest.done < hardest.due && (
               <p className="mt-1 text-[15px]">
                 🤍 Hardest to fit in: <strong>{hardest.name}</strong> ({hardest.done} of {hardest.due}). It might be too long, or on
@@ -138,8 +150,8 @@ export default function InsightsPage() {
       </section>
 
       <section className="mt-4 rounded-3xl bg-card p-5">
-        <h2 className="text-lg font-bold">Skincare in {MONTHS[today.getMonth()]}</h2>
-        <div className="mt-2 grid grid-cols-2 gap-3 text-center">
+        <h2 className="text-lg font-bold">Self care in {MONTHS[today.getMonth()]}</h2>
+        <div className={`mt-2 grid gap-3 text-center ${hasDaily ? "grid-cols-3" : "grid-cols-2"}`}>
           <div className="rounded-2xl bg-cream p-3">
             <p className="text-2xl font-bold">{amDays}</p>
             <p className="text-sm text-muted">mornings</p>
@@ -148,6 +160,12 @@ export default function InsightsPage() {
             <p className="text-2xl font-bold">{pmDays}</p>
             <p className="text-sm text-muted">evenings</p>
           </div>
+          {hasDaily && (
+            <div className="rounded-2xl bg-cream p-3">
+              <p className="text-2xl font-bold">{dailyDays}</p>
+              <p className="text-sm text-muted">daily self care</p>
+            </div>
+          )}
         </div>
       </section>
 

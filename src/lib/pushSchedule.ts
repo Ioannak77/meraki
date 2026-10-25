@@ -17,6 +17,7 @@ type Input = {
   bills: Bill[];
   paid: Record<string, string>;
   skin: { amTime: string; pmTime: string; done: Record<string, string[]>; items: CareItem[] };
+  routineDone?: Record<string, string[]>; // for the week summary
 };
 
 const DAYS = 7;
@@ -41,7 +42,25 @@ function tasksOn(tasks: Task[], d: Date) {
   });
 }
 
-export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin }: Input): QueueItem[] {
+/** "This week: 9 tasks done · 5 cleaning lists · 6 skincare days", Monday to `d`. */
+function weekSoFar(d: Date, tasks: Task[], skinDone: Record<string, string[]>, routineDone: Record<string, string[]>) {
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - weekdayIndex(d));
+  const keys: string[] = [];
+  for (let x = new Date(monday); x <= d; x = new Date(x.getFullYear(), x.getMonth(), x.getDate() + 1)) keys.push(dayKey(x));
+  const doneTasks = tasks.filter((t) => t.completedAt && keys.includes(dayKey(new Date(t.completedAt)))).length;
+  const lists = Object.entries(routineDone).filter(
+    ([k, ids]) => keys.includes(k.split("@")[1]?.split("#")[0] ?? "") && ids.some((id) => !id.startsWith("__")),
+  ).length;
+  const skinDays = keys.filter((k) => skinDone[`am@${k}`]?.length || skinDone[`pm@${k}`]?.length).length;
+  const parts = [
+    doneTasks ? plural(doneTasks, "task") + " done" : null,
+    lists ? plural(lists, "cleaning list") : null,
+    skinDays ? plural(skinDays, "skincare day") : null,
+  ].filter(Boolean);
+  return parts.length ? `This week: ${parts.join(" · ")} 💛` : "A new week starts tomorrow. Whatever this one was, it's done 💛";
+}
+
+export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, routineDone = {} }: Input): QueueItem[] {
   const out: QueueItem[] = [];
   const add = (when: Date, title: string, body: string, url: string, tag: string) => {
     if (when > now) out.push({ send_at: when.toISOString(), title, body, url: `${BASE}${url}`, tag });
@@ -91,6 +110,12 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin }:
           add(at(d, time), `${label}: ${b.name}`, `${money(b.amount)}. Tap to mark it paid.`, "/finances/#bills", `bill-${b.id}-${dayKey(next)}-${time}`);
         }
       }
+    }
+
+    // Sunday evening: a look back. With today's numbers when it's planned on the day itself.
+    if (prefs.weekly !== false && weekdayIndex(d) === 6) {
+      const body = i === 0 ? weekSoFar(d, tasks, skin.done, routineDone) : "Tap to see how your week went 💛";
+      add(at(d, "19:00"), "Your week 🌿", body, "/insights/", `week-${key}`);
     }
 
     if (prefs.kind) {

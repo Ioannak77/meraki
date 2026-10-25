@@ -89,6 +89,7 @@ export type PushPrefs = {
   care: boolean;
   bills: boolean;
   kind: boolean;
+  weekly?: boolean; // Sunday evening week summary (on unless switched off)
 };
 
 export const DEFAULT_PUSH: PushPrefs = {
@@ -99,6 +100,7 @@ export const DEFAULT_PUSH: PushPrefs = {
   care: true,
   bills: true,
   kind: true,
+  weekly: true,
 };
 
 /** Cards on the Today screen that can be switched off in Settings. */

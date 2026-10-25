@@ -28,13 +28,14 @@ function showFromText(dueDate: string, lead: number) {
   return `Shows on Today from ${from.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}.`;
 }
 
-export function TaskSheet({ task, onClose }: { task: Task | "new"; onClose: () => void }) {
+/** `defaultDate`: the date a new task starts with (the Calendar passes the day you picked). */
+export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; onClose: () => void; defaultDate?: string }) {
   const { areas, addTask, updateTask, deleteTask, addArea } = useStore();
   const existing = task === "new" ? null : task;
 
   const [title, setTitle] = useState(existing?.title ?? "");
   const [areaId, setAreaId] = useState<string | null>(existing?.areaId ?? null);
-  const [dueDate, setDueDate] = useState<string | null>(existing ? existing.dueDate : dayKey());
+  const [dueDate, setDueDate] = useState<string | null>(existing ? existing.dueDate : (defaultDate ?? dayKey()));
   const [wholeMonth, setWholeMonth] = useState(existing?.wholeMonth ?? false);
   // null = the default for this kind of task (see leadDays).
   const [showBefore, setShowBefore] = useState<number | null>(existing?.showBefore ?? null);
