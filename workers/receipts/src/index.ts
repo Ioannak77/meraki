@@ -4,11 +4,12 @@
 // -> 200 { shop, date, currency, total, discounts, items: [...] }   Claude reads a receipt.
 // POST /advise   { summary: {...money summary...}, question: "" }
 // -> 200 { headline, going_well, watch, suggestions, answer }     Claude looks over the money.
+// POST /push-run  {}  -> 200 { setup, report | error }   Sends due reminders now and says how it went.
 //
 // Plus a cron that sends due phone reminders (push.ts).
 
 import Anthropic from "@anthropic-ai/sdk";
-import { type PushEnv, pushConfigured, sendDuePushes } from "./push";
+import { type PushEnv, pushConfigured, pushSetup, sendDuePushes } from "./push";
 
 interface Env extends PushEnv {
   ANTHROPIC_API_KEY: string;
@@ -211,12 +212,19 @@ export default {
     const headers = cors(request.headers.get("Origin"), env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || (path !== "/read" && path !== "/advise")) {
+    if (request.method !== "POST" || (path !== "/read" && path !== "/advise" && path !== "/push-run")) {
       return json({ error: "not found" }, 404, headers);
     }
     if (!headers["Access-Control-Allow-Origin"]) return json({ error: "origin not allowed" }, 403, headers);
     if (!(await allowed(request, env))) {
       return json({ error: "Sign in under Settings → Sync to use this." }, 401, headers);
+    }
+    if (path === "/push-run") {
+      try {
+        return json({ setup: pushSetup(env), report: pushConfigured(env) ? await sendDuePushes(env) : null }, 200, headers);
+      } catch (err) {
+        return json({ setup: pushSetup(env), error: String(err instanceof Error ? err.message : err).slice(0, 500) }, 200, headers);
+      }
     }
     return path === "/advise" ? advise(request, env, headers) : read(request, env, headers);
   },
@@ -225,9 +233,14 @@ export default {
   // pausing for being idle (before notifications are set up, a tiny query does that instead).
   async scheduled(_event: unknown, env: Env): Promise<void> {
     if (pushConfigured(env)) {
-      await sendDuePushes(env);
+      try {
+        await sendDuePushes(env);
+      } catch (err) {
+        console.error("Push round failed", err);
+      }
       return;
     }
+    console.warn("Push not set up", JSON.stringify(pushSetup(env)));
     if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return;
     await fetch(`${env.SUPABASE_URL}/rest/v1/meraki_data?select=key&limit=1`, {
       headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${env.SUPABASE_ANON_KEY}` },

@@ -20,3 +20,7 @@ VAPID_PUBLIC_KEY = "BGMF5XwqcfcJW-5inuhCMcIOT8q3JiKS54xslOSszGBjlNBxZenUsNga08Ex
 # Every 5 minutes: send due phone reminders, and keep Supabase awake (see scheduled() in src/index.ts).
 [triggers]
 crons = ["*/5 * * * *"]
+
+# Logs in the Cloudflare dashboard (Observability), to see each reminder round.
+[observability]
+enabled = true

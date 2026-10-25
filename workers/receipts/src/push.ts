@@ -30,41 +30,66 @@ function db(env: PushEnv, path: string, init: RequestInit = {}) {
   });
 }
 
-export async function sendDuePushes(env: PushEnv) {
+/** What one round did, for the logs and for /push-run. */
+export type PushReport = { due: number; devices: number; results: number[]; marked: number | null; skippedLate: number };
+
+export function pushSetup(env: PushEnv) {
+  return {
+    SUPABASE_URL: !!env.SUPABASE_URL,
+    SUPABASE_SECRET_KEY: !!env.SUPABASE_SECRET_KEY,
+    VAPID_PUBLIC_KEY: !!env.VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY: !!env.VAPID_PRIVATE_KEY,
+  };
+}
+
+export async function sendDuePushes(env: PushEnv): Promise<PushReport> {
+  const report: PushReport = { due: 0, devices: 0, results: [], marked: null, skippedLate: 0 };
   const now = new Date();
   const res = await db(env, `push_queue?sent=eq.false&send_at=lte.${now.toISOString()}&order=send_at&limit=200`, {
     headers: { Prefer: "" },
   });
   if (!res.ok) throw new Error(`queue ${res.status} ${await res.text()}`);
   const due = (await res.json()) as QueueRow[];
+  report.due = due.length;
 
   if (due.length) {
     const users = [...new Set(due.map((r) => r.user_id))];
     const subsRes = await db(env, `push_subscriptions?user_id=in.(${users.join(",")})`, { headers: { Prefer: "" } });
-    const subs = subsRes.ok ? ((await subsRes.json()) as Sub[]) : [];
+    if (!subsRes.ok) throw new Error(`devices ${subsRes.status} ${await subsRes.text()}`);
+    const subs = (await subsRes.json()) as Sub[];
+    report.devices = subs.length;
     const gone = new Set<string>();
 
     for (const row of due) {
-      if (now.getTime() - new Date(row.send_at).getTime() > TOO_LATE_MS) continue;
+      if (now.getTime() - new Date(row.send_at).getTime() > TOO_LATE_MS) {
+        report.skippedLate++;
+        continue;
+      }
       const payload = JSON.stringify({ title: row.title.slice(0, 80), body: row.body.slice(0, 200), url: row.url, tag: row.tag });
       for (const sub of subs.filter((s) => s.user_id === row.user_id && !gone.has(s.endpoint))) {
         try {
           const r = await sendWebPush(sub, payload, env);
+          report.results.push(r.status);
           if (r.status === 404 || r.status === 410) gone.add(sub.endpoint);
           else if (!r.ok) console.error("Push service error", r.status, await r.text());
         } catch (e) {
+          report.results.push(0);
           console.error("Push failed", e);
         }
       }
     }
 
-    await db(env, `push_queue?id=in.(${due.map((r) => r.id).join(",")})`, { method: "PATCH", body: JSON.stringify({ sent: true }) });
+    const marked = await db(env, `push_queue?id=in.(${due.map((r) => r.id).join(",")})`, { method: "PATCH", body: JSON.stringify({ sent: true }) });
+    report.marked = marked.status;
+    if (!marked.ok) console.error("Couldn't mark sent", marked.status, await marked.text());
     for (const endpoint of gone) await db(env, `push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, { method: "DELETE" });
   }
 
   // Tidy up: sent reminders older than three days.
   const old = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
   await db(env, `push_queue?sent=eq.true&send_at=lt.${old}`, { method: "DELETE" });
+  if (report.due) console.log("Push round", JSON.stringify(report));
+  return report;
 }
 
 async function sendWebPush(sub: Sub, payload: string, env: PushEnv) {
