@@ -21,7 +21,7 @@ import { dueLabel, upcomingBills } from "./Bills";
 import { ImportSheet, spendingByCategory } from "./Spending";
 import { Bar, Card, CardTitle, Label, MoneyInput, PrimaryButton, Sheet } from "./ui";
 
-export type FinanceTab = "Overview" | "Bills" | "Spending" | "Budgets" | "Goals" | "Advice";
+export type FinanceTab = "Overview" | "Bills" | "Spending" | "Goals" | "Tracker" | "Advice";
 
 export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => void }) {
   const { income, bills, paid, billActuals, txns, weeklyAllowance, has } = useFinance();
@@ -60,7 +60,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
       : null,
     billModules ? { label: "Add your bills (rent, utilities, subscriptions…)", done: bills.length > 0, act: () => go("Bills") } : null,
     has("imports") ? { label: "Import a bank statement", done: txns.some((t) => t.source === "import"), act: () => setImporting(true) } : null,
-    has("allowance") ? { label: "Set a weekly allowance", done: !!weeklyAllowance, act: () => go("Budgets") } : null,
+    has("allowance") ? { label: "Set a weekly allowance", done: !!weeklyAllowance, act: () => go("Spending") } : null,
     has("savings") ? { label: "Start an emergency fund", done: goals.some((g) => g.emergency), act: () => go("Goals") } : null,
   ].filter((s): s is { label: string; done: boolean; act: () => void } => s !== null);
   const stepsLeft = steps.filter((s) => !s.done).length;
@@ -180,7 +180,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
           {weeklyAllowance ? (
             <AllowanceBody allowance={weeklyAllowance} now={now} />
           ) : (
-            <button type="button" onClick={() => go("Budgets")} className="text-left text-muted">
+            <button type="button" onClick={() => go("Spending")} className="text-left text-muted">
               No weekly allowance set yet. <span className="font-semibold text-sage-dark">Set one →</span>
             </button>
           )}

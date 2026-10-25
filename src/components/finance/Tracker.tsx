@@ -34,7 +34,8 @@ function monthLabel(key: string) {
   return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
-export function TrackerView({ now }: { now: Date }) {
+/** Your trackers. `embedded`: inside Money (no page title of its own). */
+export function TrackerView({ now, embedded = false }: { now: Date; embedded?: boolean }) {
   const { trackers, txns, bills } = useFinance();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Tracker | "new" | null>(null);
@@ -42,9 +43,9 @@ export function TrackerView({ now }: { now: Date }) {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Tracker</h1>
+      {!embedded && <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Tracker</h1>}
 
-      <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div className={`-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 ${embedded ? "" : "mt-4"}`}>
         {trackers.map((t) => (
           <button
             key={t.id}

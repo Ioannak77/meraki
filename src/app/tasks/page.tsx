@@ -5,9 +5,10 @@ import { Icon } from "@/components/icons";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskSheet } from "@/components/TaskSheet";
 import { today } from "@/lib/clock";
-import { dayKey, isDoneToday, isDueNow, useStore, type Task } from "@/lib/store";
+import { dayKey, isDueNow, useStore, type Task } from "@/lib/store";
 
-const FILTERS = ["All", "Today", "This month", "Upcoming", "Overdue", "Done"] as const;
+// "All" is already grouped into Overdue, Today, This week, Later and No date.
+const FILTERS = ["All", "Done"] as const;
 type Filter = (typeof FILTERS)[number];
 
 function addDaysKey(n: number) {
@@ -46,24 +47,12 @@ export default function TasksPage() {
   const inArea = useMemo(() => (area ? tasks.filter((t) => t.areaId === area) : tasks), [tasks, area]);
 
   const shown = useMemo(() => {
-    const today = dayKey();
-    const open = inArea.filter((t) => !t.completedAt);
-    const byDate = (a: Task, b: Task) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999");
-    switch (filter) {
-      case "Today":
-        // Due today, plus tasks showing early (late ones are under Overdue).
-        return [...open.filter((t) => isDueNow(t) && t.dueDate! >= today), ...inArea.filter(isDoneToday)];
-      case "This month":
-        return open.filter((t) => t.dueDate !== null && t.dueDate.slice(0, 7) === today.slice(0, 7) && t.dueDate >= today).sort(byDate);
-      case "Upcoming":
-        return open.filter((t) => t.dueDate !== null && t.dueDate > today).sort(byDate);
-      case "Overdue":
-        return open.filter((t) => t.dueDate !== null && t.dueDate < today).sort(byDate);
-      case "Done":
-        return inArea.filter((t) => t.completedAt).sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
-      default:
-        return open.sort(byDate);
+    if (filter === "Done") {
+      return inArea.filter((t) => t.completedAt).sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
     }
+    return inArea
+      .filter((t) => !t.completedAt)
+      .sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
   }, [inArea, filter]);
 
   // Areas that have tasks, so the row stays short.
@@ -138,7 +127,7 @@ export default function TasksPage() {
               </p>
             </>
           ) : (
-            <p className="text-muted">{filter === "Overdue" ? "Nothing overdue. Nice." : "Nothing here."}</p>
+            <p className="text-muted">{filter === "Done" ? "Nothing finished yet." : "All done. Nice."}</p>
           )}
         </section>
       ) : filter === "All" ? (

@@ -3,8 +3,10 @@
 import { useState } from "react";
 import {
   allCategories,
+  canLower,
   categorise,
   effectiveBudgets,
+  tidy,
   monthStats,
   category,
   findHeader,
@@ -24,6 +26,8 @@ import {
 } from "@/lib/finance";
 import { useFinance, type ImportResult } from "@/lib/financeStore";
 import { dayKey } from "@/lib/store";
+import { NewChip } from "../NewChip";
+import { AllowanceBody, AmountSheet } from "./Budgets";
 import { Bar, Card, CardTitle, Chips, DangerButton, Label, MoneyInput, PrimaryButton, Sheet, inputClass } from "./ui";
 
 /** Money spent per counted category in a date range (positive numbers). */
@@ -37,7 +41,8 @@ export function spendingByCategory(txns: Txn[], start: Date, end: Date) {
 }
 
 export function SpendingTab({ now }: { now: Date }) {
-  const { txns, budgets, has, rules, deleteRule } = useFinance();
+  const { txns, budgets, has, rules, deleteRule, setBudget, addCategory, weeklyAllowance, setWeeklyAllowance } = useFinance();
+  const [editingBudget, setEditingBudget] = useState<CategoryId | "allowance" | null>(null);
   const [monthOffset, setMonthOffset] = useState(0);
   const [importing, setImporting] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -48,7 +53,12 @@ export function SpendingTab({ now }: { now: Date }) {
   const totals = spendingByCategory(txns, start, end);
   const total = [...totals.values()].reduce((a, b) => a + b, 0);
   const lines = txns.filter((t) => inRange(t.date, start, end)).sort((a, b) => b.date.localeCompare(a.date));
-  const eff = effectiveBudgets(budgets, monthStats(txns, now));
+  const stats = monthStats(txns, now);
+  const eff = effectiveBudgets(budgets, stats);
+  const isThisMonth = monthOffset === 0;
+  // A weekly allowance close to what the statements show you usually spend.
+  const usual = [...stats.avg.values()].reduce((a, v) => a + v, 0);
+  const suggestedAllowance = stats.months.length ? tidy((usual * 12) / 52) : null;
   const rows = allCategories().filter((c) => c.counts && (totals.get(c.id) || eff.has(c.id))).sort(
     (a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0),
   );
@@ -70,6 +80,36 @@ export function SpendingTab({ now }: { now: Date }) {
         </button>
       </div>
 
+      {has("allowance") && (
+        <Card className="lg:col-span-2">
+          <CardTitle
+            action={
+              <button type="button" onClick={() => setEditingBudget("allowance")} className="text-sm font-semibold text-sage-dark">
+                {weeklyAllowance ? "Change" : "Set"}
+              </button>
+            }
+          >
+            Weekly allowance
+          </CardTitle>
+          {weeklyAllowance ? (
+            <AllowanceBody allowance={weeklyAllowance} now={now} />
+          ) : (
+            <p className="text-muted">
+              An amount for day-to-day spending each week (groceries, eating out, shopping…). Bills aren&apos;t included.
+            </p>
+          )}
+          {suggestedAllowance && suggestedAllowance !== weeklyAllowance && (
+            <button
+              type="button"
+              onClick={() => setWeeklyAllowance(suggestedAllowance)}
+              className="mt-3 w-full rounded-2xl bg-sage-soft px-4 py-3 text-left text-sm text-sage-dark"
+            >
+              Your statements average about <strong>{money(suggestedAllowance, true)} a week</strong>. Tap to use that.
+            </button>
+          )}
+        </Card>
+      )}
+
       <Card>
         <div className="mb-3 flex items-center justify-between">
           <button type="button" onClick={() => setMonthOffset((m) => m - 1)} aria-label="Previous month" className="px-2 text-xl text-muted">
@@ -89,7 +129,8 @@ export function SpendingTab({ now }: { now: Date }) {
           </button>
         </div>
         <p className="text-[15px] text-muted">
-          Spent <strong className="text-ink">{money(total)}</strong> (bills and transfers not included)
+          Spent <strong className="text-ink">{money(total)}</strong> (bills and transfers not included). Tap a category to set its
+          budget.
         </p>
         {rows.length === 0 ? (
           <p className="py-4 text-muted">Nothing yet this month.</p>
@@ -97,22 +138,52 @@ export function SpendingTab({ now }: { now: Date }) {
           <ul className="mt-3 space-y-3">
             {rows.map((c) => {
               const spent = totals.get(c.id) ?? 0;
-              const budget = eff.get(c.id)?.amount;
+              const b = eff.get(c.id);
+              const budget = b?.amount;
+              const lower = isThisMonth && b ? canLower(stats, c.id, b.amount) : null;
               return (
                 <li key={c.id}>
-                  <div className="mb-1 flex items-baseline justify-between gap-3 text-[15px]">
-                    <span className="font-semibold">{c.label}</span>
-                    <span className={budget && spent > budget ? "font-semibold text-peach" : ""}>
-                      {money(spent)}
-                      {budget ? <span className="text-muted"> / {money(budget, true)}</span> : null}
-                    </span>
-                  </div>
-                  <Bar value={spent} max={budget ?? Math.max(...totals.values())} color={c.color} />
+                  {/* Tap a category to set its monthly budget. */}
+                  <button type="button" onClick={() => setEditingBudget(c.id)} className="w-full text-left">
+                    <div className="mb-1 flex items-baseline justify-between gap-3 text-[15px]">
+                      <span className="font-semibold">
+                        {c.label}
+                        {b && (
+                          <span className="ml-2 rounded-full bg-cream px-2 py-0.5 text-[11px] font-semibold text-muted">
+                            {b.auto ? "Auto" : "Yours"}
+                          </span>
+                        )}
+                      </span>
+                      <span className={budget && spent > budget ? "font-semibold text-peach" : ""}>
+                        {money(spent)}
+                        {budget ? <span className="text-muted"> / {money(budget, true)}</span> : null}
+                      </span>
+                    </div>
+                    <Bar value={spent} max={budget ?? Math.max(1, ...totals.values())} color={c.color} />
+                  </button>
+                  {lower && (
+                    <div className="mt-2 flex items-center gap-3 rounded-2xl bg-red-soft px-3 py-2.5 text-sm text-red">
+                      <span className="flex-1">
+                        Could be <strong>{money(lower.suggestion, true)}</strong>: in {lower.low.label} you spent{" "}
+                        {money(lower.low.amount, true)}.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setBudget(c.id, lower.suggestion)}
+                        className="shrink-0 rounded-full bg-red px-3 py-1.5 font-bold text-white"
+                      >
+                        Use {money(lower.suggestion, true)}
+                      </button>
+                    </div>
+                  )}
                 </li>
               );
             })}
           </ul>
         )}
+        <div className="mt-4">
+          <NewChip placeholder="New category, e.g. Gifts" onAdd={(name) => setEditingBudget(addCategory(name))} />
+        </div>
       </Card>
 
       <Card>
@@ -169,6 +240,15 @@ export function SpendingTab({ now }: { now: Date }) {
       {importing && <ImportSheet onClose={() => setImporting(false)} />}
       {adding && <AddSpendingSheet onClose={() => setAdding(false)} now={now} />}
       {editing && <TxnSheet txn={editing} onClose={() => setEditing(null)} />}
+      {editingBudget && (
+        <AmountSheet
+          title={editingBudget === "allowance" ? "Weekly allowance" : `${category(editingBudget).label} budget`}
+          hint={editingBudget === "allowance" ? "For day-to-day spending, Monday to Sunday." : "Per month. Remove it to go back to automatic."}
+          value={editingBudget === "allowance" ? weeklyAllowance : (budgets[editingBudget] ?? null)}
+          onSave={(v) => (editingBudget === "allowance" ? setWeeklyAllowance(v) : setBudget(editingBudget, v))}
+          onClose={() => setEditingBudget(null)}
+        />
+      )}
     </div>
   );
 }

@@ -57,7 +57,7 @@ export function GoalsTab({ now }: { now: Date }) {
             </p>
             {plan.available === 0 && (
               <p className="mt-2 text-sm text-muted">
-                Nothing left over on average right now. The red hints in Budgets show where it could come from.
+                Nothing left over on average right now. The red hints in Spending show where it could come from.
               </p>
             )}
           </>

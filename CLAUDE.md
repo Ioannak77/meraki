@@ -10,7 +10,7 @@
 - The money section's page title is **Money**.
 - The **Self care** section (page `/self-care/`) covers skincare, repeating reminders (waxing, nails, hair…)
   and photo check-ins. Never call the section "Skin" or "Skincare"; "skincare" is only the morning/evening
-  skin steps inside it. The tab of your own trackers is **Tracker**.
+  skin steps inside it. The tab of your own trackers is **Tracker** (a tab inside Money since 2026-10-25; /tracker/ forwards there).
 - Pari is Ioanna's dog; she has her own task area and appears in cleaning and money categories.
 
 ## Agreed next steps (Ioanna said "remind me later", 2026-10-24) — raise these after the page-by-page review

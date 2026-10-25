@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { AdviceTab } from "@/components/finance/Advice";
 import { BillsTab } from "@/components/finance/Bills";
-import { BudgetsTab } from "@/components/finance/Budgets";
 import { GoalsTab } from "@/components/finance/Goals";
 import { OverviewTab, type FinanceTab } from "@/components/finance/Overview";
 import { FinanceSetup } from "@/components/finance/Setup";
 import { SpendingTab } from "@/components/finance/Spending";
+import { TrackerView } from "@/components/finance/Tracker";
 import { useFinance } from "@/lib/financeStore";
 import { useNow } from "@/lib/useNow";
 
@@ -19,6 +19,8 @@ export default function FinancesPage() {
   const [newBill, setNewBill] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => {
+      // The old Tracker page (home screen shortcuts, old links) sends you here with #tracker.
+      if (window.location.hash === "#tracker") return setTab("Tracker");
       if (window.location.hash !== "#new-bill") return;
       setNewBill(true);
       setTab("Bills");
@@ -33,10 +35,10 @@ export default function FinancesPage() {
   // Only show the tabs for what you chose to track.
   const tabs: FinanceTab[] = ["Overview"];
   if (has("bills") || has("home") || has("subscriptions") || has("insurance") || has("loans")) tabs.push("Bills");
+  // Spending also holds the budgets and the weekly allowance.
   if (has("imports") || has("groceries") || has("pet") || has("allowance") || has("summary")) tabs.push("Spending");
-  if (has("allowance") || has("pet") || has("groceries")) tabs.push("Budgets");
   if (has("savings")) tabs.push("Goals");
-  tabs.push("Advice");
+  tabs.push("Tracker", "Advice");
   const current = tabs.includes(tab) ? tab : "Overview";
 
   return (
@@ -61,8 +63,8 @@ export default function FinancesPage() {
         {current === "Overview" && <OverviewTab now={now} go={setTab} />}
         {current === "Bills" && <BillsTab now={now} startNew={newBill} />}
         {current === "Spending" && <SpendingTab now={now} />}
-        {current === "Budgets" && <BudgetsTab now={now} />}
         {current === "Goals" && <GoalsTab now={now} />}
+        {current === "Tracker" && <TrackerView now={now} embedded />}
         {current === "Advice" && <AdviceTab now={now} />}
       </div>
     </div>
