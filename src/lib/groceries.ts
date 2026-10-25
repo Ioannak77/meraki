@@ -112,3 +112,46 @@ export function priceHistory(receipts: Receipt[]) {
 export function perUnit(b: { price: number; unitPrice: number | null; quantity: number }) {
   return b.unitPrice ?? (b.quantity > 0 ? b.price / b.quantity : b.price);
 }
+
+// ---------- Shopping list ----------
+
+export type ListItem = {
+  id: string;
+  name: string;
+  done: boolean;
+  shop?: string | null; // chosen by hand; otherwise the cheapest shop from receipts
+};
+
+export type ShopPrice = { shop: string; price: number; date: string };
+
+function words(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 1);
+}
+
+/**
+ * What a list item costs at each shop, cheapest first, from the newest buy at each shop
+ * (within the last 6 months of receipts). "Milk" matches "Semi-skimmed milk 1L" too.
+ */
+export function shopPrices(name: string, history: ReturnType<typeof priceHistory>): ShopPrice[] {
+  const want = words(name);
+  if (want.length === 0) return [];
+  const exact = history.filter((h) => h.name.toLowerCase() === name.trim().toLowerCase());
+  const matches = exact.length ? exact : history.filter((h) => want.every((w) => words(h.name).includes(w)));
+  const newest = matches.flatMap((m) => m.buys).reduce((d, b) => (b.date > d ? b.date : d), "");
+  if (!newest) return [];
+  const cutoff = new Date(newest + "T12:00:00");
+  cutoff.setMonth(cutoff.getMonth() - 6);
+  const since = cutoff.toISOString().slice(0, 10);
+  const byShop = new Map<string, ShopPrice>();
+  for (const b of matches.flatMap((m) => m.buys)) {
+    if (b.date < since || !b.shop.trim()) continue;
+    const key = b.shop.trim().toLowerCase();
+    const seen = byShop.get(key);
+    if (!seen || b.date > seen.date) byShop.set(key, { shop: b.shop.trim(), price: perUnit(b), date: b.date });
+  }
+  return [...byShop.values()].sort((a, b) => a.price - b.price);
+}

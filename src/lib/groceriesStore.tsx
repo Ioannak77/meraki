@@ -1,16 +1,16 @@
 "use client";
 
-// Groceries data (receipts and the receipt-reader connection), kept in this
-// browser's localStorage. The photo itself is not kept, only what was read.
+// Groceries data (receipts and the shopping list), kept in this browser's
+// localStorage and synced. The photo itself is not kept, only what was read.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ReaderSettings, Receipt } from "./groceries";
+import type { ListItem, ReaderSettings, Receipt } from "./groceries";
 import { markSaved } from "./sync";
 
-type Data = { receipts: Receipt[]; reader: ReaderSettings };
+type Data = { receipts: Receipt[]; reader: ReaderSettings; list: ListItem[] };
 
 const STORAGE_KEY = "meraki.groceries.v1";
-const EMPTY: Data = { receipts: [], reader: { url: "", passcode: "" } };
+const EMPTY: Data = { receipts: [], reader: { url: "", passcode: "" }, list: [] };
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -23,6 +23,10 @@ type Store = Data & {
   saveReceipt: (r: Omit<Receipt, "id"> & { id?: string }) => string;
   deleteReceipt: (id: string) => void;
   setReader: (r: ReaderSettings) => void;
+  addToList: (name: string) => void;
+  updateListItem: (id: string, patch: Partial<ListItem>) => void;
+  removeFromList: (id: string) => void;
+  clearTicked: () => void;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -60,9 +64,26 @@ export function GroceriesProvider({ children }: { children: React.ReactNode }) {
   const deleteReceipt = useCallback((id: string) => setData((d) => ({ ...d, receipts: d.receipts.filter((r) => r.id !== id) })), []);
   const setReader = useCallback((reader: ReaderSettings) => setData((d) => ({ ...d, reader })), []);
 
+  const addToList = useCallback((name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    setData((d) =>
+      // Already on the list: bring it back instead of adding it twice.
+      d.list.some((i) => i.name.toLowerCase() === clean.toLowerCase())
+        ? { ...d, list: d.list.map((i) => (i.name.toLowerCase() === clean.toLowerCase() ? { ...i, done: false } : i)) }
+        : { ...d, list: [...d.list, { id: newId(), name: clean, done: false }] },
+    );
+  }, []);
+  const updateListItem = useCallback(
+    (id: string, patch: Partial<ListItem>) => setData((d) => ({ ...d, list: d.list.map((i) => (i.id === id ? { ...i, ...patch } : i)) })),
+    [],
+  );
+  const removeFromList = useCallback((id: string) => setData((d) => ({ ...d, list: d.list.filter((i) => i.id !== id) })), []);
+  const clearTicked = useCallback(() => setData((d) => ({ ...d, list: d.list.filter((i) => !i.done) })), []);
+
   const value = useMemo<Store>(
-    () => ({ ...data, ready, saveReceipt, deleteReceipt, setReader }),
-    [data, ready, saveReceipt, deleteReceipt, setReader],
+    () => ({ ...data, ready, saveReceipt, deleteReceipt, setReader, addToList, updateListItem, removeFromList, clearTicked }),
+    [data, ready, saveReceipt, deleteReceipt, setReader, addToList, updateListItem, removeFromList, clearTicked],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

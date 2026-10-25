@@ -1,8 +1,8 @@
 "use client";
 
-// Groceries: snap a receipt, Claude reads it (via the meraki worker),
-// check it, save. Then see receipts by month, each item's price history, and
-// spending per shop.
+// Groceries: a shopping list with the cheapest shop for each item (ShoppingList.tsx), and
+// receipts: snap one, Claude reads it (via the meraki worker), check it, save.
+// Then see receipts by month, each item's price history, and spending per shop.
 
 import { useState } from "react";
 import { money } from "@/lib/finance";
@@ -17,10 +17,11 @@ import {
   type ReceiptItem,
 } from "@/lib/groceries";
 import { useGroceries } from "@/lib/groceriesStore";
+import { ShoppingList } from "./ShoppingList";
 import { dayKey } from "@/lib/store";
 import { Card, CardTitle, Chips, DangerButton, Label, MoneyInput, PrimaryButton, Sheet, inputClass } from "../finance/ui";
 
-const TABS = ["Receipts", "Prices", "Shops"] as const;
+const TABS = ["List", "Receipts", "Prices", "Shops"] as const;
 type Tab = (typeof TABS)[number];
 
 function niceDate(key: string) {
@@ -36,7 +37,7 @@ function monthLabel(key: string) {
 
 export function GroceriesView({ now }: { now: Date }) {
   const { receipts } = useGroceries();
-  const [tab, setTab] = useState<Tab>("Receipts");
+  const [tab, setTab] = useState<Tab>("List");
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<(Omit<Receipt, "id"> & { id?: string }) | null>(null);
@@ -97,9 +98,8 @@ export function GroceriesView({ now }: { now: Date }) {
       </Card>
 
       {/* Prices and Shops only mean something once there are receipts. */}
-      {receipts.length > 0 && (
       <div className="mt-4 flex gap-1 rounded-full bg-card p-1">
-        {TABS.map((t) => (
+        {TABS.filter((t) => receipts.length > 0 || t === "List" || t === "Receipts").map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -109,9 +109,9 @@ export function GroceriesView({ now }: { now: Date }) {
           </button>
         ))}
       </div>
-      )}
 
       <div className="mt-4">
+        {tab === "List" && <ShoppingList />}
         {tab === "Receipts" && <ReceiptList onOpen={(r) => setReview(r)} />}
         {tab === "Prices" && <Prices />}
         {tab === "Shops" && <Shops now={now} />}
