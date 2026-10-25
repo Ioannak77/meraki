@@ -29,9 +29,13 @@ export function pushConfigured(env: PushEnv) {
 }
 
 function db(env: PushEnv, path: string, init: RequestInit = {}) {
+  const key = secretKey(env);
+  // The legacy service_role key (a JWT, "eyJ…") only acts as the service role when it's also sent
+  // as a Bearer token; the newer sb_secret_ keys go in apikey alone.
+  const auth: Record<string, string> = key.startsWith("eyJ") ? { Authorization: `Bearer ${key}` } : {};
   return fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
-    headers: { apikey: secretKey(env), "Content-Type": "application/json", Prefer: "return=minimal", ...init.headers },
+    headers: { apikey: key, ...auth, "Content-Type": "application/json", Prefer: "return=minimal", ...init.headers },
   });
 }
 
