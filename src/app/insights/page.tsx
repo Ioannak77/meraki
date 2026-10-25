@@ -4,7 +4,7 @@
 // and nothing here is a score to beat: the point is to notice what fits and what doesn't.
 
 import { routineProgress } from "@/components/RoutineCard";
-import { MONTHS, dueToday, occurrenceKey } from "@/lib/cleaning";
+import { MONTHS, dueToday, isSkipped, occurrenceKey } from "@/lib/cleaning";
 import { money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { useGroceries } from "@/lib/groceriesStore";
@@ -60,6 +60,7 @@ export default function InsightsPage() {
   for (let d = countFrom; firstUse && d <= today; d = addDays(d, 1)) {
     for (const r of dueToday(d, settings.officeDays)) {
       if (r.when.kind === "monthly") continue; // the Big clean is counted on its own weekend
+      if (isSkipped(routineDone, r, d)) continue; // skipped on purpose: not a miss
       const entry = lists.get(r.id) ?? { name: r.name, due: 0, done: 0 };
       entry.due++;
       if (routineProgress(r, routineDone[occurrenceKey(r, d)] ?? [], d).complete) entry.done++;

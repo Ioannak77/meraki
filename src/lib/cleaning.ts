@@ -176,7 +176,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 5 },
     steps: [
-      step("sat-0", "Change the sheets", 10, "Bedroom"),
+      step("sat-0", "Change the sheets", 10, "Bedroom", { hint: "and pillowcases" }),
       step("sat-towels", "Wash the towels", 3, "Bedroom", { hint: "with the sheets" }),
       step("sat-2", "Dust", 5, "Bedroom"),
       step("sat-3", "Wash Pari's bed cover and blanket", 3, "Pari", { hint: "into the machine" }),
@@ -211,6 +211,7 @@ export const DEFAULT_CLEANING: Routine[] = [
         ["Declutter 1 drawer", 10, "Whole home"],
       ]),
       step("monthly-mattress", "Vacuum the mattress", 5, "Bedroom"),
+      step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "into the machine" }),
       step("monthly-drain", "Drain cleaner", 2, "Kitchen"),
       step("monthly-bin", "Wash the kitchen bin", 10, "Kitchen"),
     ],
@@ -273,6 +274,23 @@ export const DEFAULT_CLEANING: Routine[] = [
   },
 ];
 
+// Steps added to the default schedule after it could be edited. An edited copy gets them too
+// (once: if you delete one after that, it stays deleted).
+const ADDED_STEPS: { list: string; step: string; since: string }[] = [{ list: "monthly", step: "monthly-protectors", since: "2026-10-25" }];
+
+/** An edited schedule plus any default steps added since it was saved. */
+export function withAddedSteps(lists: Routine[], seen: string[]) {
+  const missing = ADDED_STEPS.filter((a) => !seen.includes(a.step));
+  if (!missing.length) return { lists, seen };
+  const next = lists.map((r) => {
+    const add = missing.filter((a) => a.list === r.id && !r.steps.some((st) => st.id === a.step));
+    if (!add.length) return r;
+    const steps = add.map((a) => DEFAULT_CLEANING.find((d) => d.id === a.list)!.steps.find((st) => st.id === a.step)!);
+    return { ...r, steps: [...r.steps, ...steps] };
+  });
+  return { lists: next, seen: [...seen, ...missing.map((a) => a.step)] };
+}
+
 // The schedule in use: the default, or the edited copy saved in the store (set by StoreProvider).
 let active: Routine[] = DEFAULT_CLEANING;
 export function setCleaning(lists: Routine[] | null | undefined) {
@@ -292,6 +310,13 @@ export const MONTHS = ["January", "February", "March", "April", "May", "June", "
 
 export function weekdayIndex(d: Date) {
   return (d.getDay() + 6) % 7;
+}
+
+/** Saved among a turn's ticks when you skip it ("Skip today"): not done, but not missed either. */
+export const SKIPPED = "__skipped";
+
+export function isSkipped(done: Record<string, string[]>, r: Routine, d = today()) {
+  return (done[occurrenceKey(r, d)] ?? []).includes(SKIPPED);
 }
 
 /** Steps of a list that apply on this day (e.g. Pari's bowls only Tue/Thu/Sat). */

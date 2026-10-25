@@ -12,6 +12,7 @@ import {
   currentDayPart,
   dueToday,
   inEndOfMonthWindow,
+  isSkipped,
   monthEndLabel,
   monthEndSaturday,
   occurrenceKey,
@@ -40,7 +41,8 @@ export default function TodayPage() {
   const now = useNow();
 
   const routinesToday = dueToday(now, settings.officeDays);
-  const routineSteps = routinesToday.reduce(
+  // A list skipped today ("Skip today") doesn't count towards the ring.
+  const routineSteps = routinesToday.filter((r) => !isSkipped(routineDone, r, now)).reduce(
     (sum, r) => {
       const p = routineProgress(r, routineDone[occurrenceKey(r, now)] ?? [], now);
       return { done: sum.done + p.done, total: sum.total + p.total };
@@ -194,7 +196,7 @@ export default function TodayPage() {
             <BigCleanCard routines={nonDaily} date={now} />
           ) : (
             nonDaily.map((r) => (
-              <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible />
+              <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible canSkip />
             ))
           )}
           {bigCleanSoon && (

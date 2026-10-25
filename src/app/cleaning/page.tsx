@@ -15,13 +15,14 @@ import {
   dueToday,
   inEndOfMonthWindow,
   monthEndLabel,
+  monthEndSaturday,
   routinesForMonth,
   weekdayIndex,
 } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 import { useNow } from "@/lib/useNow";
 
-const TABS = ["Today", "This week", "Month & year", "Edit"] as const;
+const TABS = ["Today", "This week", "Big clean", "Edit"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CleaningSchedulePage() {
@@ -51,7 +52,7 @@ export default function CleaningSchedulePage() {
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
         {tab === "Today" && <TodayTab now={now} />}
         {tab === "This week" && <WeekTab now={now} />}
-        {tab === "Month & year" && <MonthTab now={now} />}
+        {tab === "Big clean" && <MonthTab now={now} />}
         {tab === "Edit" && <CleaningEditor />}
       </div>
     </div>
@@ -69,6 +70,11 @@ function TodayTab({ now }: { now: Date }) {
   // Only the list for now (and today's weekly one) starts open; earlier ones go quiet.
   const order: DayPart[] = ["morning", "meals", "evening"];
   const isPast = (p: DayPart) => order.indexOf(p) < order.indexOf(part);
+  // The list for now first, then today's weekly list, then the other daily lists.
+  const rank = (r: (typeof due)[number]) => (r.when.kind === "daily" ? (r.when.part === part ? 0 : 2) : 1);
+  const daysToBigClean = Math.round(
+    (monthEndSaturday(now).getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86_400_000,
+  );
   return (
     <>
       {isOffice && (
@@ -78,6 +84,7 @@ function TodayTab({ now }: { now: Date }) {
       )}
       {due
         .filter((r) => r.when.kind === "daily" || !bigClean)
+        .sort((a, b) => rank(a) - rank(b))
         .map((r) => (
           <RoutineCard
             key={r.id}
@@ -93,14 +100,19 @@ function TodayTab({ now }: { now: Date }) {
             }
             collapsible
             startOpen={r.when.kind !== "daily" || r.when.part === part}
+            canSkip={r.when.kind === "weekly"}
           />
         ))}
       {bigClean ? (
         <BigCleanCard routines={due.filter((r) => r.when.kind !== "daily")} date={now} />
       ) : (
+        // A heads-up in the week before; the details are in the Big clean tab.
+        daysToBigClean > 0 &&
+        daysToBigClean <= 7 && (
         <p className="rounded-3xl bg-card/60 p-5 text-[15px] text-muted lg:col-span-2">
           Big clean ({monthLists.map((r) => r.name).join(", ")}) is on the month-end weekend, {monthEndLabel(now)}.
         </p>
+        )
       )}
     </>
   );

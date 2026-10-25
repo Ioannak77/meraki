@@ -7,7 +7,7 @@
 import { today } from "./clock";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { markSaved } from "./sync";
-import { setCleaning, type Routine } from "./cleaning";
+import { setCleaning, withAddedSteps, type Routine } from "./cleaning";
 
 export type Energy = "low" | "normal" | "high";
 export type Mood = "great" | "okay" | "low";
@@ -41,6 +41,7 @@ type Data = {
   settings: Settings;
   // The cleaning schedule as edited in the app; missing = the default in cleaning.ts.
   cleaning?: Routine[] | null;
+  cleaningSeen?: string[]; // default steps already added to the edited copy (see withAddedSteps)
 };
 
 export type Settings = {
@@ -145,6 +146,12 @@ function load(): Data {
       if (!saved.settings?.starterTasksRemoved) {
         saved.tasks = (saved.tasks ?? []).filter((t) => t.completedAt || !STARTER_TITLES.includes(t.title));
         saved.settings = { ...DEFAULT_SETTINGS, ...saved.settings, starterTasksRemoved: true };
+      }
+      // An edited cleaning schedule also gets steps added to the default since.
+      if (saved.cleaning) {
+        const updated = withAddedSteps(saved.cleaning, saved.cleaningSeen ?? []);
+        saved.cleaning = updated.lists;
+        saved.cleaningSeen = updated.seen;
       }
       return {
         routineDone: {},
@@ -255,7 +262,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const saveCleaning = useCallback((lists: Routine[] | null) => {
-    setData((d) => ({ ...d, cleaning: lists }));
+    // A fresh copy of the default already has every added step.
+    setData((d) => ({ ...d, cleaning: lists, cleaningSeen: lists ? withAddedSteps(lists, []).seen : [] }));
   }, []);
 
   const finishTimedRun = useCallback((occurrence: string, stepIds: string[], seconds: number) => {

@@ -2,7 +2,7 @@
 
 import { today } from "@/lib/clock";
 import { useState } from "react";
-import { formatMinutes, occurrenceKey, plannedMinutes, stepsOn, type Routine } from "@/lib/cleaning";
+import { SKIPPED, formatMinutes, occurrenceKey, plannedMinutes, stepsOn, type Routine } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 import { RoutineTimer, unlockTimerAudio } from "./RoutineTimer";
@@ -32,6 +32,7 @@ export function RoutineCard({
   subtitle,
   collapsible = false,
   startOpen = true,
+  canSkip = false,
 }: {
   routine: Routine;
   date?: Date;
@@ -39,27 +40,32 @@ export function RoutineCard({
   subtitle?: string;
   collapsible?: boolean;
   startOpen?: boolean;
+  canSkip?: boolean; // offer "Skip today" (weekly lists, for busy or sick days)
 }) {
   const { routineDone, routineTimes, toggleStep } = useStore();
-  const [open, setOpen] = useState(startOpen);
+  // null until you fold or unfold it yourself; a finished list folds by itself.
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
   const [timing, setTiming] = useState(false);
   // After meals can be done again for each meal: rounds are saved as "meals@day", "meals@day#2"…
   const base = occurrenceKey(routine, date);
   let round = 1;
   if (routine.repeat) while (routineDone[`${base}#${round + 1}`]) round++;
   const key = round === 1 ? base : `${base}#${round}`;
-  const ticked = (routineDone[key] ?? []).filter((id) => id !== ROUND_MARKER);
+  const skipped = (routineDone[key] ?? []).includes(SKIPPED);
+  const ticked = (routineDone[key] ?? []).filter((id) => id !== ROUND_MARKER && id !== SKIPPED);
   const daySteps = stepsOn(routine, date);
   const { done, total, complete } = routineProgress(routine, ticked, date);
   const style = GROUP_STYLE[routine.group];
   const minutesLeft = daySteps.filter((s) => !s.optional && !ticked.includes(s.id)).reduce((sum, s) => sum + s.minutes, 0);
   const timedSeconds = routineTimes[key];
+  // After meals stays open when done: its "again after the next meal" button lives inside.
+  const open = manualOpen ?? (collapsible && ((complete && !routine.repeat) || skipped) ? false : startOpen);
 
   return (
     <section className="rounded-3xl bg-card p-5">
       <button
         type="button"
-        onClick={() => collapsible && setOpen((o) => !o)}
+        onClick={() => collapsible && setManualOpen(!open)}
         className={`flex w-full items-center gap-3 text-left ${collapsible ? "" : "cursor-default"}`}
         aria-expanded={collapsible ? open : undefined}
       >
@@ -77,7 +83,7 @@ export function RoutineCard({
           </span>
         </span>
         <span className={`shrink-0 text-sm font-semibold ${complete ? "text-sage-dark" : "text-muted"}`}>
-          {complete ? "Done ✓" : `${done}/${total}`}
+          {skipped ? "Skipped" : complete ? "Done ✓" : `${done}/${total}`}
         </span>
       </button>
 
@@ -144,6 +150,18 @@ export function RoutineCard({
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-sage-dark py-3.5 text-[16px] font-bold text-white"
             >
               ▶ {done ? "Continue" : "Start"} · ~{formatMinutes(minutesLeft)}
+            </button>
+          )}
+          {canSkip && !complete && (
+            <button
+              type="button"
+              onClick={() => {
+                toggleStep(key, SKIPPED);
+                setManualOpen(null);
+              }}
+              className="mt-2 w-full py-1 text-sm font-semibold text-muted"
+            >
+              {skipped ? "Undo skip" : "Skip today (busy or not feeling well)"}
             </button>
           )}
         </>
