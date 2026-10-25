@@ -36,7 +36,6 @@ const NAV: { href: string; label: string; short?: string; icon: IconName; phone:
   { href: "/", label: "Today", icon: "home", phone: true },
   { href: "/tasks/", label: "Tasks", icon: "tasks", phone: true },
   { href: "/cleaning/", label: "Cleaning schedule", short: "Cleaning", icon: "routines", phone: true },
-  { href: "/calendar/", label: "Calendar", icon: "calendar", phone: false },
   { href: "/finances/", label: "Money", icon: "wallet", phone: true },
   { href: "/groceries/", label: "Groceries", icon: "basket", phone: true },
   { href: "/tracker/", label: "Tracker", icon: "tracker", phone: true },
