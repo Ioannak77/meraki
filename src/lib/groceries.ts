@@ -99,11 +99,33 @@ export function perUnit(b: { price: number; unitPrice: number | null; quantity: 
 export type ListItem = {
   id: string;
   name: string;
+  note?: string; // amount or which one, e.g. "× 2" or "the lactose-free one"
   done: boolean;
   shop?: string | null; // chosen by hand; otherwise the cheapest shop from receipts
 };
 
-export type ShopPrice = { shop: string; price: number; date: string };
+// prev: the price the time before at the same shop, to show "↑ 12%".
+export type ShopPrice = { shop: string; price: number; date: string; prev: number | null };
+
+/** Does a list item ("milk") match a receipt item ("Semi-skimmed milk 1L")? */
+export function matchesItem(listName: string, itemName: string) {
+  const want = words(listName);
+  return want.length > 0 && (listName.trim().toLowerCase() === itemName.trim().toLowerCase() || want.every((w) => words(itemName).includes(w)));
+}
+
+/** Which aisle a list item belongs to, from how matching items were categorised on receipts. */
+export function itemCategory(listName: string, receipts: Receipt[]): GroceryCategory | null {
+  const count = new Map<GroceryCategory, number>();
+  for (const r of receipts) for (const i of r.items) if (matchesItem(listName, i.name)) count.set(i.category, (count.get(i.category) ?? 0) + 1);
+  return [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
+
+/** Change from the previous price, as a whole percent, when it's at least 5% (else null). */
+export function priceChange(p: ShopPrice) {
+  if (!p.prev) return null;
+  const pct = Math.round(((p.price - p.prev) / p.prev) * 100);
+  return Math.abs(pct) >= 5 ? pct : null;
+}
 
 function words(s: string) {
   return s
@@ -128,11 +150,14 @@ export function shopPrices(name: string, history: ReturnType<typeof priceHistory
   cutoff.setMonth(cutoff.getMonth() - 6);
   const since = cutoff.toISOString().slice(0, 10);
   const byShop = new Map<string, ShopPrice>();
-  for (const b of matches.flatMap((m) => m.buys)) {
+  // Newest first, so the first buy per shop is the price now and the second is the one before.
+  const buys = matches.flatMap((m) => m.buys).sort((a, b) => b.date.localeCompare(a.date));
+  for (const b of buys) {
     if (b.date < since || !b.shop.trim()) continue;
     const key = b.shop.trim().toLowerCase();
     const seen = byShop.get(key);
-    if (!seen || b.date > seen.date) byShop.set(key, { shop: b.shop.trim(), price: perUnit(b), date: b.date });
+    if (!seen) byShop.set(key, { shop: b.shop.trim(), price: perUnit(b), date: b.date, prev: null });
+    else if (seen.prev === null && b.date < seen.date) seen.prev = perUnit(b);
   }
   return [...byShop.values()].sort((a, b) => a.price - b.price);
 }

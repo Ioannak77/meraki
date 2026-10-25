@@ -4,7 +4,7 @@
 // localStorage and synced. The photo itself is not kept, only what was read.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ListItem, Receipt } from "./groceries";
+import { matchesItem, type ListItem, type Receipt } from "./groceries";
 import { markSaved } from "./sync";
 
 type Data = { receipts: Receipt[]; list: ListItem[] };
@@ -61,6 +61,8 @@ export function GroceriesProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({
       ...d,
       receipts: r.id ? d.receipts.map((x) => (x.id === r.id ? { ...r, id } : x)) : [...d.receipts, { ...r, id }],
+      // A new receipt ticks off what you bought from the shopping list.
+      list: r.id ? d.list : d.list.map((li) => (!li.done && r.items.some((it) => matchesItem(li.name, it.name)) ? { ...li, done: true } : li)),
     }));
     return id;
   }, []);

@@ -1,16 +1,25 @@
 "use client";
 
 // Groceries > List: what to buy, with the cheapest shop for each item from your receipts,
-// as one list or grouped by shop.
+// as one list (by aisle) or grouped by shop. Snapping the receipt ticks off what you bought.
 
 import { useState } from "react";
 import { money } from "@/lib/finance";
-import { priceHistory, shopPrices, type ListItem, type ShopPrice } from "@/lib/groceries";
+import {
+  GROCERY_CATEGORIES,
+  itemCategory,
+  priceChange,
+  priceHistory,
+  shopPrices,
+  type ListItem,
+  type ShopPrice,
+} from "@/lib/groceries";
 import { useGroceries } from "@/lib/groceriesStore";
 import { Icon } from "../icons";
 import { Card, DangerButton, Sheet, inputClass } from "../finance/ui";
 
-export function ShoppingList() {
+/** `snap`: the Snap a receipt button, shown under the list for when you're done shopping. */
+export function ShoppingList({ snap }: { snap?: React.ReactNode }) {
   const { receipts, list, addToList, updateListItem, removeFromList, clearTicked } = useGroceries();
   const [text, setText] = useState("");
   const [byShop, setByShop] = useState(false);
@@ -44,9 +53,12 @@ export function ShoppingList() {
     const price = priceAt(i, shop);
     const saving = all.length > 1 ? all[all.length - 1].price - all[0].price : 0;
     let note = "No price yet · tap to choose a shop";
+    const here = all.find((p) => p.shop === shop);
+    const change = here ? priceChange(here) : null;
     if (shop) {
       note = i.shop ? shop : `Cheapest at ${shop}`;
       if (price !== null) note += ` · ${money(price)}`;
+      if (change) note += ` · ${change > 0 ? "↑" : "↓"} ${Math.abs(change)}%`;
       if (!i.shop && saving >= 0.05) note += ` · saves ${money(saving)}`;
     }
     return (
@@ -61,7 +73,10 @@ export function ShoppingList() {
           {i.done && <Icon.check className="size-4" />}
         </button>
         <button type="button" onClick={() => setPicking(i)} className="min-w-0 flex-1 text-left">
-          <span className={`block text-[15px] ${i.done ? "text-muted line-through" : ""}`}>{i.name}</span>
+          <span className={`block text-[15px] ${i.done ? "text-muted line-through" : ""}`}>
+            {i.name}
+            {i.note && <span className="text-muted"> · {i.note}</span>}
+          </span>
           <span className="block text-[13px] text-muted">{note}</span>
         </button>
       </li>
@@ -76,6 +91,11 @@ export function ShoppingList() {
   const grouped = [...groups.entries()].sort((a, b) =>
     a[0] === "Anywhere" ? 1 : b[0] === "Anywhere" ? -1 : b[1].length - a[1].length,
   );
+  // One list, by aisle (from how your receipts categorised these items).
+  const aisles = GROCERY_CATEGORIES.map((c) => ({
+    label: c.label,
+    items: open.filter((i) => (itemCategory(i.name, receipts) ?? "other") === c.id),
+  })).filter((a) => a.items.length > 0);
 
   return (
     <>
@@ -148,9 +168,16 @@ export function ShoppingList() {
               })
             : open.length > 0 && (
                 <Card className="mt-4">
-                  <ul className="divide-y divide-line">{open.map(row)}</ul>
+                  {aisles.map((a) => (
+                    <div key={a.label} className="mt-2 first:mt-0">
+                      {aisles.length > 1 && <h3 className="pt-1 text-xs font-bold uppercase tracking-wider text-muted">{a.label}</h3>}
+                      <ul className="divide-y divide-line">{a.items.map(row)}</ul>
+                    </div>
+                  ))}
                 </Card>
               )}
+
+          {snap && <div className="mt-4">{snap}</div>}
 
           {ticked.length > 0 && (
             <Card className="mt-4">
@@ -175,6 +202,7 @@ export function ShoppingList() {
             updateListItem(picking.id, { shop });
             setPicking(null);
           }}
+          onNote={(note) => updateListItem(picking.id, { note: note || undefined })}
           onRemove={() => {
             removeFromList(picking.id);
             setPicking(null);
@@ -192,6 +220,7 @@ function ShopPicker({
   prices,
   shops,
   onPick,
+  onNote,
   onRemove,
   onClose,
 }: {
@@ -199,6 +228,7 @@ function ShopPicker({
   prices: ShopPrice[];
   shops: string[];
   onPick: (shop: string | null) => void;
+  onNote: (note: string) => void;
   onRemove: () => void;
   onClose: () => void;
 }) {
@@ -215,12 +245,21 @@ function ShopPicker({
   );
   return (
     <Sheet title={item.name} onClose={onClose}>
-      <p className="text-[15px] text-muted">
+      <input
+        defaultValue={item.note ?? ""}
+        onChange={(e) => onNote(e.target.value.trim())}
+        placeholder="Amount or note, e.g. × 2, the lactose-free one"
+        className={inputClass}
+      />
+      <p className="mt-4 text-[15px] text-muted">
         {prices.length > 0 ? "Latest price at each shop, from your receipts." : "No receipts with this yet. Choose where you'll get it."}
       </p>
       <ul className="mt-2 divide-y divide-line">
         {option(prices.length ? `Cheapest (${prices[0].shop})` : "Anywhere", null)}
-        {prices.map((p) => option(p.shop, p.shop, money(p.price)))}
+        {prices.map((p) => {
+          const change = priceChange(p);
+          return option(p.shop, p.shop, `${money(p.price)}${change ? ` (${change > 0 ? "↑" : "↓"} ${Math.abs(change)}%)` : ""}`);
+        })}
         {others.map((s) => option(s, s))}
       </ul>
       <DangerButton label="Remove from the list" onConfirm={onRemove} />

@@ -81,7 +81,34 @@ export function GroceriesView({ now }: { now: Date }) {
       </div>
 
       <div className="mt-4">
-        {tab === "List" && <ShoppingList />}
+        {tab === "List" && (
+          <ShoppingList
+            snap={
+              <>
+                <label
+                  className={`flex cursor-pointer items-center justify-center gap-2 rounded-2xl py-3.5 text-[16px] font-bold ${
+                    reading ? "bg-sage text-white" : "bg-sage-soft text-sage-dark"
+                  }`}
+                >
+                  {reading ? "Reading your receipt…" : "📷 Done shopping? Snap the receipt"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    disabled={reading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) void onPhoto(f);
+                    }}
+                  />
+                </label>
+                {error && <p className="mt-2 text-[15px] text-peach">{error}</p>}
+              </>
+            }
+          />
+        )}
         {tab === "Receipts" && (
           <div className="grid gap-4">
             <Card>
@@ -186,11 +213,21 @@ function Prices() {
           {items.slice(0, 60).map((i) => {
             const last = i.buys[0];
             const cheapest = [...i.buys].sort((a, b) => perUnit(a) - perUnit(b))[0];
+            // Up or down since the time before at the same shop.
+            const before = i.buys.find((b, n) => n > 0 && b.shop === last.shop);
+            const pct = before ? Math.round(((perUnit(last) - perUnit(before)) / perUnit(before)) * 100) : 0;
             return (
               <li key={i.name} className="py-3">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="min-w-0 truncate text-[15px] font-semibold">{i.name}</span>
-                  <span className="shrink-0 text-[15px] font-semibold">{money(last.price)}</span>
+                  <span className="shrink-0 text-[15px] font-semibold">
+                    {Math.abs(pct) >= 5 && (
+                      <span className={`mr-1.5 text-[13px] ${pct > 0 ? "text-peach" : "text-sage-dark"}`}>
+                        {pct > 0 ? "↑" : "↓"} {Math.abs(pct)}%
+                      </span>
+                    )}
+                    {money(last.price)}
+                  </span>
                 </div>
                 <p className="text-[13px] text-muted">
                   Last: {last.shop}, {niceDate(last.date)}
@@ -353,7 +390,7 @@ function ReviewSheet({ receipt, onClose }: { receipt: Omit<Receipt, "id"> & { id
       )}
 
       <PrimaryButton
-        disabled={total === null || items.length === 0}
+        disabled={!total || !items.some((i) => i.name.trim())}
         onClick={() => {
           const clean = items.filter((i) => i.name.trim());
           saveReceipt({ ...receipt, shop: shop.trim(), date, total: total ?? itemsSum, items: clean });
