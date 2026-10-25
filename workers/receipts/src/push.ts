@@ -19,6 +19,11 @@ const TOO_LATE_MS = 2 * 60 * 60 * 1000; // skip reminders more than 2 hours late
 // only real browser push services (Safari/iOS, Chrome/Android, Firefox, Edge)
 const PUSH_SERVICE_HOSTS = /(^|\.)(push\.apple\.com|fcm\.googleapis\.com|push\.services\.mozilla\.com|notify\.windows\.com)$/;
 
+/** The secret key without any spaces or invisible characters a copy-paste can add. */
+function secretKey(env: PushEnv) {
+  return (env.SUPABASE_SECRET_KEY ?? "").replace(/[\s​-‍﻿]/g, "");
+}
+
 export function pushConfigured(env: PushEnv) {
   return !!(env.SUPABASE_URL && env.SUPABASE_SECRET_KEY && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY);
 }
@@ -26,7 +31,7 @@ export function pushConfigured(env: PushEnv) {
 function db(env: PushEnv, path: string, init: RequestInit = {}) {
   return fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
-    headers: { apikey: env.SUPABASE_SECRET_KEY!.trim(), "Content-Type": "application/json", Prefer: "return=minimal", ...init.headers },
+    headers: { apikey: secretKey(env), "Content-Type": "application/json", Prefer: "return=minimal", ...init.headers },
   });
 }
 
@@ -40,9 +45,9 @@ export function pushSetup(env: PushEnv) {
     // Shape only (never the key itself), to spot a bad paste: right kind, full length, no quotes.
     secretKeyShape: env.SUPABASE_SECRET_KEY
       ? {
-          start: env.SUPABASE_SECRET_KEY.trim().slice(0, 10),
-          length: env.SUPABASE_SECRET_KEY.trim().length,
-          spaces: /s/.test(env.SUPABASE_SECRET_KEY.trim()),
+          start: secretKey(env).slice(0, 10),
+          length: secretKey(env).length,
+          spaces: /[\s​-‍﻿]/.test(env.SUPABASE_SECRET_KEY),
           quotes: /["']/.test(env.SUPABASE_SECRET_KEY),
         }
       : null,
