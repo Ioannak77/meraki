@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { BigCleanCard } from "@/components/BigCleanCard";
+import { CleaningEditor } from "@/components/CleaningEditor";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
 import {
-  CLEANING,
+  cleaningLists,
   weeklyPlan,
   MONTHS,
   WEEKDAYS,
@@ -20,7 +21,7 @@ import {
 import { useStore } from "@/lib/store";
 import { useNow } from "@/lib/useNow";
 
-const TABS = ["Today", "This week", "Month & year"] as const;
+const TABS = ["Today", "This week", "Month & year", "Edit"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CleaningSchedulePage() {
@@ -51,6 +52,7 @@ export default function CleaningSchedulePage() {
         {tab === "Today" && <TodayTab now={now} />}
         {tab === "This week" && <WeekTab now={now} />}
         {tab === "Month & year" && <MonthTab now={now} />}
+        {tab === "Edit" && <CleaningEditor />}
       </div>
     </div>
   );
@@ -157,7 +159,7 @@ function MonthTab({ now }: { now: Date }) {
         <p className="text-sm text-muted">Each month&apos;s end-of-month lists, on top of the Monthly reset.</p>
         <ul className="mt-3 divide-y divide-line">
           {MONTHS.map((name, i) => {
-            const extra = CLEANING.filter(
+            const extra = cleaningLists().filter(
               (r) => r.when.kind === "monthly" && r.group !== "monthly" && r.when.months.includes(i + 1),
             );
             const isCurrent = i === now.getMonth();

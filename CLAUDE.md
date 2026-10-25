@@ -19,7 +19,7 @@
 2. DONE (2026-10-24): Backup card in Settings (Save / Load backup, last backup date).
 3. DONE (2026-10-24): sync via Supabase project "Meraki" (najxrysykfwboefjubfn): src/lib/sync.ts, Settings > Sync, supabase/schema.sql, daily keep-alive cron in workers/receipts. Email confirm is off; turn off new sign-ups once Ioanna has her account.
 4. DONE (2026-10-24): phone notifications. App plans next 7 days (src/lib/pushSchedule.ts, PushScheduler) into Supabase push_queue (supabase/push.sql); meraki worker cron (every 5 min, workers/receipts/src/push.ts) sends them. Settings > Notifications. Private VAPID key in push-setup.local.txt (gitignored).
-5. Edit the cleaning schedule in the app (lists are hard-coded in `src/lib/cleaning.ts`).
+5. DONE (2026-10-25): Cleaning schedule > Edit tab (src/components/CleaningEditor.tsx). Edited schedule saved as `cleaning` in meraki.v1 (synced); DEFAULT_CLEANING in cleaning.ts is the original; read it through cleaningLists().
 6. Later: Calendar and Insights pages (placeholders), choose which cards show on Today.
 
 ## Working on this repo

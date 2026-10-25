@@ -38,7 +38,7 @@ export default function TodayPage() {
   const [sheet, setSheet] = useState<Task | "new" | null>(null);
   const now = useNow();
 
-  const routinesToday = useMemo(() => dueToday(now, settings.officeDays), [now, settings.officeDays]);
+  const routinesToday = dueToday(now, settings.officeDays);
   const routineSteps = routinesToday.reduce(
     (sum, r) => {
       const p = routineProgress(r, routineDone[occurrenceKey(r, now)] ?? [], now);

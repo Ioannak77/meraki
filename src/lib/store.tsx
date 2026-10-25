@@ -7,6 +7,7 @@
 import { setTestDate, today } from "./clock";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { markSaved } from "./sync";
+import { setCleaning, type Routine } from "./cleaning";
 
 export type Energy = "low" | "normal" | "high";
 export type Mood = "great" | "okay" | "low";
@@ -38,6 +39,8 @@ type Data = {
   // How long a timed run took, in seconds, by occurrence.
   routineTimes: Record<string, number>;
   settings: Settings;
+  // The cleaning schedule as edited in the app; missing = the default in cleaning.ts.
+  cleaning?: Routine[] | null;
 };
 
 export type Settings = {
@@ -181,6 +184,7 @@ type Store = Data & {
   setMood: (mood: Mood) => void;
   toggleStep: (occurrence: string, stepId: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  saveCleaning: (lists: Routine[] | null) => void;
   /** Makes a new task area (or returns the existing one with that name). */
   addArea: (name: string) => string;
   /** Tick the given steps (never unticks) and save the time a timed run took. */
@@ -196,6 +200,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Testing: make every screen see the chosen day as "today".
   setTestDate(data.settings.testDate ?? null);
+  // Every screen reads the cleaning schedule through cleaningLists().
+  setCleaning(data.cleaning);
 
   // localStorage only exists in the browser, so read it after the first render.
   useEffect(() => {
@@ -252,6 +258,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
   }, []);
 
+  const saveCleaning = useCallback((lists: Routine[] | null) => {
+    setData((d) => ({ ...d, cleaning: lists }));
+  }, []);
+
   const finishTimedRun = useCallback((occurrence: string, stepIds: string[], seconds: number) => {
     setData((d) => {
       const current = d.routineDone[occurrence] ?? [];
@@ -288,11 +298,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setMood,
       toggleStep,
       updateSettings,
+      saveCleaning,
       addArea,
       finishTimedRun,
       areaById: (id) => data.areas.find((a) => a.id === id),
     }),
-    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood, toggleStep, updateSettings, addArea, finishTimedRun],
+    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood, toggleStep, updateSettings, saveCleaning, addArea, finishTimedRun],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

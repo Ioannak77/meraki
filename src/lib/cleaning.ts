@@ -67,7 +67,8 @@ function step(id: string, title: string, minutes: number, room: Room, extra?: St
   return { id, title, minutes, room, ...extra };
 }
 
-export const CLEANING: Routine[] = [
+/** The starting schedule. Edits in the app are saved as a copy of this (see setCleaning). */
+export const DEFAULT_CLEANING: Routine[] = [
   // ---------- Daily ----------
   {
     id: "morning",
@@ -272,6 +273,20 @@ export const CLEANING: Routine[] = [
   },
 ];
 
+// The schedule in use: the default, or the edited copy saved in the store (set by StoreProvider).
+let active: Routine[] = DEFAULT_CLEANING;
+export function setCleaning(lists: Routine[] | null | undefined) {
+  active = lists ?? DEFAULT_CLEANING;
+}
+export function cleaningLists() {
+  return active;
+}
+
+/** Which kind of list a set of months makes (for its colour and label). */
+export function groupForMonths(months: number[]): RoutineGroup {
+  return months.length >= 12 ? "monthly" : months.length >= 3 ? "quarterly" : "twice-a-year";
+}
+
 export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -318,7 +333,7 @@ export function monthEndLabel(d = today()) {
 /** Which big lists belong to `d`'s month (or to the month-end weekend it's on). */
 export function routinesForMonth(d = today()) {
   const month = (monthEndOwner(d) ?? d).getMonth() + 1;
-  return CLEANING.filter((r) => r.when.kind === "monthly" && r.when.months.includes(month));
+  return active.filter((r) => r.when.kind === "monthly" && r.when.months.includes(month));
 }
 
 /** Planned minutes for the steps that count (optional "if needed" steps left out). */
@@ -341,9 +356,15 @@ export type WeekSlot = { routine: Routine; movedFrom?: number };
  * office day picks first.
  */
 export function weeklyPlan(officeDays: number[]): WeekSlot[] {
-  const weekly = CLEANING.filter((r) => r.when.kind === "weekly");
+  const weekly = active.filter((r) => r.when.kind === "weekly");
   const slots: WeekSlot[] = Array.from({ length: 7 }, (_, day) => ({
-    routine: weekly.find((r) => r.when.kind === "weekly" && r.when.weekday === day)!,
+    routine: weekly.find((r) => r.when.kind === "weekly" && r.when.weekday === day) ?? {
+      id: `free-${day}`,
+      name: "Free day",
+      group: "weekly",
+      when: { kind: "weekly", weekday: day },
+      steps: [],
+    },
   }));
   const office = new Set(officeDays);
   const swapped = new Set<number>();
@@ -384,7 +405,7 @@ export function occurrenceKey(r: Routine, d = today()) {
 }
 
 export function dueToday(d = today(), officeDays: number[] = []) {
-  return CLEANING.filter((r) => isDueOn(r, d, officeDays));
+  return active.filter((r) => isDueOn(r, d, officeDays));
 }
 
 /** Daily list to put first right now: morning before 12, evening from 18. */

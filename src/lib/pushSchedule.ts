@@ -1,7 +1,7 @@
 // Works out the phone notifications for the next week from what's in the app.
 // The list is saved to Supabase (meraki_replace_queue) and the meraki worker sends each one on time.
 
-import { CLEANING, isDueOn, weeklyPlan, weekdayIndex } from "./cleaning";
+import { cleaningLists, isDueOn, weeklyPlan, weekdayIndex } from "./cleaning";
 import { type Bill, money, nextDue, paidKey } from "./finance";
 import { kindWordFor } from "./kindWords";
 import { type CareItem, careNextDue, slotKey } from "./skin";
@@ -56,7 +56,7 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin }:
       const due = tasksOn(tasks, d);
       if (due.length) parts.push(due.length === 1 ? due[0].title : plural(due.length, "task"));
       const cleaning = [weeklyPlan(officeDays)[weekdayIndex(d)].routine.name];
-      for (const r of CLEANING) if (r.when.kind === "monthly" && isDueOn(r, d, officeDays)) cleaning.push(r.name);
+      for (const r of cleaningLists()) if (r.when.kind === "monthly" && isDueOn(r, d, officeDays)) cleaning.push(r.name);
       parts.push(`Cleaning: ${cleaning.join(" + ")}`);
       if (prefs.skincare && prefs.morningTime === skin.amTime) parts.push("Morning skincare");
       add(at(d, prefs.morningTime), "Good morning ☀️", `Today: ${parts.join(" · ")}`, "/", `morning-${key}`);
