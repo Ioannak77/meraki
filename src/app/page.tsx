@@ -25,8 +25,6 @@ import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
 import { Fold } from "@/components/Fold";
-import { dueDates, money, paidKey } from "@/lib/finance";
-import { useFinance } from "@/lib/financeStore";
 import { dayKey, isDoneToday, todaysTasks, useStore, type Task, type TodayCard } from "@/lib/store";
 
 function greeting(hour: number) {
@@ -93,7 +91,7 @@ export default function TodayPage() {
     <div className="mx-auto max-w-5xl">
       <header className="flex items-center justify-between gap-4 md:mt-4">
         <div className="flex items-center gap-3">
-          {now.getHours() < 18 ? <Icon.sun className="size-10 shrink-0 md:size-11" /> : <Icon.moon className="size-9 shrink-0 md:size-10" />}
+          {now.getHours() < 18 ? <Icon.sun className="hidden size-11 shrink-0 md:block" /> : <Icon.moon className="hidden size-10 shrink-0 md:block" />}
           <div>
             <p className="text-xs uppercase tracking-wider text-muted">
               {now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
@@ -102,12 +100,15 @@ export default function TodayPage() {
             <p className="text-[15px] text-muted md:text-lg">Let&apos;s make today manageable.</p>
           </div>
         </div>
-        {/* Insights and Settings aren't in the phone tab bar, so they live here (Calendar is a button below). */}
-        <div className="flex shrink-0 gap-1.5 md:hidden">
-          <Link href="/insights/" aria-label="Insights" className="grid size-9 place-items-center rounded-full bg-card text-muted">
+        {/* Calendar always; Insights and Settings on phones, where they aren't in the tab bar. */}
+        <div className="flex shrink-0 gap-1.5">
+          <Link href="/calendar/" aria-label="Calendar" className="grid size-9 place-items-center rounded-full bg-card text-muted md:size-11">
+            <Icon.calendar className="size-5" />
+          </Link>
+          <Link href="/insights/" aria-label="Insights" className="grid size-9 place-items-center rounded-full bg-card text-muted md:hidden">
             <Icon.insights className="size-5" />
           </Link>
-          <Link href="/settings/" aria-label="Settings" className="grid size-9 place-items-center rounded-full bg-card text-muted">
+          <Link href="/settings/" aria-label="Settings" className="grid size-9 place-items-center rounded-full bg-card text-muted md:hidden">
             <Icon.settings className="size-5" />
           </Link>
         </div>
@@ -125,9 +126,7 @@ export default function TodayPage() {
         </Ring>
       </section>
 
-      <CalendarButton now={now} />
-
-      <div className="mt-4 grid items-start gap-4 lg:grid-flow-dense lg:grid-cols-2">
+      <div className="mt-6 grid items-start gap-4 lg:grid-flow-dense lg:grid-cols-2">
         {show("priorities") && priorities.length > 0 && (
           <Fold
             id="today-priorities"
@@ -262,46 +261,6 @@ function QuickAdd({
       {label}
       {soon && <span className="text-[10px] font-normal opacity-80">soon</span>}
     </button>
-  );
-}
-
-/** Opens the Calendar, with what's coming up in the next 7 days. */
-function CalendarButton({ now }: { now: Date }) {
-  const { tasks } = useStore();
-  const { bills, paid } = useFinance();
-  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7);
-  const soon = [
-    ...tasks
-      .filter((t) => !t.completedAt && t.dueDate && t.dueDate >= dayKey(from) && t.dueDate <= dayKey(to))
-      .map((t) => ({ when: t.dueDate!, label: t.title })),
-    ...bills.flatMap((b) =>
-      dueDates(b, from, to)
-        .filter((d) => !paid[paidKey(b, d)])
-        .map((d) => ({ when: dayKey(d), label: `${b.name} ${money(b.amount, true)}` })),
-    ),
-  ].sort((a, b) => a.when.localeCompare(b.when));
-  const day = (key: string) =>
-    key === dayKey(from) ? "today" : new Date(key + "T12:00:00").toLocaleDateString(undefined, { weekday: "short" });
-
-  return (
-    <Link href="/calendar/" className="mt-6 flex items-center gap-3 rounded-3xl bg-card p-4 shadow-[0_1px_2px_rgba(60,50,40,0.04)]">
-      <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sky-soft text-sky">
-        <Icon.calendar className="size-6" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[17px] font-bold">Calendar</span>
-        <span className="block truncate text-[13px] text-muted">
-          {soon.length === 0
-            ? "Nothing due in the next 7 days"
-            : soon
-                .slice(0, 2)
-                .map((x) => `${x.label} · ${day(x.when)}`)
-                .join("  ·  ") + (soon.length > 2 ? `  +${soon.length - 2}` : "")}
-        </span>
-      </span>
-      <span className="text-muted">›</span>
-    </Link>
   );
 }
 

@@ -154,21 +154,50 @@ export default function CalendarPage() {
         <h2 className="text-lg font-bold">
           {picked === todayKey ? "Today" : pickedDate.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
         </h2>
-        <ul className="mt-1 divide-y divide-line">
-          {pickedEntries.map((e, i) => (
-            <li key={i}>
-              <Link href={e.href} className="flex items-center gap-3 py-3">
-                <span className={`size-2.5 shrink-0 rounded-full ${DOT[e.kind]}`} />
-                <span className={`flex-1 text-[15px] ${e.done ? "text-muted line-through" : ""}`}>{e.label}</span>
-                {e.detail && <span className="shrink-0 text-right text-[13px] text-muted">{e.detail}</span>}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        {DAY_GROUPS.map((g) => {
+          const items = pickedEntries.filter((e) => g.kinds.includes(e.kind));
+          if (items.length === 0) return null;
+          return (
+            <div key={g.title} className="mt-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted">{g.title}</h3>
+              <ul className="divide-y divide-line">
+                {items.map((e, i) => (
+                  <li key={i}>
+                    <Link href={e.href} className="flex items-center gap-3 py-3">
+                      <span className={`size-2.5 shrink-0 rounded-full ${DOT[e.kind]}`} />
+                      <span className={`flex-1 text-[15px] ${e.done ? "text-muted line-through" : ""}`}>
+                        {e.kind === "bill" ? `Pay ${e.label}` : e.label}
+                        {e.kind === "big" && e.detail && <span className="block text-[13px] text-muted">{e.detail}</span>}
+                      </span>
+                      {e.kind === "bill" && (
+                        <span className={`shrink-0 text-right text-[15px] font-semibold ${e.done ? "text-sage-dark" : ""}`}>
+                          {e.done ? "Paid ✓" : e.detail}
+                        </span>
+                      )}
+                      {e.kind === "task" && e.done && <span className="shrink-0 text-[13px] font-semibold text-sage-dark">Done ✓</span>}
+                      {e.kind !== "bill" && e.kind !== "big" && !e.done && e.detail && (
+                        <span className="shrink-0 text-right text-[13px] text-muted">{e.detail}</span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+        {pickedEntries.length === 0 && <p className="mt-2 text-muted">Nothing planned.</p>}
       </section>
     </div>
   );
 }
+
+/** How a picked day's list is split up. */
+const DAY_GROUPS: { title: string; kinds: Entry["kind"][] }[] = [
+  { title: "To pay", kinds: ["bill"] },
+  { title: "To do", kinds: ["task"] },
+  { title: "Self care", kinds: ["care"] },
+  { title: "Cleaning", kinds: ["big", "clean"] },
+];
 
 const CHIP: Record<Entry["kind"], string> = {
   task: "bg-peach-soft text-peach",
