@@ -37,6 +37,15 @@ export function pushSetup(env: PushEnv) {
   return {
     SUPABASE_URL: !!env.SUPABASE_URL,
     SUPABASE_SECRET_KEY: !!env.SUPABASE_SECRET_KEY,
+    // Shape only (never the key itself), to spot a bad paste: right kind, full length, no quotes.
+    secretKeyShape: env.SUPABASE_SECRET_KEY
+      ? {
+          start: env.SUPABASE_SECRET_KEY.trim().slice(0, 10),
+          length: env.SUPABASE_SECRET_KEY.trim().length,
+          spaces: /s/.test(env.SUPABASE_SECRET_KEY.trim()),
+          quotes: /["']/.test(env.SUPABASE_SECRET_KEY),
+        }
+      : null,
     VAPID_PUBLIC_KEY: !!env.VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY: !!env.VAPID_PRIVATE_KEY,
   };
