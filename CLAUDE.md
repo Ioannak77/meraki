@@ -19,6 +19,7 @@
 2. DONE (2026-10-24): Backup card in Settings (Save / Load backup, last backup date).
 3. DONE (2026-10-24): sync via Supabase project "Meraki" (najxrysykfwboefjubfn): src/lib/sync.ts, Settings > Sync, supabase/schema.sql, daily keep-alive cron in workers/receipts. Email confirm is off; turn off new sign-ups once Ioanna has her account.
 4. DONE (2026-10-24): phone notifications. App plans next 7 days (src/lib/pushSchedule.ts, PushScheduler) into Supabase push_queue (supabase/push.sql); meraki worker cron (every 5 min, workers/receipts/src/push.ts) sends them. Settings > Notifications. Private VAPID key in push-setup.local.txt (gitignored).
+   Worker secret SUPABASE_SECRET_KEY is the LEGACY service_role JWT (eyJ…); the new sb_secret_ key was rejected ("Invalid API key"). Check the pipeline with POST /push-run (signed-in token): it reports setup and what was sent.
 5. DONE (2026-10-25): Cleaning schedule > Edit tab (src/components/CleaningEditor.tsx). Edited schedule saved as `cleaning` in meraki.v1 (synced); DEFAULT_CLEANING in cleaning.ts is the original; read it through cleaningLists().
 6. DONE (2026-10-25): Calendar (month grid: tasks, bills, Big clean, self care; tap a day) and Insights (streak, tasks per week, cleaning this month with easiest/hardest list, skincare days, spending and groceries per month). On phones both are buttons in the Today header.
 
