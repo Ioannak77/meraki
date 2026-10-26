@@ -51,6 +51,8 @@ type SkinStore = SkinData & {
   saveStep: (s: Omit<SkinStep, "id"> & { id?: string }) => void;
   deleteStep: (id: string) => void;
   moveStep: (id: string, dir: -1 | 1) => void;
+  /** A slot's steps in a new order (from dragging). */
+  reorderSteps: (ids: string[]) => void;
   toggle: (slot: string, stepId: string) => void;
   updateSettings: (patch: Partial<SkinSettings>) => void;
   saveItem: (i: Omit<CareItem, "id"> & { id?: string }) => void;
@@ -101,6 +103,15 @@ export function SkinProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const reorderSteps = useCallback((ids: string[]) => {
+    setData((d) => {
+      // The slot's steps keep their places in the list, filled in the new order.
+      const queue = ids.map((id) => d.steps.find((s) => s.id === id)).filter((s): s is SkinStep => !!s);
+      const moving = new Set(ids);
+      return { ...d, steps: d.steps.map((s) => (moving.has(s.id) ? queue.shift()! : s)) };
+    });
+  }, []);
+
   const toggle = useCallback((slot: string, stepId: string) => {
     setData((d) => {
       const cur = d.done[slot] ?? [];
@@ -133,8 +144,8 @@ export function SkinProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<SkinStore>(
-    () => ({ ...data, ready, saveStep, deleteStep, moveStep, toggle, updateSettings, saveItem, deleteItem, markDone }),
-    [data, ready, saveStep, deleteStep, moveStep, toggle, updateSettings, saveItem, deleteItem, markDone],
+    () => ({ ...data, ready, saveStep, deleteStep, moveStep, reorderSteps, toggle, updateSettings, saveItem, deleteItem, markDone }),
+    [data, ready, saveStep, deleteStep, moveStep, reorderSteps, toggle, updateSettings, saveItem, deleteItem, markDone],
   );
 
   return <SkinContext.Provider value={value}>{children}</SkinContext.Provider>;

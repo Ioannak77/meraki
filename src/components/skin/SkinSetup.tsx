@@ -8,12 +8,14 @@ import { WEEKDAY_SHORT, scheduleLabel, type SkinSchedule, type SkinStep, type Sl
 import Link from "next/link";
 import { useGroceries } from "@/lib/groceriesStore";
 import { useSkin } from "@/lib/skinStore";
+import { DragList } from "../DragList";
+import { Icon } from "../icons";
 import { dayKey } from "@/lib/store";
 import { Card, CardTitle, Chips, DangerButton, Label, PrimaryButton, Sheet, inputClass } from "../finance/ui";
 import { SLOT_TITLE } from "./SlotCard";
 
 export function SkinSetup() {
-  const { steps, moveStep, settings, updateSettings } = useSkin();
+  const { steps, reorderSteps, settings, updateSettings } = useSkin();
   const { addToList } = useGroceries();
   const [editing, setEditing] = useState<SkinStep | { slot: Slot } | null>(null);
   const [low, setLow] = useState<string | null>(null); // last product put on the grocery list
@@ -45,11 +47,14 @@ export function SkinSetup() {
               Small things for any time of day: vitamins, a big glass of water, a stretch, a walk with Pari… Tap + Step to add one.
             </p>
           )}
-          <ul className="divide-y divide-line">
-            {steps
-              .filter((s) => s.slot === slot)
-              .map((s) => (
-                <li key={s.id} className="flex items-center gap-2 py-2.5">
+          <DragList
+            className="divide-y divide-line"
+            items={steps.filter((s) => s.slot === slot)}
+            onReorder={reorderSteps}
+            label={(s) => s.name}
+            render={(s, handle) => (
+                <div className="flex items-center gap-2 py-2.5">
+                  <span {...handle}>⋮⋮</span>
                   <button type="button" onClick={() => setEditing(s)} className="min-w-0 flex-1 text-left">
                     <span className="block truncate text-[15px] font-semibold">{s.name}</span>
                     <span className="block text-[13px] text-muted">
@@ -64,19 +69,13 @@ export function SkinSetup() {
                       setLow(s.name);
                     }}
                     aria-label={`${s.name} is running low: add to the grocery list`}
-                    className="shrink-0 rounded-full bg-cream px-2.5 py-1 text-xs font-semibold text-muted"
+                    className="flex shrink-0 items-center gap-1 rounded-full border border-sage/50 bg-card px-2.5 py-1.5 text-xs font-bold text-sage-dark shadow-sm active:bg-sage-soft"
                   >
-                    Low
+                    <Icon.basket className="size-3.5" /> Low
                   </button>
-                  <button type="button" onClick={() => moveStep(s.id, -1)} aria-label={`Move ${s.name} up`} className="px-2 text-muted">
-                    ↑
-                  </button>
-                  <button type="button" onClick={() => moveStep(s.id, 1)} aria-label={`Move ${s.name} down`} className="px-2 text-muted">
-                    ↓
-                  </button>
-                </li>
-              ))}
-          </ul>
+                </div>
+            )}
+          />
         </Card>
       ))}
 
