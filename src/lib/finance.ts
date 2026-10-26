@@ -543,7 +543,8 @@ export function headerSignature(header: string[]) {
   return header.map((h) => h.toLowerCase().trim()).join("|");
 }
 
-export type ParsedLine = { date: string; description: string; amount: number };
+// `transfer`: money between your own accounts (from a PDF statement), sorted as a transfer.
+export type ParsedLine = { date: string; description: string; amount: number; transfer?: boolean };
 
 /** Turns statement rows into lines; rows that can't be read are counted, not guessed. */
 export function readStatement(rows: string[][], map: ColumnMap) {

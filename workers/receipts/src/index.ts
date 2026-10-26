@@ -4,6 +4,8 @@
 // -> 200 { shop, date, currency, total, discounts, items: [...] }   Claude reads a receipt.
 // POST /advise   { summary: {...money summary...}, question: "" }
 // -> 200 { headline, going_well, watch, suggestions, answer }     Claude looks over the money.
+// POST /statement { pdf: "<base64 PDF>" }
+// -> 200 { bank, currency, lines: [{ date, description, amount, own_transfer }] }   Claude reads a bank statement.
 // POST /push-run  {}  -> 200 { setup, report | error }   Sends due reminders now and says how it went.
 //
 // Plus a cron that sends due phone reminders (push.ts).
@@ -20,6 +22,7 @@ interface Env extends PushEnv {
 }
 
 const MAX_IMAGE_BYTES = 4_000_000; // Meraki shrinks photos to ~200 KB; this is a safety cap
+const MAX_PDF_BYTES = 15_000_000; // a few months of statement is well under 1 MB
 
 // What Claude must return. Structured outputs guarantee it matches.
 const RECEIPT_SCHEMA = {
@@ -57,6 +60,43 @@ Return every purchased line item. Give each a short, clear English name (transla
 Use the line total actually charged as "price". If a discount line applies to an item, subtract it from that item; put any remaining basket-level discounts in "discounts".
 "category": groceries for food and drink; household for cleaning and home supplies; pet for anything for a dog; personal for toiletries, cosmetics and medicine; other otherwise.
 If it isn't a receipt or you can't read it, set readable to false and leave the rest empty or 0.`;
+
+// What a bank statement must come back as.
+const STATEMENT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["readable", "bank", "currency", "lines"],
+  properties: {
+    readable: { type: "boolean", description: "false if this isn't a bank or card statement, or can't be read" },
+    bank: { type: "string", description: "Short bank name, e.g. 'Revolut', 'Bank of Cyprus'" },
+    currency: { type: "string", description: "ISO code of the account, e.g. EUR" },
+    lines: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["date", "description", "amount", "own_transfer"],
+        properties: {
+          date: { type: "string", description: "Transaction date as YYYY-MM-DD" },
+          description: { type: "string", description: "Merchant or payee as printed, tidied (no card numbers or reference codes)" },
+          amount: { type: "number", description: "Negative for money out, positive for money in, in the account currency" },
+          own_transfer: {
+            type: "boolean",
+            description: "true for money moving between the person's own accounts: top-ups, transfers to or from their other bank, savings vaults or pockets, currency exchanges",
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+const STATEMENT_PROMPT = `This is a bank or card statement, usually from Cyprus (Revolut or Bank of Cyprus; it may be in Greek or English).
+Return every completed transaction, in date order. Leave out opening and closing balances, running balance figures, totals and subtotals, fees summaries, and pending or reverted card payments.
+Use the transaction date (not the value date) as YYYY-MM-DD; when the year isn't printed on a line, take it from the statement period.
+Give money out as a negative amount and money in as positive, in the account's currency.
+Keep each description short and recognisable: the merchant or person as printed, without card numbers, terminal IDs or long reference codes. Translate nothing.
+Set own_transfer to true for money moving between the person's own accounts: card or bank top-ups, transfers to or from their other bank account (e.g. Revolut <-> Bank of Cyprus), savings vaults or pockets, and currency exchanges. Payments to other people and shops are false.
+If it isn't a statement or you can't read it, set readable to false and leave lines empty.`;
 
 // What the money advice must look like.
 const ADVICE_SCHEMA = {
@@ -136,6 +176,48 @@ async function callClaude(env: Env, params: Record<string, unknown>) {
   } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming);
 }
 
+async function statement(request: Request, env: Env, headers: Record<string, string>): Promise<Response> {
+  let pdf: string;
+  try {
+    ({ pdf } = (await request.json()) as { pdf: string });
+  } catch {
+    return json({ error: "send { pdf: base64 }" }, 400, headers);
+  }
+  if (!pdf || pdf.length * 0.75 > MAX_PDF_BYTES) return json({ error: "PDF missing or too big" }, 400, headers);
+
+  try {
+    // A long statement can mean hundreds of lines, so this one streams (no request timeout).
+    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+    const response = await client.beta.messages
+      .stream({
+        model: "claude-opus-5-5",
+        max_tokens: 64000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low", format: { type: "json_schema", schema: STATEMENT_SCHEMA } },
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf } },
+              { type: "text", text: STATEMENT_PROMPT },
+            ],
+          },
+        ],
+      } as unknown as Anthropic.Beta.MessageCreateParamsStreaming)
+      .finalMessage();
+    if (response.stop_reason === "refusal") return json({ error: "Couldn't read this statement" }, 422, headers);
+    if (response.stop_reason === "max_tokens") return json({ error: "Statement too long to read in one go. Try a shorter period." }, 422, headers);
+    const text = response.content.find((b) => b.type === "text");
+    if (!text || text.type !== "text") return json({ error: "No result" }, 502, headers);
+    const result = JSON.parse(text.text);
+    if (!result.readable) return json({ error: "That doesn't look like a bank statement" }, 422, headers);
+    return json(result, 200, headers);
+  } catch (err) {
+    return claudeError(err, headers);
+  }
+}
+
 async function read(request: Request, env: Env, headers: Record<string, string>): Promise<Response> {
   let image: string;
   try {
@@ -212,7 +294,7 @@ export default {
     const headers = cors(request.headers.get("Origin"), env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || (path !== "/read" && path !== "/advise" && path !== "/push-run")) {
+    if (request.method !== "POST" || !["/read", "/advise", "/statement", "/push-run"].includes(path)) {
       return json({ error: "not found" }, 404, headers);
     }
     if (!headers["Access-Control-Allow-Origin"]) return json({ error: "origin not allowed" }, 403, headers);
@@ -226,6 +308,7 @@ export default {
         return json({ setup: pushSetup(env), error: String(err instanceof Error ? err.message : err).slice(0, 500) }, 200, headers);
       }
     }
+    if (path === "/statement") return statement(request, env, headers);
     return path === "/advise" ? advise(request, env, headers) : read(request, env, headers);
   },
 

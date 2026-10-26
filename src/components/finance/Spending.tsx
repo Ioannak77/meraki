@@ -26,6 +26,7 @@ import {
 } from "@/lib/finance";
 import { useFinance, type ImportResult } from "@/lib/financeStore";
 import { dayKey } from "@/lib/store";
+import { workerPost } from "@/lib/worker";
 import { NewChip } from "../NewChip";
 import { AllowanceBody, AmountSheet } from "./Budgets";
 import { Bar, Card, CardTitle, Chips, DangerButton, Label, MoneyInput, PrimaryButton, Sheet, inputClass } from "./ui";
@@ -370,6 +371,27 @@ export function AddSpendingSheet({ onClose, now, only }: { onClose: () => void; 
 
 type Loaded = { rows: string[][]; header: string[]; signature: string; map: ColumnMap; fileName: string };
 
+/** A PDF statement, read by Claude in the meraki worker (Revolut, Bank of Cyprus, …). */
+type PdfRead = { bank: string; currency: string; lines: ParsedLine[]; fileName: string };
+type StatementReply = {
+  bank: string;
+  currency: string;
+  lines: { date: string; description: string; amount: number; own_transfer: boolean }[];
+};
+const NO_COLUMNS: ColumnMap = { date: -1, description: -1, amount: -1, moneyOut: -1, moneyIn: -1 };
+
+async function readPdfStatement(file: File): Promise<PdfRead> {
+  if (file.size > 15_000_000) throw new Error("That PDF is too big. Try a statement for a shorter period.");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const r = await workerPost<StatementReply>("/statement", { pdf: btoa(binary) }, "statement reader");
+  const lines = r.lines
+    .filter((l) => /^\d{4}-\d{2}-\d{2}$/.test(l.date) && Number.isFinite(l.amount) && l.amount !== 0)
+    .map((l) => ({ date: l.date, description: l.description.trim() || "(no description)", amount: l.amount, transfer: l.own_transfer || undefined }));
+  return { bank: r.bank, currency: r.currency, lines, fileName: file.name };
+}
+
 const FIELDS: { key: keyof ColumnMap; label: string }[] = [
   { key: "date", label: "Date" },
   { key: "description", label: "Description" },
@@ -384,13 +406,18 @@ type ReviewGroup = { match: string; sample: string; lines: number[]; total: numb
 export function ImportSheet({ onClose }: { onClose: () => void }) {
   const { importLines, importProfiles, rules, bills, addCategory } = useFinance();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [pdf, setPdf] = useState<PdfRead | null>(null);
+  const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [review, setReview] = useState<{ lines: (ParsedLine & { category: CategoryId })[]; groups: ReviewGroup[] } | null>(null);
 
   function next() {
-    if (!preview || !loaded) return;
-    const lines = preview.lines.map((l) => ({ ...l, category: categorise(l.description, l.amount, rules, bills) }));
+    if (!preview) return;
+    const lines = preview.lines.map((l) => ({
+      ...l,
+      category: l.transfer ? ("transfer" as CategoryId) : categorise(l.description, l.amount, rules, bills),
+    }));
     const groups = new Map<string, ReviewGroup>();
     lines.forEach((l, i) => {
       if (l.category !== "other") return;
@@ -405,7 +432,6 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
   }
 
   function finish(lines: (ParsedLine & { category: CategoryId })[], groups: ReviewGroup[]) {
-    if (!loaded) return;
     const final = lines.map((l) => ({ ...l }));
     const newRules: Rule[] = [];
     for (const g of groups) {
@@ -413,7 +439,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
       if (g.mapping.always && g.category !== "other" && g.mapping.match.trim())
         newRules.push({ match: g.mapping.match.toLowerCase().trim(), category: g.category });
     }
-    setResult(importLines(final, loaded.signature, loaded.map, newRules));
+    setResult(importLines(final, loaded?.signature ?? "", loaded?.map ?? NO_COLUMNS, newRules));
   }
 
   function updateGroup(i: number, patch: Partial<ReviewGroup>) {
@@ -422,10 +448,23 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
 
   async function onFile(file: File) {
     setError(null);
+    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+      setReading(true);
+      try {
+        const read = await readPdfStatement(file);
+        if (read.lines.length === 0) setError("Couldn't find any transactions in that PDF.");
+        else setPdf(read);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't read that statement.");
+      } finally {
+        setReading(false);
+      }
+      return;
+    }
     const text = await file.text();
     const all = parseCsv(text);
     if (all.length < 2) {
-      setError("That file doesn't look like a CSV statement. Most banks have a “Download as CSV” option.");
+      setError("That file doesn't look like a statement. Pick the PDF or CSV your bank gives you.");
       return;
     }
     const h = findHeader(all);
@@ -435,7 +474,8 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
     setLoaded({ rows: all.slice(h + 1), header, signature, map, fileName: file.name });
   }
 
-  const preview = loaded ? readStatement(loaded.rows, loaded.map) : null;
+  const preview = pdf ? { lines: pdf.lines, unreadable: 0 } : loaded ? readStatement(loaded.rows, loaded.map) : null;
+  const transfers = pdf ? pdf.lines.filter((l) => l.transfer).length : 0;
   const mapOk = loaded && loaded.map.date >= 0 && loaded.map.description >= 0 && (loaded.map.amount >= 0 || loaded.map.moneyOut >= 0 || loaded.map.moneyIn >= 0);
 
   if (review && !result) {
@@ -499,20 +539,56 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Sheet title="Import bank statement" onClose={onClose}>
-      {!loaded ? (
+      {pdf ? (
         <>
           <p className="text-[15px] text-muted">
-            Download a statement from your bank as a <strong>CSV</strong> file, then pick it here. It&apos;s read on this
-            device only. Importing the same statement twice won&apos;t double count anything.
+            {pdf.bank || "Statement"} · {pdf.fileName}
           </p>
-          <label className="mt-5 block cursor-pointer rounded-2xl border-2 border-dashed border-line bg-cream py-8 text-center font-semibold">
-            Choose CSV file
+          <p className="mt-1 text-[15px]">
+            <strong>{pdf.lines.length}</strong> transactions found
+            {transfers > 0 ? `, ${transfers} between your own accounts (kept out of your spending)` : ""}.
+          </p>
+          {pdf.currency && pdf.currency.toUpperCase() !== "EUR" && (
+            <p className="mt-2 text-[15px] text-peach">This is a {pdf.currency} account. Amounts are added as they are, not converted to euros.</p>
+          )}
+          <Label>Preview</Label>
+          <ul className="divide-y divide-line rounded-2xl bg-cream px-3">
+            {pdf.lines.slice(0, 5).map((l, i) => (
+              <li key={i} className="flex gap-3 py-2 text-sm">
+                <span className="w-20 shrink-0 text-muted">{l.date}</span>
+                <span className="min-w-0 flex-1 truncate">{l.description}</span>
+                <span className="shrink-0 font-semibold">{money(l.amount)}</span>
+              </li>
+            ))}
+          </ul>
+          <PrimaryButton onClick={next}>Next: {pdf.lines.length} transactions</PrimaryButton>
+          <button type="button" onClick={() => setPdf(null)} className="mt-3 w-full py-2 text-sm font-semibold text-muted">
+            Choose a different file
+          </button>
+        </>
+      ) : !loaded ? (
+        <>
+          <p className="text-[15px] text-muted">
+            Download a statement from your bank as a <strong>PDF</strong> (Revolut, Bank of Cyprus…) or a <strong>CSV</strong>,
+            then pick it here. Importing the same statement twice won&apos;t double count anything.
+          </p>
+          <p className="mt-2 text-[13px] text-muted">
+            A CSV is read on this device. A PDF is read by Meraki&apos;s assistant (Claude) and isn&apos;t kept anywhere.
+          </p>
+          <label
+            className={`mt-5 block rounded-2xl border-2 border-dashed border-line bg-cream py-8 text-center font-semibold ${
+              reading ? "pointer-events-none text-muted" : "cursor-pointer"
+            }`}
+          >
+            {reading ? "Reading your statement… this can take a minute" : "Choose PDF or CSV file"}
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".pdf,.csv,application/pdf,text/csv"
               className="hidden"
+              disabled={reading}
               onChange={(e) => {
                 const f = e.target.files?.[0];
+                e.target.value = "";
                 if (f) void onFile(f);
               }}
             />

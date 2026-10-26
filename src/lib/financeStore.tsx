@@ -230,7 +230,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           paid,
           billActuals,
           rules: [...fresh, ...d.rules.filter((r) => !fresh.some((f) => f.match === r.match))],
-          importProfiles: { ...d.importProfiles, [signature]: map },
+          // A PDF statement has no columns to remember (signature "").
+          importProfiles: signature ? { ...d.importProfiles, [signature]: map } : d.importProfiles,
         };
       });
       return { added: added.length, duplicates, billsMarkedPaid };
