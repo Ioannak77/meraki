@@ -5,7 +5,7 @@
 // stays on this device. Until there's a place, `fallback` (the full-size rings) shows instead.
 
 import { useEffect, useState } from "react";
-import { describe, findPlace, getWeather, locate, savePlace, savedPlace, uvAdvice, weatherTip, type Place, type Weather } from "@/lib/weather";
+import { describe, findPlace, getWeather, locate, savePlace, savedPlace, weatherTip, type Place, type Weather } from "@/lib/weather";
 
 /** The card's tint follows the sky: warm when clear, blue-grey when cloudy or wet. */
 function tint(code: number) {
@@ -130,9 +130,9 @@ export function WeatherCard({
 
   const now = describe(weather.code);
   const tip = weatherTip(weather);
-  // A forecast saved before UV was added has none: no UV line until a fresh one arrives.
+  // A forecast saved before UV was added has none: no UV until a fresh one arrives.
+  // (The sunscreen note itself is on Morning skincare.)
   const hasUv = typeof weather.uv === "number";
-  const uv = hasUv ? uvAdvice(weather.uv) : null;
   const tomorrow = describe(weather.tomorrow.code);
   return (
     <section className={`rounded-3xl bg-gradient-to-br ${tint(weather.code)} to-card p-5 shadow-[0_1px_2px_rgba(60,50,40,0.04)]`}>
@@ -152,9 +152,8 @@ export function WeatherCard({
         </div>
         <div className="flex shrink-0 gap-2.5 md:gap-5">{progress}</div>
       </div>
-      {/* Sunscreen from the UV, always shown: a must from UV 3. */}
+      {(tip || evening) && (
       <div className="mt-3 space-y-1 border-t border-line/70 pt-3 text-[13px]">
-        {uv && <p className={uv.must ? "font-semibold text-peach" : "text-muted"}>🧴 {uv.text}</p>}
         {tip && <p>{tip}</p>}
         {evening && (
           <p className="text-muted">
@@ -162,6 +161,7 @@ export function WeatherCard({
           </p>
         )}
       </div>
+      )}
     </section>
   );
 }

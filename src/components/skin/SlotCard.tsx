@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { isStepDue, slotKey, type Slot } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
-import { WEATHER_EVENT, cachedWeather } from "@/lib/weather";
+import { WEATHER_EVENT, cachedWeather, uvAdvice } from "@/lib/weather";
 
 /** Sunscreen steps follow today's UV: a must from 3, optional below. */
 const isSunscreen = (name: string) => /sunscreen|spf|sun ?cream|sunblock/i.test(name);
@@ -32,7 +32,8 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
     return () => window.removeEventListener(WEATHER_EVENT, seen);
   }, []);
   // Today's UV (from the weather on Today), for the morning sunscreen.
-  const uv = slot === "am" && typeof window !== "undefined" ? (cachedWeather()?.uv ?? null) : null;
+  const uvToday = slot === "am" && typeof window !== "undefined" ? cachedWeather()?.uv : undefined;
+  const uv = typeof uvToday === "number" ? uvToday : null;
   const optional = (name: string) => uv !== null && uv < 3 && isSunscreen(name);
   const counted = due.filter((s) => !optional(s.name));
   const count = counted.filter((s) => ticked.includes(s.id)).length;
@@ -57,6 +58,11 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
           {due.length === 0 ? "Nothing today" : complete ? "Done ✓" : `${count}/${counted.length}`}
         </span>
       </button>
+
+      {/* Today's UV decides about sunscreen: a must from 3, optional below. */}
+      {uv !== null && (
+        <p className={`mt-2 text-[13px] ${uv >= 3 ? "font-semibold text-peach" : "text-muted"}`}>🧴 {uvAdvice(uv).text}</p>
+      )}
 
       {open && due.length > 0 && (
         <>
