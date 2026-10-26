@@ -18,6 +18,7 @@ import {
   type Step,
 } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
+import { DragList } from "./DragList";
 import { Icon } from "./icons";
 import { DangerButton, Label, PrimaryButton, Sheet, inputClass } from "./finance/ui";
 
@@ -154,13 +155,6 @@ function ListSheet({
 
   const setStep = (id: string, patch: Partial<Step>) =>
     setDraft((d) => ({ ...d, steps: d.steps.map((s) => (s.id === id ? { ...s, ...patch } : s)) }));
-  const moveStep = (i: number, by: number) =>
-    setDraft((d) => {
-      const steps = [...d.steps];
-      const [s] = steps.splice(i, 1);
-      steps.splice(Math.max(0, Math.min(steps.length, i + by)), 0, s);
-      return { ...d, steps };
-    });
 
   const months = draft.when.kind === "monthly" ? draft.when.months : [];
   const valid = draft.name.trim() && draft.steps.every((s) => s.title.trim()) && (draft.when.kind !== "monthly" || months.length > 0);
@@ -219,15 +213,23 @@ function ListSheet({
       )}
 
       <Label>Steps</Label>
-      <ul className="divide-y divide-line rounded-2xl bg-cream px-3">
-        {draft.steps.map((s, i) => (
-          <li key={s.id} className="py-2">
-            <button type="button" onClick={() => setOpen(open === s.id ? null : s.id)} className="flex w-full items-center gap-2 py-1 text-left">
+      <div className="rounded-2xl bg-cream px-3">
+      <DragList
+        className="divide-y divide-line"
+        items={draft.steps}
+        label={(s) => s.title || "new step"}
+        onReorder={(ids) => setDraft((d) => ({ ...d, steps: ids.map((id) => d.steps.find((x) => x.id === id)!) }))}
+        render={(s, handle) => (
+          <div className="py-2">
+            <div className="flex items-center gap-1">
+            <span {...handle}>⋮⋮</span>
+            <button type="button" onClick={() => setOpen(open === s.id ? null : s.id)} className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left">
               <span className={`flex-1 text-[15px] ${s.title ? "" : "text-muted"}`}>{s.title || "New step"}</span>
               <span className="shrink-0 text-xs text-muted">
                 {s.minutes} min{s.optional ? " · if needed" : ""}
               </span>
             </button>
+            </div>
             {open === s.id && (
               <div className="mt-2 grid gap-2 pb-2">
                 <input
@@ -315,17 +317,6 @@ function ListSheet({
                   </div>
                 )}
                 <div className="flex gap-2 text-sm font-semibold">
-                  <button type="button" disabled={i === 0} onClick={() => moveStep(i, -1)} className="rounded-xl bg-card px-3 py-2 disabled:opacity-40">
-                    ↑ Up
-                  </button>
-                  <button
-                    type="button"
-                    disabled={i === draft.steps.length - 1}
-                    onClick={() => moveStep(i, 1)}
-                    className="rounded-xl bg-card px-3 py-2 disabled:opacity-40"
-                  >
-                    ↓ Down
-                  </button>
                   <button
                     type="button"
                     onClick={() => setDraft((d) => ({ ...d, steps: d.steps.filter((x) => x.id !== s.id) }))}
@@ -336,9 +327,10 @@ function ListSheet({
                 </div>
               </div>
             )}
-          </li>
-        ))}
-        <li className="py-2">
+          </div>
+        )}
+      />
+      <div className="border-t border-line py-2">
           <button
             type="button"
             onClick={() => {
@@ -350,8 +342,8 @@ function ListSheet({
           >
             <Icon.plus className="size-4" /> Add a step
           </button>
-        </li>
-      </ul>
+      </div>
+      </div>
 
       <PrimaryButton disabled={!valid} onClick={() => onSave({ ...draft, name: draft.name.trim() })}>
         Save
