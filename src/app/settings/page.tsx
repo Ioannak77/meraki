@@ -9,6 +9,7 @@ import { HomeScreenCard } from "@/components/HomeScreenCard";
 import { MoneySettingsCard } from "@/components/finance/SettingsCard";
 import { Sheet } from "@/components/finance/ui";
 import { Icon, type IconName } from "@/components/icons";
+import { KindWordsSettings } from "@/components/KindWordsSettings";
 import { NotificationsCard } from "@/components/NotificationsCard";
 import { SyncCard } from "@/components/SyncCard";
 import { TodayCardsSettings } from "@/components/TodayCardsSettings";
@@ -16,11 +17,13 @@ import { WEEKDAYS, formatMinutes, plannedMinutes, weeklyPlan } from "@/lib/clean
 import { DEFAULT_PUSH, TODAY_CARDS, useStore } from "@/lib/store";
 import { getServerSyncState, getSyncState, subscribeSync } from "@/lib/sync";
 
-type Panel = "home" | "notifications" | "today" | "office" | "money" | "sync" | "backup";
+type Panel = "home" | "notifications" | "kind" | "today" | "office" | "look" | "money" | "sync" | "backup";
 
 const TITLES: Record<Panel, string> = {
   home: "Add to your home screen",
   notifications: "Notifications",
+  kind: "Kind words",
+  look: "Appearance",
   today: "Today screen",
   office: "Office days",
   money: "Money",
@@ -94,6 +97,13 @@ export default function SettingsPage() {
           onClick={() => setOpen("notifications")}
         />
         <LinkRow href="/self-care/#reminders" icon="heart" tone="bg-rose-soft text-rose" label="Self-care reminders" note="Waxing, nails, hair…" />
+        <Row
+          icon="heart"
+          tone="bg-peach-soft text-peach"
+          label="Kind words"
+          note={settings.kindWords?.length ? `${settings.kindWords.length} of your own, plus the built-in ones` : "Add your own affirmations"}
+          onClick={() => setOpen("kind")}
+        />
       </Group>
 
       <Group title="Your days">
@@ -112,6 +122,13 @@ export default function SettingsPage() {
           onClick={() => setOpen("office")}
         />
         <LinkRow href="/cleaning/" icon="routines" tone="bg-sage-soft text-sage-dark" label="Cleaning lists" note="Edit them in Cleaning schedule › Edit" />
+        <Row
+          icon="moon"
+          tone="bg-sky-soft text-sky"
+          label="Appearance"
+          note={{ light: "Light", dark: "Dark", system: "Match my phone" }[settings.theme ?? "light"]}
+          onClick={() => setOpen("look")}
+        />
         <LinkRow href="/self-care/#skincare" icon="sun" tone="bg-rose-soft text-rose" label="Skincare and daily self care" note="Steps and times, in Self care › Set up" />
       </Group>
 
@@ -132,7 +149,13 @@ export default function SettingsPage() {
           icon="note"
           tone="bg-sage-soft text-sage-dark"
           label="Backup"
-          note={lastBackup ? `Last backup: ${daysAgo(lastBackup)}` : "No backup yet"}
+          note={
+            lastBackup
+              ? `Last backup: ${daysAgo(lastBackup)}`
+              : sync.status === "on"
+                ? "Optional: Sync keeps your data safe"
+                : "No backup yet"
+          }
           onClick={() => setOpen("backup")}
         />
       </Group>
@@ -143,6 +166,8 @@ export default function SettingsPage() {
           <div className="pb-4 [&>section]:mt-0 [&>section]:bg-transparent [&>section]:p-0 [&>section>h2:first-child]:hidden">
             {open === "home" && <HomeScreenCard />}
             {open === "notifications" && <NotificationsCard />}
+            {open === "kind" && <KindWordsSettings />}
+            {open === "look" && <Appearance />}
             {open === "today" && <TodayCardsSettings />}
             {open === "office" && <OfficeDays />}
             {open === "money" && <MoneySettingsCard />}
@@ -197,6 +222,34 @@ function LinkRow(props: { href: string; icon: IconName; tone: string; label: str
         <RowBody {...props} />
       </Link>
     </li>
+  );
+}
+
+/** Light, dark, or following the phone. */
+function Appearance() {
+  const { settings, updateSettings } = useStore();
+  const current = settings.theme ?? "light";
+  const options = [
+    { id: "light", label: "Light" },
+    { id: "dark", label: "Dark" },
+    { id: "system", label: "Match my phone" },
+  ] as const;
+  return (
+    <>
+      <div className="flex gap-1 rounded-full bg-cream p-1">
+        {options.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => updateSettings({ theme: o.id })}
+            className={`flex-1 rounded-full py-2.5 text-sm ${current === o.id ? "bg-ink font-bold text-cream" : "text-ink/70"}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-sm text-muted">&ldquo;Match my phone&rdquo; goes dark when your phone does, for example at night.</p>
+    </>
   );
 }
 

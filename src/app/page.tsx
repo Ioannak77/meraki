@@ -99,12 +99,12 @@ export default function TodayPage() {
   // Bills due today or tomorrow (unpaid), shown in Coming up.
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const billsSoon = finance.bills
+  const billsSoon = (show("bills") ? finance.bills : [])
     .flatMap((b) => dueDates(b, startToday, tomorrow).map((due) => ({ bill: b, due })))
     .filter((x) => !finance.paid[paidKey(x.bill, x.due)]);
-  const shoppingLeft = groceries.list.filter((i) => !i.done).length;
+  const shoppingLeft = show("shopping") ? groceries.list.filter((i) => !i.done).length : 0;
   // From 8pm: a look at tomorrow, to get ready.
-  const evening = now.getHours() >= 20;
+  const evening = show("tomorrow") && now.getHours() >= 20;
   const tomorrowKey = dayKey(tomorrow);
   const tomorrowTasks = tasks.filter((t) => !t.completedAt && t.dueDate === tomorrowKey);
   const tomorrowBills = finance.bills.filter((b) => dueDates(b, tomorrow, tomorrow).some((d) => !finance.paid[paidKey(b, d)]));
@@ -123,7 +123,7 @@ export default function TodayPage() {
             </p>
             <h1 className="text-[26px] font-bold leading-tight md:text-4xl">{greeting(now.getHours())}</h1>
             {/* Today's kind word: the same one as the afternoon notification. */}
-            <p className="text-[15px] text-muted md:text-lg">{kindWordFor(dayKey(now)).text}</p>
+            <p className="text-[15px] text-muted md:text-lg">{kindWordFor(dayKey(now), settings.kindWords).text}</p>
           </div>
         </div>
         {/* Calendar always; Insights and Settings on phones, where they aren't in the tab bar. */}

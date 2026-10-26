@@ -2,7 +2,8 @@
 
 // Settings > Backup: save everything to one file, and load it back (new phone, iPad, home screen app).
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { getServerSyncState, getSyncState, subscribeSync } from "@/lib/sync";
 import { dayKey } from "@/lib/store";
 
 const PREFIX = "meraki.";
@@ -28,6 +29,7 @@ export function BackupCard() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [last, setLast] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const synced = useSyncExternalStore(subscribeSync, getSyncState, getServerSyncState).status === "on";
 
   useEffect(() => {
     const t = setTimeout(() => setLast(localStorage.getItem(LAST_KEY)), 0);
@@ -81,8 +83,8 @@ export function BackupCard() {
       <p className="text-[15px] text-muted">
         Everything is kept on this device only. Save a backup now and then, and use it to move Meraki to a new phone or iPad.
       </p>
-      <p className={`mt-2 text-sm font-semibold ${last ? "text-sage-dark" : "text-peach"}`}>
-        {last ? `Last backup: ${daysAgo(last)}` : "No backup yet"}
+      <p className={`mt-2 text-sm font-semibold ${last || synced ? "text-sage-dark" : "text-peach"}`}>
+        {last ? `Last backup: ${daysAgo(last)}` : synced ? "Sync keeps your data safe, so a backup is an extra" : "No backup yet"}
       </p>
       <div className="mt-4 flex gap-2">
         <button onClick={save} className="flex-1 rounded-2xl bg-sage-dark py-3 font-bold text-white">

@@ -85,7 +85,7 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
     `rounded-full px-3.5 py-2 text-sm transition-colors ${active ? "bg-ink text-cream" : "bg-cream text-ink/80"}`;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 md:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
       <form
         onSubmit={save}
         onClick={(e) => e.stopPropagation()}

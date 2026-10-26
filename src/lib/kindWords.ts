@@ -53,13 +53,15 @@ export const KIND_WORDS = [
   "Remember: you're the main character. 💛",
 ];
 
-/** Same word and time for a given day, so planning the week again doesn't change them. */
-export function kindWordFor(dayKey: string) {
+/** Same word and time for a given day, so planning the week again doesn't change them.
+ *  `own`: your own kind words (Settings), mixed in with these. */
+export function kindWordFor(dayKey: string, own: string[] = []) {
+  const words = [...KIND_WORDS, ...own.filter((w) => w.trim())];
   let h = 7;
   for (const c of dayKey) h = Math.imul(h ^ c.charCodeAt(0), 0x5bd1e995);
   h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
   h = (h ^ (h >>> 13)) >>> 0;
   // Between 13:00 and 17:00, on a quarter hour.
   const minutes = 13 * 60 + (h % 17) * 15;
-  return { text: KIND_WORDS[h % KIND_WORDS.length], hour: Math.floor(minutes / 60), minute: minutes % 60 };
+  return { text: words[h % words.length], hour: Math.floor(minutes / 60), minute: minutes % 60 };
 }

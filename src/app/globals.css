@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
-/* Meraki palette: warm cream, sage green and soft accents. */
-@theme inline {
+/* Meraki palette: warm cream, sage green and soft accents. Not "inline", so the colours stay
+   CSS variables and the dark palette below can swap them (Settings > Appearance). */
+@theme {
   --color-cream: #f6f1ea;
   --color-card: #fffdf9;
   --color-line: #ece4d8;
@@ -19,7 +20,54 @@
   --color-sun: #f4b860;
   --color-red: #c9504a;
   --color-red-soft: #fbe3e1;
+}
+
+@theme inline {
   --font-sans: var(--font-nunito);
+}
+
+/* Dark: warm charcoal instead of cream; accents a touch brighter, soft tints deep and muted. */
+:root[data-theme="dark"] {
+  --color-cream: #1b1916;
+  --color-card: #262320;
+  --color-line: #3a3530;
+  --color-ink: #f2ede6;
+  --color-muted: #a59c91;
+  --color-sage: #84b287;
+  --color-sage-dark: #4f8a57;
+  --color-sage-soft: #2b3a2d;
+  --color-peach: #f2ad8c;
+  --color-peach-soft: #3f2d24;
+  --color-rose: #e8a9af;
+  --color-rose-soft: #3d2a2d;
+  --color-sky: #93b8dc;
+  --color-sky-soft: #22303e;
+  --color-sun: #f4bd6c;
+  --color-red: #e57a72;
+  --color-red-soft: #422624;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --color-cream: #1b1916;
+    --color-card: #262320;
+    --color-line: #3a3530;
+    --color-ink: #f2ede6;
+    --color-muted: #a59c91;
+    --color-sage: #84b287;
+    --color-sage-dark: #4f8a57;
+    --color-sage-soft: #2b3a2d;
+    --color-peach: #f2ad8c;
+    --color-peach-soft: #3f2d24;
+    --color-rose: #e8a9af;
+    --color-rose-soft: #3d2a2d;
+    --color-sky: #93b8dc;
+    --color-sky-soft: #22303e;
+    --color-sun: #f4bd6c;
+    --color-red: #e57a72;
+    --color-red-soft: #422624;
+    color-scheme: dark;
+  }
 }
 
 html,

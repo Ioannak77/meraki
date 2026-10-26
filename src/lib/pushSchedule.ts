@@ -18,6 +18,7 @@ type Input = {
   paid: Record<string, string>;
   skin: { amTime: string; pmTime: string; done: Record<string, string[]>; items: CareItem[] };
   routineDone?: Record<string, string[]>; // for the week summary
+  kindWords?: string[]; // your own, mixed in
 };
 
 const DAYS = 7;
@@ -60,7 +61,7 @@ function weekSoFar(d: Date, tasks: Task[], skinDone: Record<string, string[]>, r
   return parts.length ? `This week: ${parts.join(" · ")} 💛` : "A new week starts tomorrow. Whatever this one was, it's done 💛";
 }
 
-export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, routineDone = {} }: Input): QueueItem[] {
+export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, routineDone = {}, kindWords = [] }: Input): QueueItem[] {
   const out: QueueItem[] = [];
   const add = (when: Date, title: string, body: string, url: string, tag: string) => {
     if (when > now) out.push({ send_at: when.toISOString(), title, body, url: `${BASE}${url}`, tag });
@@ -119,7 +120,7 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, r
     }
 
     if (prefs.kind) {
-      const w = kindWordFor(key);
+      const w = kindWordFor(key, kindWords);
       add(new Date(d.getFullYear(), d.getMonth(), d.getDate(), w.hour, w.minute), "A little reminder 💛", w.text, "/", `kind-${key}`);
     }
   }

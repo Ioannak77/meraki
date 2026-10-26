@@ -79,6 +79,8 @@ export type Settings = {
   todayHidden?: TodayCard[]; // cards switched off on the Today screen
   starterTasksRemoved?: boolean; // the first-day example tasks have been cleared
   push?: PushPrefs; // phone notifications (synced, so every device plans the same reminders)
+  kindWords?: string[]; // your own kind words, mixed into the daily ones
+  theme?: "light" | "dark" | "system"; // missing = light
 };
 
 export type PushPrefs = {
@@ -108,7 +110,10 @@ export const TODAY_CARDS = [
   { id: "priorities", label: "Your priorities today" },
   { id: "selfcare", label: "Self care (skincare and reminders)" },
   { id: "comingup", label: "Coming up" },
+  { id: "bills", label: "Bills due today or tomorrow (in Coming up)" },
+  { id: "shopping", label: "Shopping list reminder" },
   { id: "cleaning", label: "Cleaning now" },
+  { id: "tomorrow", label: "Tomorrow, in the evening" },
   { id: "week", label: "This week" },
 ] as const;
 export type TodayCard = (typeof TODAY_CARDS)[number]["id"];

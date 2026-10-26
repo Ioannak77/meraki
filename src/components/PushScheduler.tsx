@@ -32,6 +32,7 @@ export function PushScheduler() {
         paid: finance.paid,
         skin: { amTime: skin.settings.amTime, pmTime: skin.settings.pmTime, done: skin.done, items: skin.items },
         routineDone: store.routineDone,
+        kindWords: store.settings.kindWords,
       })
     : null;
   const json = items ? JSON.stringify(items) : null;

@@ -9,6 +9,7 @@ import { AppShell } from "@/components/AppShell";
 import { OfflineSupport } from "@/components/OfflineSupport";
 import { SyncStart } from "@/components/SyncStart";
 import { PushScheduler } from "@/components/PushScheduler";
+import { ThemeApply } from "@/components/ThemeApply";
 import { BASE } from "@/lib/base";
 
 const nunito = Nunito({
@@ -32,7 +33,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${nunito.variable} h-full antialiased`}>
+    <html lang="en" className={`${nunito.variable} h-full antialiased`} data-theme="light" suppressHydrationWarning>
+      <head>
+        {/* The chosen theme before the first paint, so dark mode doesn't flash white. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var s=JSON.parse(localStorage.getItem("meraki.v1")||"{}");document.documentElement.dataset.theme=(s.settings&&s.settings.theme)||"light"}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-full font-sans">
         <StoreProvider>
           <FinanceProvider>
@@ -40,6 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <GroceriesProvider>
                 <AppShell>{children}</AppShell>
                 <PushScheduler />
+                <ThemeApply />
                 <OfflineSupport />
                 <SyncStart />
               </GroceriesProvider>
