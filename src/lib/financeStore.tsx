@@ -83,7 +83,8 @@ function load(): FinanceData {
   return EMPTY;
 }
 
-export type ImportResult = { added: number; duplicates: number; billsMarkedPaid: number };
+export type ImportResult = { added: number; duplicates: number; billsMarkedPaid: number; billsAdded: number };
+export type NewBill = Omit<Bill, "id">;
 
 type FinanceStore = FinanceData & {
   ready: boolean;
@@ -101,6 +102,7 @@ type FinanceStore = FinanceData & {
     signature: string,
     map: ColumnMap,
     newRules: Rule[],
+    newBills?: NewBill[],
   ) => ImportResult;
   setTxnCategory: (id: string, category: CategoryId, alwaysFor?: string) => void;
   deleteRule: (match: string) => void;
@@ -174,7 +176,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   // Runs the import against the current data synchronously so the screen can
   // show "added / duplicates" straight away, then saves.
   const importLines = useCallback(
-    (lines: (ParsedLine & { category: CategoryId })[], signature: string, map: ColumnMap, newRules: Rule[]): ImportResult => {
+    (lines: (ParsedLine & { category: CategoryId })[], signature: string, map: ColumnMap, newRules: Rule[], newBills: NewBill[] = []): ImportResult => {
+      // Subscriptions found on the statement become bills now, so their payments here tick them as paid.
+      const created: Bill[] = newBills.map((b) => ({ ...b, id: newId() }));
+      const allBills = [...data.bills, ...created];
       const seen = new Set(data.txns.map((t) => t.hash));
       const added: Txn[] = [];
       let duplicates = 0;
@@ -207,7 +212,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       for (const t of added) {
         if (t.category !== "bills") continue;
         const text = t.description.toLowerCase();
-        const bill = data.bills.find((b) => text.includes(billKeyword(b)));
+        const bill = allBills.find((b) => text.includes(billKeyword(b)));
         if (!bill) continue;
         const [y, m, dd] = t.date.split("-").map(Number);
         const from = new Date(y, m - 1, dd - 7);
@@ -227,6 +232,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         return {
           ...d,
           txns: [...d.txns, ...added],
+          bills: [...d.bills, ...created],
           paid,
           billActuals,
           rules: [...fresh, ...d.rules.filter((r) => !fresh.some((f) => f.match === r.match))],
@@ -234,7 +240,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           importProfiles: signature ? { ...d.importProfiles, [signature]: map } : d.importProfiles,
         };
       });
-      return { added: added.length, duplicates, billsMarkedPaid };
+      return { added: added.length, duplicates, billsMarkedPaid, billsAdded: created.length };
     },
     [data.txns, data.bills, data.paid, data.billActuals],
   );

@@ -4,8 +4,9 @@
 // -> 200 { shop, date, currency, total, discounts, items: [...] }   Claude reads a receipt.
 // POST /advise   { summary: {...money summary...}, question: "" }
 // -> 200 { headline, going_well, watch, suggestions, answer }     Claude looks over the money.
-// POST /statement { pdf: "<base64 PDF>" }
-// -> 200 { bank, currency, lines: [{ date, description, amount, own_transfer }] }   Claude reads a bank statement.
+// POST /statement { pdf: "<base64 PDF>", categories: [{ id, label }] }
+// -> 200 { bank, currency, lines: [{ date, description, amount, own_transfer, category, abroad, subscription }] }
+//    Claude reads a bank statement and suggests a category for each line.
 // POST /push-run  {}  -> 200 { setup, report | error }   Sends due reminders now and says how it went.
 //
 // Plus a cron that sends due phone reminders (push.ts).
@@ -61,8 +62,8 @@ Use the line total actually charged as "price". If a discount line applies to an
 "category": groceries for food and drink; household for cleaning and home supplies; pet for anything for a dog; personal for toiletries, cosmetics and medicine; other otherwise.
 If it isn't a receipt or you can't read it, set readable to false and leave the rest empty or 0.`;
 
-// What a bank statement must come back as.
-const STATEMENT_SCHEMA = {
+// What a bank statement must come back as. Categories are the person's own list, so the schema is built per request.
+const statementSchema = (categoryIds: string[]) => ({
   type: "object",
   additionalProperties: false,
   required: ["readable", "bank", "currency", "lines"],
@@ -75,7 +76,7 @@ const STATEMENT_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["date", "description", "amount", "own_transfer"],
+        required: ["date", "description", "amount", "own_transfer", "category", "abroad", "subscription"],
         properties: {
           date: { type: "string", description: "Transaction date as YYYY-MM-DD" },
           description: { type: "string", description: "Merchant or payee as printed, tidied (no card numbers or reference codes)" },
@@ -84,11 +85,18 @@ const STATEMENT_SCHEMA = {
             type: "boolean",
             description: "true for money moving between the person's own accounts: top-ups, transfers to or from their other bank, savings vaults or pockets, currency exchanges",
           },
+          category: { type: "string", enum: [...categoryIds, "unsure"], description: "Best category id for this line, or 'unsure'" },
+          abroad: { type: "boolean", description: "true if paid in person while travelling outside Cyprus (shops, restaurants, transport, hotels abroad)" },
+          subscription: {
+            type: "string",
+            enum: ["no", "monthly", "yearly"],
+            description: "monthly or yearly if this is a recurring subscription or membership payment, otherwise no",
+          },
         },
       },
     },
   },
-} as const;
+});
 
 const STATEMENT_PROMPT = `This is a bank or card statement, usually from Cyprus (Revolut or Bank of Cyprus; it may be in Greek or English).
 Return every completed transaction, in date order. Leave out opening and closing balances, running balance figures, totals and subtotals, fees summaries, and pending or reverted card payments.
@@ -96,6 +104,9 @@ Use the transaction date (not the value date) as YYYY-MM-DD; when the year isn't
 Give money out as a negative amount and money in as positive, in the account's currency.
 Keep each description short and recognisable: the merchant or person as printed, without card numbers, terminal IDs or long reference codes. Translate nothing.
 Set own_transfer to true for money moving between the person's own accounts: card or bank top-ups, transfers to or from their other bank account (e.g. Revolut <-> Bank of Cyprus), savings vaults or pockets, and currency exchanges. Payments to other people and shops are false.
+For "category", pick the best fitting id from the list you're given; use "unsure" rather than guessing. Salary and refunds are income; recurring household bills (rent, electricity, water, internet, phone, insurance) are bills.
+Set abroad to true only for payments made in person while travelling outside Cyprus (shops, restaurants, taxis, hotels in another country). Online services billed from abroad are not abroad.
+Set subscription to monthly or yearly for recurring services and memberships (streaming, music, cloud storage, apps, gym, software); otherwise no.
 If it isn't a statement or you can't read it, set readable to false and leave lines empty.`;
 
 // What the money advice must look like.
@@ -178,11 +189,19 @@ async function callClaude(env: Env, params: Record<string, unknown>) {
 
 async function statement(request: Request, env: Env, headers: Record<string, string>): Promise<Response> {
   let pdf: string;
+  let categories: { id: string; label: string }[] = [];
   try {
-    ({ pdf } = (await request.json()) as { pdf: string });
+    const body = (await request.json()) as { pdf: string; categories?: { id: string; label: string }[] };
+    pdf = body.pdf;
+    categories = (Array.isArray(body.categories) ? body.categories : [])
+      .filter((c) => typeof c?.id === "string" && typeof c?.label === "string")
+      .slice(0, 60)
+      .map((c) => ({ id: c.id.slice(0, 60), label: c.label.slice(0, 60) }));
   } catch {
-    return json({ error: "send { pdf: base64 }" }, 400, headers);
+    return json({ error: "send { pdf: base64, categories }" }, 400, headers);
   }
+  const ids = [...new Set(categories.map((c) => c.id))];
+  const list = categories.map((c) => `- ${c.id}: ${c.label}`).join("\n");
   if (!pdf || pdf.length * 0.75 > MAX_PDF_BYTES) return json({ error: "PDF missing or too big" }, 400, headers);
 
   try {
@@ -194,13 +213,13 @@ async function statement(request: Request, env: Env, headers: Record<string, str
         max_tokens: 64000,
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
-        output_config: { effort: "low", format: { type: "json_schema", schema: STATEMENT_SCHEMA } },
+        output_config: { effort: "low", format: { type: "json_schema", schema: statementSchema(ids.length ? ids : ["other"]) } },
         messages: [
           {
             role: "user",
             content: [
               { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf } },
-              { type: "text", text: STATEMENT_PROMPT },
+              { type: "text", text: `${STATEMENT_PROMPT}\n\nCategory ids to choose from:\n${list || "- other: Other"}` },
             ],
           },
         ],

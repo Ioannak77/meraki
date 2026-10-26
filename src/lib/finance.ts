@@ -1,6 +1,6 @@
 // Money: what Ioanna tracks, bills and their due dates, pay periods,
 // spending categories and reading bank statement CSVs.
-// Everything stays on this device; nothing is sent anywhere.
+// Everything stays on this device, except PDF statements, which the meraki worker reads with Claude.
 
 import { today } from "./clock";
 import { dayKey } from "./store";
@@ -35,6 +35,7 @@ export type BuiltinCategoryId =
   | "health"
   | "personal"
   | "fun"
+  | "travel"
   | "bills"
   | "income"
   | "transfer"
@@ -55,6 +56,8 @@ const BUILTIN: Category[] = [
   { id: "health", label: "Health and beauty", color: "#f4b860", counts: true },
   { id: "personal", label: "Personal", color: "#c9a27e", counts: true },
   { id: "fun", label: "Going out and fun", color: "#d98aa5", counts: true },
+  // Everything paid on a trip (flights, hotel, food abroad), so holidays don't swell the usual categories.
+  { id: "travel", label: "Travel and holidays", color: "#5fa3a0", counts: true },
   { id: "other", label: "Other", color: "#a8a29a", counts: true },
   // These are tracked elsewhere, so they don't count as "spending".
   { id: "bills", label: "Bills (tracked in Bills)", color: "#6b6560", counts: false },
@@ -113,6 +116,9 @@ const DEFAULT_RULES: { match: string; category: CategoryId }[] = [
     category: "health" as const,
   })),
   ...["cinema", "theatre", "concert", "bar ", "club"].map((m) => ({ match: m, category: "fun" as const })),
+  ...["ryanair", "aegean", "wizz", "easyjet", "airline", "airways", "airbnb", "booking.com", "hotel", "hostel", "expedia", "duty free"].map(
+    (m) => ({ match: m, category: "travel" as const }),
+  ),
   ...["salary", "payroll", "wages"].map((m) => ({ match: m, category: "income" as const })),
   ...["transfer to", "transfer from", "own account", "revolut top", "top-up", "topup"].map((m) => ({
     match: m,
@@ -138,7 +144,11 @@ export function ruleKeyword(description: string) {
     .replace(/[0-9*#/\\.,:;-]+/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 2 && !["pos", "card", "purchase", "payment", "visa", "debit", "contactless", "the"].includes(w));
-  return words.slice(0, 2).join(" ") || description.toLowerCase().trim();
+  // It must appear in the line as written ("netflix.com" gives "netflix", not "netflix com").
+  const lower = description.toLowerCase();
+  const two = words.slice(0, 2).join(" ");
+  if (two && lower.includes(two)) return two;
+  return words[0] ?? lower.trim();
 }
 
 // ---------- Bills ----------
@@ -543,8 +553,19 @@ export function headerSignature(header: string[]) {
   return header.map((h) => h.toLowerCase().trim()).join("|");
 }
 
-// `transfer`: money between your own accounts (from a PDF statement), sorted as a transfer.
-export type ParsedLine = { date: string; description: string; amount: number; transfer?: boolean };
+/**
+ * One statement line. A PDF statement (read by Claude) also says whether it's money between your own
+ * accounts, a suggested category, whether it was paid abroad (a trip), and whether it's a subscription.
+ */
+export type ParsedLine = {
+  date: string;
+  description: string;
+  amount: number;
+  transfer?: boolean;
+  suggested?: CategoryId;
+  abroad?: boolean;
+  subscription?: "monthly" | "yearly";
+};
 
 /** Turns statement rows into lines; rows that can't be read are counted, not guessed. */
 export function readStatement(rows: string[][], map: ColumnMap) {

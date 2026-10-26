@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   allCategories,
   canLower,
-  categorise,
   effectiveBudgets,
   tidy,
   monthStats,
@@ -21,10 +20,10 @@ import {
   type CategoryId,
   type ColumnMap,
   type ParsedLine,
-  type Rule,
   type Txn,
 } from "@/lib/finance";
 import { useFinance, type ImportResult } from "@/lib/financeStore";
+import { StatementReview } from "./StatementReview";
 import { dayKey } from "@/lib/store";
 import { workerPost } from "@/lib/worker";
 import { NewChip } from "../NewChip";
@@ -376,7 +375,15 @@ type PdfRead = { bank: string; currency: string; lines: ParsedLine[]; fileName: 
 type StatementReply = {
   bank: string;
   currency: string;
-  lines: { date: string; description: string; amount: number; own_transfer: boolean }[];
+  lines: {
+    date: string;
+    description: string;
+    amount: number;
+    own_transfer: boolean;
+    category?: string;
+    abroad?: boolean;
+    subscription?: "no" | "monthly" | "yearly";
+  }[];
 };
 const NO_COLUMNS: ColumnMap = { date: -1, description: -1, amount: -1, moneyOut: -1, moneyIn: -1 };
 
@@ -385,10 +392,23 @@ async function readPdfStatement(file: File): Promise<PdfRead> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let binary = "";
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  const r = await workerPost<StatementReply>("/statement", { pdf: btoa(binary) }, "statement reader");
+  // Claude suggests a category from your own list (built-in and the ones you made).
+  const categories = allCategories().map((c) => ({ id: c.id, label: c.label }));
+  const known = new Set(categories.map((c) => c.id as string));
+  const r = await workerPost<StatementReply>("/statement", { pdf: btoa(binary), categories }, "statement reader");
   const lines = r.lines
     .filter((l) => /^\d{4}-\d{2}-\d{2}$/.test(l.date) && Number.isFinite(l.amount) && l.amount !== 0)
-    .map((l) => ({ date: l.date, description: l.description.trim() || "(no description)", amount: l.amount, transfer: l.own_transfer || undefined }));
+    .map(
+      (l): ParsedLine => ({
+        date: l.date,
+        description: l.description.trim() || "(no description)",
+        amount: l.amount,
+        transfer: l.own_transfer || undefined,
+        suggested: l.category && known.has(l.category) ? (l.category as CategoryId) : undefined,
+        abroad: l.abroad || undefined,
+        subscription: l.subscription === "monthly" || l.subscription === "yearly" ? l.subscription : undefined,
+      }),
+    );
   return { bank: r.bank, currency: r.currency, lines, fileName: file.name };
 }
 
@@ -400,51 +420,14 @@ const FIELDS: { key: keyof ColumnMap; label: string }[] = [
   { key: "moneyIn", label: "…and Money in" },
 ];
 
-/** Lines Meraki couldn't sort, grouped by shop so each is decided once. */
-type ReviewGroup = { match: string; sample: string; lines: number[]; total: number; category: CategoryId; mapping: Mapping };
-
 export function ImportSheet({ onClose }: { onClose: () => void }) {
-  const { importLines, importProfiles, rules, bills, addCategory } = useFinance();
+  const { importLines, importProfiles } = useFinance();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [pdf, setPdf] = useState<PdfRead | null>(null);
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [review, setReview] = useState<{ lines: (ParsedLine & { category: CategoryId })[]; groups: ReviewGroup[] } | null>(null);
-
-  function next() {
-    if (!preview) return;
-    const lines = preview.lines.map((l) => ({
-      ...l,
-      category: l.transfer ? ("transfer" as CategoryId) : categorise(l.description, l.amount, rules, bills),
-    }));
-    const groups = new Map<string, ReviewGroup>();
-    lines.forEach((l, i) => {
-      if (l.category !== "other") return;
-      const match = ruleKeyword(l.description);
-      const g = groups.get(match) ?? { match, sample: l.description, lines: [], total: 0, category: "other", mapping: { always: true, match } };
-      g.lines.push(i);
-      g.total += l.amount;
-      groups.set(match, g);
-    });
-    if (groups.size === 0) finish(lines, []);
-    else setReview({ lines, groups: [...groups.values()] });
-  }
-
-  function finish(lines: (ParsedLine & { category: CategoryId })[], groups: ReviewGroup[]) {
-    const final = lines.map((l) => ({ ...l }));
-    const newRules: Rule[] = [];
-    for (const g of groups) {
-      for (const i of g.lines) final[i].category = g.category;
-      if (g.mapping.always && g.category !== "other" && g.mapping.match.trim())
-        newRules.push({ match: g.mapping.match.toLowerCase().trim(), category: g.category });
-    }
-    setResult(importLines(final, loaded?.signature ?? "", loaded?.map ?? NO_COLUMNS, newRules));
-  }
-
-  function updateGroup(i: number, patch: Partial<ReviewGroup>) {
-    setReview((r) => (r ? { ...r, groups: r.groups.map((g, j) => (j === i ? { ...g, ...patch } : g)) } : r));
-  }
+  const [checking, setChecking] = useState(false); // the check screen (StatementReview)
 
   async function onFile(file: File) {
     setError(null);
@@ -478,42 +461,19 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
   const transfers = pdf ? pdf.lines.filter((l) => l.transfer).length : 0;
   const mapOk = loaded && loaded.map.date >= 0 && loaded.map.description >= 0 && (loaded.map.amount >= 0 || loaded.map.moneyOut >= 0 || loaded.map.moneyIn >= 0);
 
-  if (review && !result) {
+  if (checking && preview && !result) {
     return (
-      <Sheet title="Sort a few lines" onClose={onClose}>
-        <p className="text-[15px] text-muted">
-          Meraki didn&apos;t recognise these. Pick a category, and choose whether to remember it.
-        </p>
-        <ul className="mt-3 space-y-4">
-          {review.groups.map((g, i) => (
-            <li key={g.match} className="rounded-2xl bg-cream p-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 truncate text-[15px] font-semibold">{g.sample}</span>
-                <span className="shrink-0 text-sm font-semibold">{money(g.total)}</span>
-              </div>
-              {g.lines.length > 1 && <p className="text-xs text-muted">{g.lines.length} lines</p>}
-              <div className="mt-2">
-                <Chips
-                  options={categoryChoices().filter((c) => c.id !== "income" || g.total > 0)}
-                  value={g.category}
-                  onChange={(category) => updateGroup(i, { category })}
-                  onCreate={addCategory}
-                />
-              </div>
-              <div className="mt-3">
-                <MappingChoice value={g.mapping} onChange={(mapping) => updateGroup(i, { mapping })} />
-              </div>
-            </li>
-          ))}
-        </ul>
-        <PrimaryButton onClick={() => finish(review.lines, review.groups)}>Import {review.lines.length} transactions</PrimaryButton>
-        <button
-          type="button"
-          onClick={() => finish(review.lines, review.groups.map((g) => ({ ...g, category: "other" })))}
-          className="mt-3 w-full py-2 text-sm font-semibold text-muted"
-        >
-          Skip, leave them as Other
-        </button>
+      <Sheet title="Check your statement" onClose={onClose}>
+        <StatementReview
+          source={pdf ? pdf.bank || pdf.fileName : (loaded?.fileName ?? "Statement")}
+          lines={preview.lines}
+          onImport={(lines, rules, bills) => setResult(importLines(lines, loaded?.signature ?? "", loaded?.map ?? NO_COLUMNS, rules, bills))}
+          onBack={() => {
+            setChecking(false);
+            setPdf(null);
+            setLoaded(null);
+          }}
+        />
       </Sheet>
     );
   }
@@ -528,8 +488,15 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
           <strong>{result.added}</strong> new {result.added === 1 ? "transaction" : "transactions"} added.
         </p>
         {result.duplicates > 0 && <p className="text-[15px] text-muted">{result.duplicates} were already here, so they were skipped.</p>}
+        {result.billsAdded > 0 && (
+          <p className="text-[15px] text-muted">
+            {result.billsAdded} {result.billsAdded === 1 ? "subscription was" : "subscriptions were"} added to Bills.
+          </p>
+        )}
         {result.billsMarkedPaid > 0 && (
-          <p className="text-[15px] text-muted">{result.billsMarkedPaid} bills were ticked as paid from the statement.</p>
+          <p className="text-[15px] text-muted">
+            {result.billsMarkedPaid} {result.billsMarkedPaid === 1 ? "bill was" : "bills were"} ticked as paid from the statement.
+          </p>
         )}
         <p className="mt-3 text-[15px] text-muted">Tap any transaction to fix its category; Meraki learns from it.</p>
         <PrimaryButton onClick={onClose}>Done</PrimaryButton>
@@ -561,7 +528,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
               </li>
             ))}
           </ul>
-          <PrimaryButton onClick={next}>Next: {pdf.lines.length} transactions</PrimaryButton>
+          <PrimaryButton onClick={() => setChecking(true)}>Next: check {pdf.lines.length} transactions</PrimaryButton>
           <button type="button" onClick={() => setPdf(null)} className="mt-3 w-full py-2 text-sm font-semibold text-muted">
             Choose a different file
           </button>
@@ -641,7 +608,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          <PrimaryButton disabled={!mapOk || !preview?.lines.length} onClick={next}>
+          <PrimaryButton disabled={!mapOk || !preview?.lines.length} onClick={() => setChecking(true)}>
             Next: {preview?.lines.length ?? 0} transactions
           </PrimaryButton>
           <button type="button" onClick={() => setLoaded(null)} className="mt-3 w-full py-2 text-sm font-semibold text-muted">
