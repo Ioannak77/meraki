@@ -56,7 +56,7 @@ export async function getWeather(p: Place): Promise<Weather> {
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null") as Weather | null;
     // (Older cached forecasts have no UV: fetch again.)
-    if (cached && cached.uv !== undefined && Date.now() - cached.at < 30 * 60 * 1000) return cached;
+    if (cached && typeof cached.uv === "number" && Date.now() - cached.at < 30 * 60 * 1000) return cached;
   } catch {}
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}` +
