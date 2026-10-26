@@ -2,14 +2,17 @@
 
 // Settings: a short, grouped list. Each row shows how things stand; tap it to change it.
 
-import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BackupCard } from "@/components/BackupCard";
 import { HomeScreenCard } from "@/components/HomeScreenCard";
 import { MoneySettingsCard } from "@/components/finance/SettingsCard";
 import { Sheet } from "@/components/finance/ui";
 import { Icon, type IconName } from "@/components/icons";
+import { CleaningEditor } from "@/components/CleaningEditor";
 import { KindWordsSettings } from "@/components/KindWordsSettings";
+import { CareReminders } from "@/components/skin/CareItems";
+import { SkinSetup } from "@/components/skin/SkinSetup";
+import { useNow } from "@/lib/useNow";
 import { NotificationsCard } from "@/components/NotificationsCard";
 import { SyncCard } from "@/components/SyncCard";
 import { TodayCardsSettings } from "@/components/TodayCardsSettings";
@@ -17,12 +20,17 @@ import { WEEKDAYS, formatMinutes, plannedMinutes, weeklyPlan } from "@/lib/clean
 import { DEFAULT_PUSH, TODAY_CARDS, useStore } from "@/lib/store";
 import { getServerSyncState, getSyncState, subscribeSync } from "@/lib/sync";
 
-type Panel = "home" | "notifications" | "kind" | "today" | "office" | "look" | "money" | "sync" | "backup";
+type Panel = "home" | "notifications" | "kind" | "care" | "today" | "office" | "cleaning" | "look" | "skin" | "money" | "sync" | "backup";
+// Full editors from other pages, shown as they are (no card frame to strip).
+const FULL: Panel[] = ["care", "cleaning", "skin"];
 
 const TITLES: Record<Panel, string> = {
   home: "Add to your home screen",
   notifications: "Notifications",
   kind: "Kind words",
+  care: "Self-care reminders",
+  cleaning: "Cleaning lists",
+  skin: "Skincare and daily self care",
   look: "Appearance",
   today: "Today screen",
   office: "Office days",
@@ -45,6 +53,7 @@ export default function SettingsPage() {
   const { ready, settings } = useStore();
   const sync = useSyncExternalStore(subscribeSync, getSyncState, getServerSyncState);
   const [open, setOpen] = useState<Panel | null>(null);
+  const now = useNow();
   const [installed, setInstalled] = useState(true);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
 
@@ -96,7 +105,7 @@ export default function SettingsPage() {
           attention={sync.status === "on" && !push.on}
           onClick={() => setOpen("notifications")}
         />
-        <LinkRow href="/self-care/#reminders" icon="heart" tone="bg-rose-soft text-rose" label="Self-care reminders" note="Waxing, nails, hair…" />
+        <Row icon="heart" tone="bg-rose-soft text-rose" label="Self-care reminders" note="Waxing, nails, hair…" onClick={() => setOpen("care")} />
         <Row
           icon="heart"
           tone="bg-peach-soft text-peach"
@@ -121,7 +130,7 @@ export default function SettingsPage() {
           note={office.length ? office.map((d) => WEEKDAYS[d].slice(0, 3)).join(", ") : "None"}
           onClick={() => setOpen("office")}
         />
-        <LinkRow href="/cleaning/" icon="routines" tone="bg-sage-soft text-sage-dark" label="Cleaning lists" note="Edit them in Cleaning schedule › Edit" />
+        <Row icon="routines" tone="bg-sage-soft text-sage-dark" label="Cleaning lists" note="Steps, times, days and months" onClick={() => setOpen("cleaning")} />
         <Row
           icon="moon"
           tone="bg-sky-soft text-sky"
@@ -129,7 +138,7 @@ export default function SettingsPage() {
           note={{ light: "Light", dark: "Dark", system: "Match my phone" }[settings.theme ?? "light"]}
           onClick={() => setOpen("look")}
         />
-        <LinkRow href="/self-care/#skincare" icon="sun" tone="bg-rose-soft text-rose" label="Skincare and daily self care" note="Steps and times, in Self care › Set up" />
+        <Row icon="sun" tone="bg-rose-soft text-rose" label="Skincare and daily self care" note="Steps and times" onClick={() => setOpen("skin")} />
       </Group>
 
       <Group title="Money">
@@ -163,7 +172,14 @@ export default function SettingsPage() {
       {open && (
         <Sheet title={TITLES[open]} onClose={() => setOpen(null)}>
           {/* The cards are full cards on their own; inside the sheet, drop their frame and title. */}
-          <div className="pb-4 [&>section]:mt-0 [&>section]:bg-transparent [&>section]:p-0 [&>section>h2:first-child]:hidden">
+          <div
+            className={
+              FULL.includes(open) ? "grid gap-4 pb-4" : "pb-4 [&>section]:mt-0 [&>section]:bg-transparent [&>section]:p-0 [&>section>h2:first-child]:hidden"
+            }
+          >
+            {open === "care" && <CareReminders now={now} />}
+            {open === "cleaning" && <CleaningEditor />}
+            {open === "skin" && <SkinSetup />}
             {open === "home" && <HomeScreenCard />}
             {open === "notifications" && <NotificationsCard />}
             {open === "kind" && <KindWordsSettings />}
@@ -211,16 +227,6 @@ function Row(props: { icon: IconName; tone: string; label: string; note: string;
       <button type="button" onClick={props.onClick} className="flex w-full items-center gap-3 py-3 text-left">
         <RowBody {...props} />
       </button>
-    </li>
-  );
-}
-
-function LinkRow(props: { href: string; icon: IconName; tone: string; label: string; note: string }) {
-  return (
-    <li>
-      <Link href={props.href} className="flex items-center gap-3 py-3">
-        <RowBody {...props} />
-      </Link>
     </li>
   );
 }
