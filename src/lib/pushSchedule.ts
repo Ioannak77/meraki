@@ -58,7 +58,7 @@ function weekSoFar(d: Date, tasks: Task[], skinDone: Record<string, string[]>, r
     lists ? plural(lists, "cleaning list") : null,
     skinDays ? plural(skinDays, "skincare day") : null,
   ].filter(Boolean);
-  return parts.length ? `This week: ${parts.join(" · ")} 💛` : "A new week starts tomorrow. Whatever this one was, it's done 💛";
+  return parts.length ? `This week: ${parts.join(" · ")}` : "A new week starts tomorrow. Whatever this one was, it's done.";
 }
 
 export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, routineDone = {}, kindWords = [] }: Input): QueueItem[] {
@@ -79,7 +79,7 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, r
       for (const r of cleaningLists()) if (r.when.kind === "monthly" && isDueOn(r, d, officeDays)) cleaning.push(r.name);
       parts.push(`Cleaning: ${cleaning.join(" + ")}`);
       if (prefs.skincare && prefs.morningTime === skin.amTime) parts.push("Morning skincare");
-      add(at(d, prefs.morningTime), "Good morning ☀️", `Today: ${parts.join(" · ")}`, "/", `morning-${key}`);
+      add(at(d, prefs.morningTime), "Good morning", `Today: ${parts.join(" · ")}`, "/", `morning-${key}`);
     }
 
     if (prefs.skincare) {
@@ -87,15 +87,15 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, r
       // At the same time as the morning plan, it's part of that message instead.
       const inPlan = prefs.morning && prefs.morningTime === skin.amTime;
       if (!inPlan && !skin.done[slotKey("am", d)]?.length)
-        add(at(d, skin.amTime), "Morning skincare 🌸", "Your morning steps are ready.", "/self-care/", `am-${key}`);
+        add(at(d, skin.amTime), "Morning skincare", "Your morning steps are ready.", "/self-care/", `am-${key}`);
       if (!skin.done[slotKey("pm", d)]?.length)
-        add(at(d, skin.pmTime), "Evening skincare 🌙", "Time to wind down with your evening steps.", "/self-care/", `pm-${key}`);
+        add(at(d, skin.pmTime), "Evening skincare", "Time to wind down with your evening steps.", "/self-care/", `pm-${key}`);
     }
 
     if (prefs.care) {
       const dueItems = skin.items.filter((it) => careNextDue(it) === key).map((it) => it.name);
       if (dueItems.length)
-        add(at(d, "09:30"), "Self care 💅", `${dueItems.join(", ")} ${dueItems.length === 1 ? "is" : "are"} due today.`, "/self-care/", `care-${key}`);
+        add(at(d, "09:30"), "Self care", `${dueItems.join(", ")} ${dueItems.length === 1 ? "is" : "are"} due today.`, "/self-care/", `care-${key}`);
     }
 
     if (prefs.bills) {
@@ -115,13 +115,13 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, r
 
     // Sunday evening: a look back. With today's numbers when it's planned on the day itself.
     if (prefs.weekly !== false && weekdayIndex(d) === 6) {
-      const body = i === 0 ? weekSoFar(d, tasks, skin.done, routineDone) : "Tap to see how your week went 💛";
-      add(at(d, "19:00"), "Your week 🌿", body, "/insights/", `week-${key}`);
+      const body = i === 0 ? weekSoFar(d, tasks, skin.done, routineDone) : "Tap to see how your week went.";
+      add(at(d, "19:00"), "Your week", body, "/insights/", `week-${key}`);
     }
 
     if (prefs.kind) {
       const w = kindWordFor(key, kindWords);
-      add(new Date(d.getFullYear(), d.getMonth(), d.getDate(), w.hour, w.minute), "A little reminder 💛", w.text, "/", `kind-${key}`);
+      add(new Date(d.getFullYear(), d.getMonth(), d.getDate(), w.hour, w.minute), "A little reminder", w.text, "/", `kind-${key}`);
     }
   }
   // Tasks with "Remind me at": the notification goes out whatever the morning-plan setting is.
@@ -134,7 +134,7 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, r
     const when = new Date(y, m - 1, d, h, mi);
     if (when > horizon) continue;
     const left = t.steps?.filter((s) => !s.done).length ?? 0;
-    add(when, `⏰ ${t.title}`, left ? `${left} small ${left === 1 ? "step" : "steps"} to go. You've got this.` : "Tap to open your tasks.", "/tasks/", `task-${t.id}-${t.remindAt}`);
+    add(when, `Reminder: ${t.title}`, left ? `${left} small ${left === 1 ? "step" : "steps"} to go. You've got this.` : "Tap to open your tasks.", "/tasks/", `task-${t.id}-${t.remindAt}`);
   }
   return out.sort((a, b) => a.send_at.localeCompare(b.send_at));
 }

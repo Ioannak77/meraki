@@ -90,7 +90,7 @@ export function GroceriesView({ now }: { now: Date }) {
                     reading ? "bg-sage text-white" : "bg-sage-soft text-sage-dark"
                   }`}
                 >
-                  {reading ? "Reading your receipt…" : "📷 Done shopping? Snap the receipt"}
+                  {reading ? "Reading your receipt…" : "Done shopping? Snap the receipt"}
                   <input
                     type="file"
                     accept="image/*"
@@ -110,7 +110,7 @@ export function GroceriesView({ now }: { now: Date }) {
           />
         )}
         {tab === "Receipts" && (
-          <div className="grid gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Card>
               <p className="text-sm text-muted">This month</p>
               <p className="text-[32px] font-bold leading-tight">{money(monthTotal)}</p>
@@ -119,7 +119,7 @@ export function GroceriesView({ now }: { now: Date }) {
                   reading ? "bg-sage" : "bg-sage-dark"
                 }`}
               >
-                {reading ? "Reading your receipt…" : "📷 Snap a receipt"}
+                {reading ? "Reading your receipt…" : "Snap a receipt"}
                 <input
                   type="file"
                   accept="image/*"
@@ -146,7 +146,7 @@ export function GroceriesView({ now }: { now: Date }) {
           </div>
         )}
         {tab === "Prices" && (
-          <div className="grid gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Shops now={now} />
             <Prices />
           </div>
@@ -171,7 +171,7 @@ function ReceiptList({ onOpen }: { onOpen: (r: Receipt) => void }) {
   const byMonth = new Map<string, Receipt[]>();
   for (const r of sorted) byMonth.set(r.date.slice(0, 7), [...(byMonth.get(r.date.slice(0, 7)) ?? []), r]);
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       {[...byMonth.entries()].map(([key, list]) => (
         <Card key={key}>
           <CardTitle action={<span className="font-semibold">{money(list.reduce((t, r) => t + r.total, 0))}</span>}>

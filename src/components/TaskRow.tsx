@@ -55,7 +55,7 @@ export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit:
         <span className="block truncate text-[13px] text-muted">
           {[
             task.repeat ? "↻" : null,
-            task.remindAt ? `⏰ ${task.remindAt.slice(11, 16)}` : null,
+            task.remindAt ? `reminder ${task.remindAt.slice(11, 16)}` : null,
             task.steps?.length ? `${task.steps.filter((s) => s.done).length}/${task.steps.length} steps` : null,
             task.minutes ? `${task.minutes} min` : null,
             area?.name,

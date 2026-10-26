@@ -49,7 +49,7 @@ export default function CleaningSchedulePage() {
         ))}
       </div>
 
-      <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {tab === "Today" && <TodayTab now={now} />}
         {tab === "This week" && <WeekTab now={now} />}
         {tab === "Big clean" && <MonthTab now={now} />}

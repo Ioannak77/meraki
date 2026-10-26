@@ -75,7 +75,7 @@ export async function sendTestPush() {
   if (!sb || !syncUserId()) return false;
   const { error } = await sb.from("push_queue").insert({
     send_at: new Date().toISOString(),
-    title: "Meraki is all set 🌿",
+    title: "Meraki is all set",
     body: "Notifications are working. You're doing great!",
     url: `${BASE}/`,
     tag: "test",

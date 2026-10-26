@@ -74,7 +74,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
           onClick={() => start("Big clean", byRoom.flatMap((g) => g.items))}
           className="mt-4 w-full rounded-2xl bg-sage-dark py-3.5 text-[16px] font-bold text-white"
         >
-          ▶ {done ? "Continue" : "Start"} room by room · ~{formatMinutes(minutesLeft)}
+          {done ? "Continue" : "Start"} room by room · ~{formatMinutes(minutesLeft)}
         </button>
       )}
 
@@ -138,7 +138,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                       onClick={() => start(g.room, g.items)}
                       className="mb-2 mt-1 w-full rounded-xl bg-sage-soft py-2.5 text-sm font-bold text-sage-dark"
                     >
-                      ▶ Just {g.room} · ~{formatMinutes(left.reduce((t, it) => t + it.step.minutes, 0))}
+                      Just {g.room} · ~{formatMinutes(left.reduce((t, it) => t + it.step.minutes, 0))}
                     </button>
                   )}
                 </>

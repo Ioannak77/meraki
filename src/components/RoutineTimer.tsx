@@ -126,7 +126,9 @@ export function RoutineTimer({
 
       {finished ? (
         <div className="my-auto flex w-full max-w-md flex-col items-center gap-3 py-10">
-          <span className="text-6xl">🎉</span>
+          <span className="grid size-16 place-items-center rounded-full bg-sage text-white">
+            <Icon.check className="size-9" />
+          </span>
           <h2 className="text-3xl font-bold">Done in {formatMinutes(Math.max(1, Math.round(runSeconds / 60)))}</h2>
           <p className="text-[17px] text-muted">
             {queue.length === 0
@@ -181,7 +183,7 @@ export function RoutineTimer({
             </button>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <button onClick={togglePause} className="rounded-2xl bg-card py-3.5 font-semibold">
-                {pausedAt !== null ? "▶ Resume" : "❚❚ Pause"}
+                {pausedAt !== null ? "Resume" : "Pause"}
               </button>
               {step.optional ? (
                 <button onClick={() => next(false)} className="rounded-2xl bg-card py-3.5 font-semibold">

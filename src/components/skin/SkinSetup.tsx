@@ -21,7 +21,7 @@ export function SkinSetup() {
   const [low, setLow] = useState<string | null>(null); // last product put on the grocery list
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       {low && (
         <p className="rounded-2xl bg-sage-soft px-4 py-3 text-[15px] text-sage-dark lg:col-span-2">
           Added <strong>{low}</strong> to your grocery list ✓

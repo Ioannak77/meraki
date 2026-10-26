@@ -92,7 +92,7 @@ export function CareReminders({ now }: { now: Date }) {
   const { items } = useSkin();
   const [editing, setEditing] = useState<CareItem | "new" | null>(null);
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <Card>
         <CardTitle
           action={

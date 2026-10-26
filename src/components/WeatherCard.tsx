@@ -5,6 +5,7 @@
 // stays on this device. Until there's a place, `fallback` (the full-size rings) shows instead.
 
 import { useEffect, useState } from "react";
+import { WeatherIcon } from "./WeatherIcon";
 import { describe, findPlace, getWeather, locate, savePlace, savedPlace, weatherTip, type Place, type Weather } from "@/lib/weather";
 
 /** The card's tint follows the sky: warm when clear, blue-grey when cloudy or wet. */
@@ -65,7 +66,7 @@ export function WeatherCard({
       <>
         {fallback}
         <button type="button" onClick={() => setAsking(true)} className="mx-auto mt-3 block text-sm font-semibold text-sage-dark">
-          🌤️ Show the weather here
+          Show the weather here
         </button>
       </>
     );
@@ -86,7 +87,7 @@ export function WeatherCard({
             }
             className="rounded-2xl bg-sage-dark px-4 py-2.5 text-sm font-bold text-white"
           >
-            📍 Use my location
+            Use my location
           </button>
           <form
             onSubmit={async (e) => {
@@ -139,12 +140,13 @@ export function WeatherCard({
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-[34px] leading-none">{now.icon}</span>
+            <WeatherIcon sky={now.sky} className="size-10" />
             <span className="text-[34px] font-bold leading-none">{weather.temp}°</span>
           </div>
           <p className="mt-1.5 truncate text-[14px] font-semibold">{now.text}</p>
-          <p className="truncate text-[12px] text-muted">
-            ↑{weather.high}° ↓{weather.low}° · ☔ {weather.rain}%{hasUv ? ` · UV ${weather.uv}` : ""}
+          <p className="text-[12px] text-muted">↑{weather.high}° ↓{weather.low}°</p>
+          <p className="text-[12px] text-muted">
+            {weather.rain}% rain{hasUv ? ` · UV ${weather.uv}` : ""}
           </p>
           <button type="button" onClick={() => setAsking(true)} className="mt-0.5 text-[11px] text-muted" aria-label="Change place">
             {place.name.split(",")[0]} ›
@@ -157,7 +159,7 @@ export function WeatherCard({
         {tip && <p>{tip}</p>}
         {evening && (
           <p className="text-muted">
-            Tomorrow {tomorrow.icon} ↑{weather.tomorrow.high}° ↓{weather.tomorrow.low}° · ☔ {weather.tomorrow.rain}%{typeof weather.tomorrow.uv === "number" ? ` · UV ${weather.tomorrow.uv}` : ""}
+            Tomorrow: {tomorrow.text.toLowerCase()}, ↑{weather.tomorrow.high}° ↓{weather.tomorrow.low}° · {weather.tomorrow.rain}% rain{typeof weather.tomorrow.uv === "number" ? ` · UV ${weather.tomorrow.uv}` : ""}
           </p>
         )}
       </div>

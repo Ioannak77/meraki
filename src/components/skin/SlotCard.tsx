@@ -61,7 +61,7 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
 
       {/* Today's UV decides about sunscreen: a must from 3, optional below. */}
       {uv !== null && (
-        <p className={`mt-2 text-[13px] ${uv >= 3 ? "font-semibold text-peach" : "text-muted"}`}>🧴 {uvAdvice(uv).text}</p>
+        <p className={`mt-2 text-[13px] ${uv >= 3 ? "font-semibold text-peach" : "text-muted"}`}>{uvAdvice(uv).text}</p>
       )}
 
       {open && due.length > 0 && (

@@ -29,6 +29,7 @@ import { dayKey } from "@/lib/store";
 import { NewChip } from "../NewChip";
 import { AllowanceBody, AmountSheet } from "./Budgets";
 import { Bar, Card, CardTitle, Chips, DangerButton, Label, MoneyInput, PrimaryButton, Sheet, inputClass } from "./ui";
+import { Icon } from "../icons";
 
 /** Money spent per counted category in a date range (positive numbers). */
 export function spendingByCategory(txns: Txn[], start: Date, end: Date) {
@@ -64,7 +65,7 @@ export function SpendingTab({ now }: { now: Date }) {
   );
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <div className="flex gap-2 lg:col-span-2">
         {has("imports") && (
           <button
@@ -480,7 +481,9 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
   if (result) {
     return (
       <Sheet title="Statement imported" onClose={onClose}>
-        <p className="text-4xl">✅</p>
+        <span className="mx-auto grid size-14 place-items-center rounded-full bg-sage text-white">
+            <Icon.check className="size-8" />
+          </span>
         <p className="mt-3 text-[17px]">
           <strong>{result.added}</strong> new {result.added === 1 ? "transaction" : "transactions"} added.
         </p>

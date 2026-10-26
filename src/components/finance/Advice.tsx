@@ -48,7 +48,7 @@ export function AdviceTab({ now }: { now: Date }) {
 
   const a = saved?.result;
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <Card className="lg:col-span-2">
         <h2 className="text-lg font-bold">Ask about your money</h2>
         <p className="text-[15px] text-muted">
@@ -61,7 +61,7 @@ export function AdviceTab({ now }: { now: Date }) {
           onClick={() => ask("")}
           className="mt-4 w-full rounded-2xl bg-sage-dark py-3.5 text-[16px] font-bold text-white disabled:opacity-60"
         >
-          {busy ? "Looking over your money…" : "✨ Give me my money check-in"}
+          {busy ? "Looking over your money…" : "Give me my money check-in"}
         </button>
         <form
           onSubmit={(e) => {
@@ -109,11 +109,11 @@ export function AdviceTab({ now }: { now: Date }) {
             <p className="mt-1 text-[17px] font-bold leading-snug">{a.headline}</p>
             {a.answer && <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed">{a.answer}</p>}
           </Card>
-          {a.going_well.length > 0 && <ListCard title="🌿 Going well" items={a.going_well} />}
-          {a.watch.length > 0 && <ListCard title="👀 Worth watching" items={a.watch} />}
+          {a.going_well.length > 0 && <ListCard title="Going well" items={a.going_well} />}
+          {a.watch.length > 0 && <ListCard title="Worth watching" items={a.watch} />}
           {a.suggestions.length > 0 && (
             <Card className="lg:col-span-2">
-              <h3 className="text-lg font-bold">💡 Things to try</h3>
+              <h3 className="text-lg font-bold">Things to try</h3>
               <ul className="mt-1 divide-y divide-line">
                 {a.suggestions.map((s, i) => (
                   <li key={i} className="py-3">

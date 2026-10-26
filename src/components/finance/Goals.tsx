@@ -38,7 +38,7 @@ export function GoalsTab({ now }: { now: Date }) {
   const hasEmergency = goals.some((g) => g.emergency);
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <Card className="lg:col-span-2">
         <CardTitle>What you can save</CardTitle>
         {!incomeAmount || !stats.months.length ? (
@@ -99,7 +99,7 @@ export function GoalsTab({ now }: { now: Date }) {
                       </span>
                       <span className="block text-[13px] text-muted">
                         {money(g.saved)} of {money(g.target, true)}
-                        {toGo === 0 ? " · reached 🎉" : ` · ${money(toGo, true)} to go`}
+                        {toGo === 0 ? " · reached" : ` · ${money(toGo, true)} to go`}
                       </span>
                     </button>
                     <button

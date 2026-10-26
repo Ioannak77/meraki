@@ -177,7 +177,7 @@ export default function TodayPage() {
         </Link>
       )}
 
-      <div className="mt-6 grid items-start gap-4 lg:grid-flow-dense lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-flow-dense lg:grid-cols-2">
         {show("priorities") && priorities.length > 0 && (
           <Fold
             id="today-priorities"

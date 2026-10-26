@@ -54,7 +54,7 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
   const loans = bills.filter((b) => b.kind === "loan" && b.loan);
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <Card className="lg:row-span-2">
         <CardTitle action={<AddButton onClick={() => setEditing("new")} label="Add a bill" />}>Coming up</CardTitle>
         {upcoming.length === 0 ? (

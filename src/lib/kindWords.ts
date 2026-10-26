@@ -50,7 +50,7 @@ export const KIND_WORDS = [
   "Every small habit is a gift to future you.",
   "You are open to joy and joy finds you.",
   "You have everything you need to handle today.",
-  "Remember: you're the main character. 💛",
+  "Remember: you're the main character.",
 ];
 
 /** Same word and time for a given day, so planning the week again doesn't change them.

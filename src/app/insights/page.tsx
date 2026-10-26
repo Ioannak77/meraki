@@ -131,7 +131,7 @@ export default function InsightsPage() {
             </div>
             {easiest && easiest.done > 0 && (
               <p className="mt-3 text-[15px]">
-                🌿 Going well: <strong>{easiest.name}</strong> ({easiest.done} of {easiest.due})
+                Going well: <strong>{easiest.name}</strong> ({easiest.done} of {easiest.due})
               </p>
             )}
             {skipped > 0 && (
@@ -141,7 +141,7 @@ export default function InsightsPage() {
             )}
             {hardest && hardest !== easiest && hardest.done < hardest.due && (
               <p className="mt-1 text-[15px]">
-                🤍 Hardest to fit in: <strong>{hardest.name}</strong> ({hardest.done} of {hardest.due}). It might be too long, or on
+                Hardest to fit in: <strong>{hardest.name}</strong> ({hardest.done} of {hardest.due}). It might be too long, or on
                 the wrong day: you can change it in Cleaning schedule › Edit.
               </p>
             )}

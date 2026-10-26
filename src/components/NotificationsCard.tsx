@@ -13,7 +13,7 @@ const KINDS: { id: keyof PushPrefs; label: string; note: string }[] = [
   { id: "skincare", label: "Skincare times", note: "At your morning and evening skincare times" },
   { id: "care", label: "Self care reminders", note: "When waxing, nails, hair and the rest are due" },
   { id: "bills", label: "Bills due", note: "The evening before, and on the day" },
-  { id: "kind", label: "Kind words", note: "A little affirmation every afternoon 💛" },
+  { id: "kind", label: "Kind words", note: "A little affirmation every afternoon" },
   { id: "weekly", label: "Week summary", note: "Sunday evening, a gentle look back at your week" },
 ];
 

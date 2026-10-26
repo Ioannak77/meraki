@@ -20,6 +20,7 @@ import { useSavings } from "./Goals";
 import { dueLabel, upcomingBills } from "./Bills";
 import { ImportSheet, spendingByCategory } from "./Spending";
 import { Bar, Card, CardTitle, Label, MoneyInput, PrimaryButton, Sheet } from "./ui";
+import { Icon } from "../icons";
 
 export type FinanceTab = "Overview" | "Bills" | "Spending" | "Goals" | "Tracker" | "Advice";
 
@@ -67,7 +68,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   const hasMonth = monthIn > 0 || monthBills > 0 || monthSpent > 0;
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       {stepsLeft > 0 && (
         <Card className="lg:col-span-2">
           <CardTitle action={<span className="text-sm text-muted">{steps.length - stepsLeft} of {steps.length} done</span>}>
@@ -277,7 +278,9 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
           onClick={() => go("Advice")}
           className="flex items-center gap-3 rounded-3xl bg-card p-5 text-left lg:col-span-2"
         >
-          <span className="text-2xl">✨</span>
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-peach-soft text-peach">
+            <Icon.wallet className="size-5" />
+          </span>
           <span className="min-w-0 flex-1">
             {advice ? (
               <>

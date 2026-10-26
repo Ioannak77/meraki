@@ -87,17 +87,19 @@ export async function getWeather(p: Place): Promise<Weather> {
   return w;
 }
 
-/** WMO weather code → emoji and a word. */
-export function describe(code: number): { icon: string; text: string } {
-  if (code === 0) return { icon: "☀️", text: "Clear" };
-  if (code <= 2) return { icon: "🌤️", text: "Partly cloudy" };
-  if (code === 3) return { icon: "☁️", text: "Cloudy" };
-  if (code <= 48) return { icon: "🌫️", text: "Fog" };
-  if (code <= 57) return { icon: "🌦️", text: "Drizzle" };
-  if (code <= 67) return { icon: "🌧️", text: "Rain" };
-  if (code <= 77) return { icon: "🌨️", text: "Snow" };
-  if (code <= 82) return { icon: "🌦️", text: "Showers" };
-  return { icon: "⛈️", text: "Thunderstorms" };
+export type Sky = "clear" | "partly" | "cloudy" | "fog" | "rain" | "snow" | "storm";
+
+/** WMO weather code → the kind of sky (for the icon) and a word. */
+export function describe(code: number): { sky: Sky; text: string } {
+  if (code === 0) return { sky: "clear", text: "Clear" };
+  if (code <= 2) return { sky: "partly", text: "Partly cloudy" };
+  if (code === 3) return { sky: "cloudy", text: "Cloudy" };
+  if (code <= 48) return { sky: "fog", text: "Fog" };
+  if (code <= 57) return { sky: "rain", text: "Drizzle" };
+  if (code <= 67) return { sky: "rain", text: "Rain" };
+  if (code <= 77) return { sky: "snow", text: "Snow" };
+  if (code <= 82) return { sky: "rain", text: "Showers" };
+  return { sky: "storm", text: "Thunderstorms" };
 }
 
 /** Sunscreen from today's UV: under 3 it's up to you, from 3 it's a must. */

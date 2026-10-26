@@ -137,7 +137,7 @@ export function RoutineCard({
           {complete ? (
             timedSeconds ? (
               <p className="mt-3 rounded-2xl bg-sage-soft py-3 text-center text-[15px] font-semibold text-sage-dark">
-                Done in {formatMinutes(Math.max(1, Math.round(timedSeconds / 60)))} 🎉
+                Done in {formatMinutes(Math.max(1, Math.round(timedSeconds / 60)))}
               </p>
             ) : null
           ) : (
@@ -149,7 +149,7 @@ export function RoutineCard({
               }}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-sage-dark py-3.5 text-[16px] font-bold text-white"
             >
-              ▶ {done ? "Continue" : "Start"} · ~{formatMinutes(minutesLeft)}
+              {done ? "Continue" : "Start"} · ~{formatMinutes(minutesLeft)}
             </button>
           )}
           {canSkip && !complete && (
