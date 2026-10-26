@@ -107,6 +107,7 @@ export const DEFAULT_PUSH: PushPrefs = {
 
 /** Cards on the Today screen that can be switched off in Settings. */
 export const TODAY_CARDS = [
+  { id: "weather", label: "Weather" },
   { id: "priorities", label: "Your priorities today" },
   { id: "selfcare", label: "Self care (skincare and reminders)" },
   { id: "comingup", label: "Coming up" },

@@ -31,6 +31,7 @@ import { dueDates, money, paidKey } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { useGroceries } from "@/lib/groceriesStore";
 import { kindWordFor } from "@/lib/kindWords";
+import { WeatherCard } from "@/components/WeatherCard";
 import { Fold } from "@/components/Fold";
 import { dayKey, isDoneToday, todaysTasks, useStore, type Task, type TodayCard } from "@/lib/store";
 
@@ -166,6 +167,7 @@ export default function TodayPage() {
       )}
 
       <div className="mt-6 grid items-start gap-4 lg:grid-flow-dense lg:grid-cols-2">
+        {show("weather") && <WeatherCard evening={now.getHours() >= 18} />}
         {show("priorities") && priorities.length > 0 && (
           <Fold
             id="today-priorities"

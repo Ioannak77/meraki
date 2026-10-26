@@ -272,6 +272,26 @@ function ListSheet({
                   Only if needed (doesn&apos;t count towards the time)
                 </button>
                 {isDaily && (
+                  <label className="flex items-center gap-2 text-sm text-muted">
+                    Every
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={2}
+                      value={s.every?.days ?? ""}
+                      placeholder="1"
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        const t = new Date();
+                        const from = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+                        setStep(s.id, { every: n >= 2 ? { days: n, from: s.every?.from ?? from } : undefined });
+                      }}
+                      className={`${inputClass} w-20 text-center`}
+                    />
+                    days (empty: every day; counting from today)
+                  </label>
+                )}
+                {isDaily && (
                   <div>
                     <p className="text-sm text-muted">Only on (leave all off for every day)</p>
                     <div className="mt-1 flex flex-wrap gap-1.5">

@@ -41,6 +41,7 @@ export type Step = {
   optional?: boolean;
   hint?: string;
   weekdays?: number[]; // only on these days (0 = Monday); every day if left out
+  every?: { days: number; from: string }; // only every N days, counting from "YYYY-MM-DD" (e.g. watering plants)
 };
 
 export type Routine = {
@@ -55,7 +56,7 @@ export type Routine = {
 
 const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays">];
+type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every">];
 
 function steps(prefix: string, list: StepInput[]): Step[] {
   return list.map(([title, minutes, room, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, room, ...extra }));
@@ -75,12 +76,15 @@ export const DEFAULT_CLEANING: Routine[] = [
     name: "Morning",
     group: "daily",
     when: { kind: "daily", part: "morning" },
-    steps: steps("morning", [
-      ["Make the bed", 2, "Bedroom"],
-      ["Open the windows", 1, "Whole home", { hint: "leave 10–15 min" }],
-      ["Dirty clothes into the laundry", 1, "Laundry"],
-      ["Put away anything left from last night", 3, "Living room"],
-    ]),
+    steps: [
+      ...steps("morning", [
+        ["Make the bed", 2, "Bedroom"],
+        ["Open the windows", 1, "Whole home", { hint: "leave 10–15 min" }],
+        ["Dirty clothes into the laundry", 1, "Laundry"],
+        ["Put away anything left from last night", 3, "Living room"],
+      ]),
+      step("morning-plants", "Water the plants", 5, "Whole home", { every: { days: 3, from: "2026-10-26" }, hint: "every 3 days" }),
+    ],
   },
   {
     id: "meals",
@@ -276,7 +280,10 @@ export const DEFAULT_CLEANING: Routine[] = [
 
 // Steps added to the default schedule after it could be edited. An edited copy gets them too
 // (once: if you delete one after that, it stays deleted).
-const ADDED_STEPS: { list: string; step: string; since: string }[] = [{ list: "monthly", step: "monthly-protectors", since: "2026-10-25" }];
+const ADDED_STEPS: { list: string; step: string; since: string }[] = [
+  { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
+  { list: "morning", step: "morning-plants", since: "2026-10-26" },
+];
 
 /** An edited schedule plus any default steps added since it was saved. */
 export function withAddedSteps(lists: Routine[], seen: string[]) {
@@ -322,7 +329,14 @@ export function isSkipped(done: Record<string, string[]>, r: Routine, d = today(
 /** Steps of a list that apply on this day (e.g. Pari's bowls only Tue/Thu/Sat). */
 export function stepsOn(r: Routine, d = today()) {
   const day = weekdayIndex(d);
-  return r.steps.filter((s) => !s.weekdays || s.weekdays.includes(day));
+  return r.steps.filter((s) => (!s.weekdays || s.weekdays.includes(day)) && (!s.every || onEvery(s.every, d)));
+}
+
+/** Is `d` one of the "every N days" days (counting from `from`)? */
+function onEvery(every: { days: number; from: string }, d: Date) {
+  const [y, m, dd] = every.from.split("-").map(Number);
+  const gap = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - new Date(y, m - 1, dd).getTime()) / 86_400_000);
+  return gap >= 0 && gap % Math.max(1, every.days) === 0;
 }
 
 // ---------- Month-end weekend ----------
