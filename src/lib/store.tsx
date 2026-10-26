@@ -7,7 +7,7 @@
 import { today } from "./clock";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { markSaved } from "./sync";
-import { setCleaning, withAddedSteps, type Routine } from "./cleaning";
+import { setCleaning, setCleaningDone, withAddedSteps, type Routine } from "./cleaning";
 
 export type Energy = "low" | "normal" | "high";
 export type Mood = "great" | "okay" | "low";
@@ -243,6 +243,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Every screen reads the cleaning schedule through cleaningLists().
   setCleaning(data.cleaning);
+  setCleaningDone(data.routineDone);
 
   // localStorage only exists in the browser, so read it after the first render.
   useEffect(() => {

@@ -42,6 +42,8 @@ export type Step = {
   hint?: string;
   weekdays?: number[]; // only on these days (0 = Monday); every day if left out
   every?: { days: number; from: string }; // only every N days, counting from "YYYY-MM-DD" (e.g. watering plants)
+  wash?: boolean; // a machine load: ticking it brings up the "afterWash" steps the next day
+  afterWash?: boolean; // only the day after a wash step was ticked (hang and put away)
 };
 
 export type Routine = {
@@ -56,7 +58,7 @@ export type Routine = {
 
 const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every">];
+type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash">];
 
 function steps(prefix: string, list: StepInput[]): Step[] {
   return list.map(([title, minutes, room, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, room, ...extra }));
@@ -84,6 +86,7 @@ export const DEFAULT_CLEANING: Routine[] = [
         ["Put away anything left from last night", 3, "Living room"],
       ]),
       step("morning-plants", "Water the plants", 5, "Whole home", { every: { days: 3, from: "2026-10-26" }, hint: "every 3 days" }),
+      step("morning-laundry", "Hang and put away the laundry", 10, "Laundry", { afterWash: true, hint: "from yesterday's washing" }),
     ],
   },
   {
@@ -108,13 +111,17 @@ export const DEFAULT_CLEANING: Routine[] = [
     name: "Evening",
     group: "daily",
     when: { kind: "daily", part: "evening" },
-    steps: steps("evening", [
-      ["Living room reset", 5, "Living room"],
-      ["Empty small bins", 2, "Whole home", { optional: true, hint: "if full" }],
-      ["Wipe bathroom sink and kitchen", 3, "Whole home"],
-      ["Vacuum", 10, "Floors", { optional: true, hint: "if needed" }],
-      ["Set up for tomorrow", 3, "Whole home"],
-    ]),
+    steps: [
+      ...steps("evening", [
+        ["Living room reset", 5, "Living room"],
+        ["Empty small bins", 2, "Whole home", { optional: true, hint: "if full" }],
+        // The kitchen is wiped after each meal, so only the bathroom here.
+        ["Wipe the bathroom sink", 2, "Bathroom"],
+        ["Vacuum", 10, "Floors", { optional: true, hint: "if needed" }],
+        ["Set up for tomorrow", 3, "Whole home"],
+      ]),
+      step("evening-rubbish", "Take the rubbish out", 3, "Whole home", { every: { days: 3, from: "2026-10-26" }, hint: "every 3 days" }),
+    ],
   },
 
   // ---------- Weekly ----------
@@ -126,7 +133,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     steps: steps("mon", [
       ["Toilet, sink and mirror", 10, "Bathroom"],
       ["Wipe the shower", 5, "Bathroom"],
-      ["Wash the rug", 2, "Bathroom", { hint: "into the machine" }],
+      ["Wash the rug", 2, "Bathroom", { hint: "into the machine", wash: true }],
     ]),
   },
   {
@@ -158,10 +165,16 @@ export const DEFAULT_CLEANING: Routine[] = [
     name: "Laundry",
     group: "weekly",
     when: { kind: "weekly", weekday: 3 },
-    steps: steps("thu", [
-      ["Wash clothes", 5, "Laundry", { hint: "load the machine" }],
-      ["Dust bedroom furniture", 5, "Bedroom"],
-    ]),
+    note: "One load per pile, only if there's enough",
+    // Each load is optional: sort the basket, then wash whichever piles are big enough.
+    // Hanging and putting away comes up the next morning.
+    steps: [
+      step("thu-sort", "Sort the laundry basket", 3, "Laundry", { hint: "see which piles make a load" }),
+      step("thu-whites", "Whites", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
+      step("thu-colours", "Coloured", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
+      step("thu-black", "Black", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
+      step("thu-towels", "Towels", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
+    ],
   },
   {
     id: "fri",
@@ -181,9 +194,9 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "weekly", weekday: 5 },
     steps: [
       step("sat-0", "Change the sheets", 10, "Bedroom", { hint: "and pillowcases" }),
-      step("sat-towels", "Wash the towels", 3, "Bedroom", { hint: "with the sheets" }),
+      step("sat-sheets", "Wash the sheets", 3, "Laundry", { hint: "into the machine", wash: true }),
       step("sat-2", "Dust", 5, "Bedroom"),
-      step("sat-3", "Wash Pari's bed cover and blanket", 3, "Pari", { hint: "into the machine" }),
+      step("sat-3", "Wash Pari's bed cover and blanket", 3, "Pari", { hint: "into the machine", wash: true }),
     ],
   },
   {
@@ -191,12 +204,12 @@ export const DEFAULT_CLEANING: Routine[] = [
     name: "Reset",
     group: "weekly",
     when: { kind: "weekly", weekday: 6 },
-    steps: steps("sun", [
-      ["Take the rubbish out", 3, "Whole home"],
-      ["Restock toiletries", 5, "Bathroom"],
-      ["Plan groceries", 10, "Kitchen"],
-      ["Quick tidy up", 10, "Whole home"],
-    ]),
+    // The rubbish is in Evening now (every 3 days); the other ids stay as they were.
+    steps: [
+      step("sun-1", "Restock toiletries", 5, "Bathroom"),
+      step("sun-2", "Plan groceries", 10, "Kitchen"),
+      step("sun-3", "Quick tidy up", 10, "Whole home"),
+    ],
   },
 
   // ---------- Last weekend of every month ----------
@@ -210,12 +223,12 @@ export const DEFAULT_CLEANING: Routine[] = [
         ["Vacuum under the bed", 10, "Bedroom"],
         ["Deep clean the fridge", 20, "Kitchen"],
         ["Sanitize the washing machine", 5, "Laundry", { hint: "start the cycle" }],
-        ["Wash the couch throws", 3, "Living room", { hint: "into the machine" }],
+        ["Wash the couch throws", 3, "Living room", { hint: "into the machine", wash: true }],
         ["Clean the vacuums", 10, "Whole home"],
         ["Declutter 1 drawer", 10, "Whole home"],
       ]),
       step("monthly-mattress", "Vacuum the mattress", 5, "Bedroom"),
-      step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "into the machine" }),
+      step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "into the machine", wash: true }),
       step("monthly-drain", "Drain cleaner", 2, "Kitchen"),
       step("monthly-bin", "Wash the kitchen bin", 10, "Kitchen"),
     ],
@@ -255,10 +268,10 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "monthly", months: [3, 6, 9, 12] },
     note: "All of Pari's washing in one go",
     steps: steps("q-pari", [
-      ["Wash Pari's inner bed", 5, "Pari", { hint: "into the machine" }],
+      ["Wash Pari's inner bed", 5, "Pari", { hint: "into the machine", wash: true }],
       ["Wash Pari's collars, harness and leash", 5, "Pari"],
       ["Wash Pari's toys", 5, "Pari"],
-      ["Wash the pillows", 5, "Bedroom", { hint: "into the machine" }],
+      ["Wash the pillows", 5, "Bedroom", { hint: "into the machine", wash: true }],
       ["Clean inside the bathroom cabinets", 15, "Bathroom"],
     ]),
   },
@@ -272,7 +285,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     note: "Same month as the windows, so the balcony gets done in one go",
     steps: steps("half", [
       ["Rotate the mattress", 10, "Bedroom"],
-      ["Wash the duvet and comforter", 5, "Bedroom", { hint: "into the machine" }],
+      ["Wash the duvet and comforter", 5, "Bedroom", { hint: "into the machine", wash: true }],
       ["Deep clean the balcony", 30, "Balcony and windows"],
     ]),
   },
@@ -283,6 +296,8 @@ export const DEFAULT_CLEANING: Routine[] = [
 const ADDED_STEPS: { list: string; step: string; since: string }[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
+  { list: "morning", step: "morning-laundry", since: "2026-10-26" },
+  { list: "evening", step: "evening-rubbish", since: "2026-10-26" },
 ];
 
 /** An edited schedule plus any default steps added since it was saved. */
@@ -326,10 +341,33 @@ export function isSkipped(done: Record<string, string[]>, r: Routine, d = today(
   return (done[occurrenceKey(r, d)] ?? []).includes(SKIPPED);
 }
 
+// The ticks so far (set by StoreProvider), for the steps that follow a wash.
+let ticks: Record<string, string[]> = {};
+export function setCleaningDone(done: Record<string, string[]>) {
+  ticks = done;
+}
+
+/** Was a machine load ticked the day before `d`? (Loads on the month-end weekend count too.) */
+function washedDayBefore(d: Date) {
+  const y = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+  const yKey = dayKey(y);
+  const owner = monthEndOwner(y);
+  const monthKey = owner ? dayKey(owner).slice(0, 7) : null;
+  const washes = new Set(active.flatMap((r) => r.steps.filter((s) => s.wash).map((s) => s.id)));
+  return Object.entries(ticks).some(([key, ids]) => {
+    const when = key.split("@")[1]?.split("#")[0] ?? "";
+    // Month-end lists are saved by month: count them only on their weekend.
+    const matches = when === yKey || (monthKey !== null && when === monthKey);
+    return matches && ids.some((id) => washes.has(id));
+  });
+}
+
 /** Steps of a list that apply on this day (e.g. Pari's bowls only Tue/Thu/Sat). */
 export function stepsOn(r: Routine, d = today()) {
   const day = weekdayIndex(d);
-  return r.steps.filter((s) => (!s.weekdays || s.weekdays.includes(day)) && (!s.every || onEvery(s.every, d)));
+  return r.steps.filter(
+    (s) => (!s.weekdays || s.weekdays.includes(day)) && (!s.every || onEvery(s.every, d)) && (!s.afterWash || washedDayBefore(d)),
+  );
 }
 
 /** Is `d` one of the "every N days" days (counting from `from`)? */
