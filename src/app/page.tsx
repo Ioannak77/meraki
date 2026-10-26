@@ -111,6 +111,27 @@ export default function TodayPage() {
   const tomorrowBills = finance.bills.filter((b) => dueDates(b, tomorrow, tomorrow).some((d) => !finance.paid[paidKey(b, d)]));
   const tomorrowClean = inEndOfMonthWindow(tomorrow) ? "Big clean" : weeklyPlan(settings.officeDays)[weekdayIndex(tomorrow)].routine.name;
 
+  // Only rings with something to count.
+  const rings = (small: boolean) => (
+    <>
+            {priorities.length > 0 && (
+              <Ring small={small} value={prioritiesDone} max={priorities.length} color="var(--color-sage)" label="Priorities">
+                {prioritiesDone}/{priorities.length}
+              </Ring>
+            )}
+            {today.length > 0 && (
+              <Ring small={small} value={todayDone} max={today.length} color="var(--color-peach)" label="Today">
+                {todayDone}/{today.length}
+              </Ring>
+            )}
+            {routineSteps.total > 0 && (
+              <Ring small={small} value={routineSteps.done} max={routineSteps.total} color="var(--color-sky)" label="Cleaning">
+                {routineSteps.done}/{routineSteps.total}
+              </Ring>
+            )}
+    </>
+  );
+
   if (!ready) return null;
 
   return (
@@ -141,24 +162,14 @@ export default function TodayPage() {
         </div>
       </header>
 
-      {/* Only rings with something to count. */}
-      <section className="mt-6 flex justify-center gap-8 sm:gap-12">
-        {priorities.length > 0 && (
-          <Ring value={prioritiesDone} max={priorities.length} color="var(--color-sage)" label="Priorities">
-            {prioritiesDone}/{priorities.length}
-          </Ring>
-        )}
-        {today.length > 0 && (
-          <Ring value={todayDone} max={today.length} color="var(--color-peach)" label="Today">
-            {todayDone}/{today.length}
-          </Ring>
-        )}
-        {routineSteps.total > 0 && (
-          <Ring value={routineSteps.done} max={routineSteps.total} color="var(--color-sky)" label="Cleaning">
-            {routineSteps.done}/{routineSteps.total}
-          </Ring>
-        )}
-      </section>
+      {/* Weather with your progress beside it; just the rings without the weather. */}
+      {show("weather") ? (
+        <div className="mt-6">
+          <WeatherCard evening={now.getHours() >= 18} progress={rings(true)} fallback={<div className="flex justify-center gap-8 sm:gap-12">{rings(false)}</div>} />
+        </div>
+      ) : (
+        <section className="mt-6 flex justify-center gap-8 sm:gap-12">{rings(false)}</section>
+      )}
 
       {shoppingLeft > 0 && (
         <Link href="/groceries/" className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-full bg-card px-4 py-2 text-sm font-semibold text-ink/80">
@@ -167,7 +178,6 @@ export default function TodayPage() {
       )}
 
       <div className="mt-6 grid items-start gap-4 lg:grid-flow-dense lg:grid-cols-2">
-        {show("weather") && <WeatherCard evening={now.getHours() >= 18} />}
         {show("priorities") && priorities.length > 0 && (
           <Fold
             id="today-priorities"

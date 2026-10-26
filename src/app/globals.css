@@ -75,6 +75,18 @@ body {
   background: var(--color-cream);
   color: var(--color-ink);
   -webkit-tap-highlight-color: transparent;
+  /* Nothing may make the page slide sideways. */
+  overflow-x: clip;
+}
+
+/* iPhone zooms in on a field whose text is under 16px, and the zoomed page can then slide left
+   and right. On touch screens every field gets 16px (this sits outside Tailwind's layers, so it wins). */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Room for the phone's home indicator under the bottom tab bar. */

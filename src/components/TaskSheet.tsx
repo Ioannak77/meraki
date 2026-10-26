@@ -89,7 +89,7 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
       <form
         onSubmit={save}
         onClick={(e) => e.stopPropagation()}
-        className="pb-safe max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-card px-5 pt-5 shadow-xl md:max-w-lg md:rounded-3xl md:pb-6"
+        className="pb-safe max-h-[92vh] w-full overflow-y-auto overflow-x-hidden rounded-t-3xl bg-card px-5 pt-5 shadow-xl md:max-w-lg md:rounded-3xl md:pb-6"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">{existing ? "Edit task" : "New task"}</h2>
