@@ -2,7 +2,7 @@
 
 // Small building blocks shared by the money screens.
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { NewChip } from "../NewChip";
 
@@ -19,19 +19,76 @@ export function CardTitle({ children, action }: { children: React.ReactNode; act
   );
 }
 
-/** Slides up from the bottom on phones, centred on iPad. */
+/** Slides up from the bottom on phones (drag it down to close), centred on iPad. */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const panel = useRef<HTMLDivElement>(null);
+  const [closing, setClosing] = useState(false);
+  const drag = useRef<{ id: number; startY: number; startTime: number; dy: number } | null>(null);
+
+  // Closing by tap or swipe slides away first (200ms, the same as the exit in globals.css).
+  const dismiss = useCallback(() => {
+    setClosing(true);
+    setTimeout(onClose, 200);
+  }, [onClose]);
+
+  // Escape closes at once: keyboard actions never animate.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Drag down by the top of the sheet (phones only). Upwards it barely moves, with growing resistance.
+  function onPointerDown(e: React.PointerEvent) {
+    if (drag.current || closing || window.matchMedia("(min-width: 768px)").matches) return; // one finger only
+    if ((e.target as Element).closest("button")) return; // the close button stays a button
+    drag.current = { id: e.pointerId, startY: e.clientY, startTime: performance.now(), dy: 0 };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    if (panel.current) panel.current.style.transition = "none";
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId || !panel.current) return;
+    const raw = e.clientY - d.startY;
+    d.dy = raw >= 0 ? raw : -Math.sqrt(-raw) * 2;
+    panel.current.style.transform = `translateY(${d.dy}px)`;
+  }
+  function onPointerUp(e: React.PointerEvent) {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId || !panel.current) return;
+    drag.current = null;
+    const el = panel.current;
+    const velocity = d.dy / Math.max(1, performance.now() - d.startTime); // px per ms
+    // Hand back to the stylesheet: it snaps back, or slides away from where your finger left it.
+    el.style.transition = "";
+    el.style.transform = "";
+    if (d.dy > el.offsetHeight * 0.3 || (d.dy > 10 && velocity > 0.11)) dismiss();
+  }
+
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center md:items-center" data-closing={closing || undefined}>
+      <div className="sheet-backdrop absolute inset-0 bg-black/40" onClick={dismiss} aria-hidden />
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="pb-safe max-h-[92vh] w-full overflow-y-auto overflow-x-hidden rounded-t-3xl bg-card px-5 pt-5 shadow-xl md:max-w-lg md:rounded-3xl md:pb-6"
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="sheet-panel pb-safe relative max-h-[92dvh] w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-3xl bg-card px-5 shadow-xl md:max-w-lg md:rounded-3xl md:pb-6"
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-muted">
-            <Icon.close className="size-6" />
-          </button>
+        <div
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          className="sticky top-0 z-10 -mx-5 mb-2 touch-none bg-card px-5 pt-2 md:static md:touch-auto md:pt-5"
+        >
+          <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-line md:hidden" aria-hidden />
+          <div className="flex items-center justify-between pb-2">
+            <h2 className="text-lg font-bold">{title}</h2>
+            <button type="button" onClick={dismiss} aria-label="Close" className="p-1 text-muted">
+              <Icon.close className="size-6" />
+            </button>
+          </div>
         </div>
         {children}
       </div>
@@ -102,7 +159,7 @@ export function Chips<T extends string | number>({
           key={String(o.id)}
           type="button"
           onClick={() => onChange(o.id)}
-          className={`rounded-full px-3.5 py-2 text-sm transition-colors ${
+          className={`rounded-full px-3.5 py-2 text-sm transition-[color,background-color,border-color,transform] ${
             value === o.id ? "bg-ink text-cream" : "bg-cream text-ink/80"
           }`}
         >
@@ -120,7 +177,7 @@ export function Bar({ value, max, color = "var(--color-sage)" }: { value: number
   return (
     <div className="h-2 overflow-hidden rounded-full bg-line">
       <div
-        className="h-full rounded-full transition-[width] duration-500"
+        className="h-full rounded-full transition-[width] duration-300 ease-out"
         style={{ width: `${pct}%`, background: over ? "var(--color-peach)" : color }}
       />
     </div>

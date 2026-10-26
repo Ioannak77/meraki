@@ -88,12 +88,12 @@ export function RoutineCard({
       </button>
 
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
-        <div className={`h-full rounded-full transition-[width] duration-500 ${style.bar}`} style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+        <div className={`h-full rounded-full transition-[width] duration-300 ease-out ${style.bar}`} style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
       </div>
 
       {open && (
         <>
-          <ul className="mt-2 divide-y divide-line">
+          <ul className={`mt-2 divide-y divide-line ${manualOpen !== null ? "animate-reveal" : ""}`}>
             {daySteps.map((step) => {
               const isDone = ticked.includes(step.id);
               return (
@@ -108,7 +108,7 @@ export function RoutineCard({
                     aria-pressed={isDone}
                   >
                     <span
-                      className={`grid size-7 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                      className={`grid size-7 shrink-0 place-items-center rounded-full border-2 transition-[color,background-color,border-color,transform] ${
                         isDone ? "animate-pop border-sage bg-sage text-white" : "border-line bg-card"
                       }`}
                     >

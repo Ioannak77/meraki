@@ -21,6 +21,7 @@ export function dueSteps(steps: ReturnType<typeof useSkin>["steps"], slot: Slot,
 export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; date: Date; badge?: string; startOpen?: boolean }) {
   const { steps, done, toggle, settings } = useSkin();
   const [open, setOpen] = useState(startOpen);
+  const [toggled, setToggled] = useState(false); // opened by a tap (then it animates in)
   const key = slotKey(slot, date);
   const due = dueSteps(steps, slot, date);
   const ticked = done[key] ?? [];
@@ -41,7 +42,11 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
 
   return (
     <section className="rounded-3xl bg-card p-5">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 text-left">
+      <button type="button" onClick={() => {
+          setOpen((o) => !o);
+          setToggled(true);
+        }}
+        aria-expanded={open} className="flex w-full items-center gap-3 text-left">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-soft text-rose">
           {slot === "am" ? <Icon.sun className="size-6" /> : slot === "pm" ? <Icon.moon className="size-6" /> : <Icon.heart className="size-6" />}
         </span>
@@ -67,9 +72,9 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
       {open && due.length > 0 && (
         <>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
-            <div className="h-full rounded-full bg-rose transition-[width] duration-500" style={{ width: `${counted.length ? (count / counted.length) * 100 : 0}%` }} />
+            <div className="h-full rounded-full bg-rose transition-[width] duration-300 ease-out" style={{ width: `${counted.length ? (count / counted.length) * 100 : 0}%` }} />
           </div>
-          <ul className="mt-2 divide-y divide-line">
+          <ul className={`mt-2 divide-y divide-line ${toggled ? "animate-reveal" : ""}`}>
             {due.map((s) => {
               const isDone = ticked.includes(s.id);
               return (

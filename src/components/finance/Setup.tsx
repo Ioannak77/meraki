@@ -36,7 +36,7 @@ export function FinanceSetup({ onDone }: { onDone?: () => void }) {
                   className="flex w-full items-center gap-3 px-2 py-3.5 text-left"
                 >
                   <span
-                    className={`grid size-7 shrink-0 place-items-center rounded-lg border-2 transition-colors ${
+                    className={`grid size-7 shrink-0 place-items-center rounded-lg border-2 transition-[color,background-color,border-color,transform] ${
                       on ? "border-sage bg-sage text-white" : "border-line bg-card"
                     }`}
                   >

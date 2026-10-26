@@ -36,7 +36,7 @@ export function AddMenu({ onNewTask }: { onNewTask: () => void }) {
       <button
         onClick={() => setOpen(true)}
         aria-label="Add something"
-        className="fixed bottom-24 right-5 z-10 grid size-14 place-items-center rounded-full bg-sage-dark text-white shadow-lg md:bottom-8 md:right-8"
+        className="fixed bottom-24 right-5 z-10 grid size-14 place-items-center rounded-full bg-sage-dark text-white shadow-lg md:bottom-8 md:right-[max(2rem,calc(env(safe-area-inset-right)+1rem))]"
       >
         <Icon.plus className="size-7" />
       </button>

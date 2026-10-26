@@ -32,8 +32,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const day = dayKey(useNow());
 
   return (
-    <div className="md:flex md:min-h-screen">
-      <aside className="pt-safe sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-1 px-4 pb-6 md:flex lg:w-64">
+    <div className="md:flex md:min-h-dvh">
+      <aside className="pt-safe sticky top-0 hidden h-dvh w-56 shrink-0 flex-col gap-1 px-4 pb-6 md:flex lg:w-64">
         <Link href="/" className="mb-6 flex items-center gap-2 px-3 pt-2">
           <Icon.leaf className="size-7 text-sage" />
           <span className="text-xl font-bold">Meraki</span>
@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition-colors ${
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition-[color,background-color,border-color,transform] ${
                 active ? "bg-sage-soft font-semibold text-sage-dark" : "text-ink/80 hover:bg-card"
               }`}
             >
@@ -56,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         })}
         <Link
           href="/settings/"
-          className={`mt-6 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition-colors ${
+          className={`mt-6 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition-[color,background-color,border-color,transform] ${
             isActive(pathname, "/settings/") ? "bg-sage-soft font-semibold text-sage-dark" : "text-ink/80 hover:bg-card"
           }`}
         >

@@ -65,7 +65,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
       </div>
 
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-line">
-        <div className="h-full rounded-full bg-sun transition-[width] duration-500" style={{ width: `${counted.length ? (done / counted.length) * 100 : 0}%` }} />
+        <div className="h-full rounded-full bg-sun transition-[width] duration-300 ease-out" style={{ width: `${counted.length ? (done / counted.length) * 100 : 0}%` }} />
       </div>
 
       {minutesLeft > 0 && (
@@ -94,11 +94,11 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                 <span className={`text-sm ${left.length ? "text-muted" : "font-semibold text-sage-dark"}`}>
                   {left.length ? `${left.length} left · ~${formatMinutes(left.reduce((t, it) => t + it.step.minutes, 0))}` : "Done ✓"}
                 </span>
-                <span className={`text-muted transition-transform ${open ? "rotate-90" : ""}`}>›</span>
+                <span className={`text-muted transition-transform duration-200 ease-out ${open ? "rotate-90" : ""}`}>›</span>
               </button>
               {open && (
                 <>
-                  <ul>
+                  <ul className={openRooms ? "animate-reveal" : ""}>
                     {g.items.map((it) => {
                       const ticked = isDone(it);
                       return (
@@ -113,7 +113,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                             className="flex w-full items-center gap-3 py-2.5 text-left"
                           >
                             <span
-                              className={`grid size-7 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                              className={`grid size-7 shrink-0 place-items-center rounded-full border-2 transition-[color,background-color,border-color,transform] ${
                                 ticked ? "animate-pop border-sage bg-sage text-white" : "border-line bg-card"
                               }`}
                             >

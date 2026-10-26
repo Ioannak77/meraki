@@ -114,7 +114,7 @@ export function RoutineTimer({
   const over = left < 0;
 
   return (
-    <div className="pt-safe pb-safe fixed inset-0 z-50 flex flex-col items-center overflow-y-auto bg-cream px-5 text-center">
+    <div className="pt-safe pb-safe animate-enter fixed inset-0 z-50 flex flex-col items-center overflow-y-auto overscroll-contain bg-cream px-5 text-center">
       <div className="flex w-full max-w-md items-center justify-between pt-2">
         <span className="text-sm text-muted">
           {finished ? title : `${title} · step ${index + 1} of ${queue.length}`}
@@ -198,7 +198,7 @@ export function RoutineTimer({
                   className="relative touch-none select-none overflow-hidden rounded-2xl bg-card py-3.5 font-semibold"
                 >
                   <span
-                    className={`absolute inset-0 origin-left bg-line ${holding ? "scale-x-100 transition-transform duration-1000 ease-linear" : "scale-x-0"}`}
+                    className={`absolute inset-0 origin-left bg-line ${holding ? "scale-x-100 transition-transform duration-1000 ease-linear" : "scale-x-0 transition-transform duration-200 ease-out"}`}
                   />
                   <span className="relative">Hold to skip</span>
                 </button>

@@ -33,7 +33,7 @@ export function Ring({
             strokeLinecap="round"
             strokeDasharray={length}
             strokeDashoffset={length * (1 - pct)}
-            className="transition-[stroke-dashoffset] duration-500"
+            className="transition-[stroke-dashoffset] duration-300 ease-out"
           />
         </svg>
         <div className={`absolute inset-0 grid place-items-center font-bold ${small ? "text-[11px] md:text-[13px]" : "text-[15px] md:text-lg"}`}>

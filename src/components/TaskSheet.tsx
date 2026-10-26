@@ -15,6 +15,7 @@ import {
   type Task,
   type TaskStep,
 } from "@/lib/store";
+import { Sheet } from "./finance/ui";
 import { Icon } from "./icons";
 import { NewChip } from "./NewChip";
 
@@ -82,21 +83,11 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
   }
 
   const chip = (active: boolean) =>
-    `rounded-full px-3.5 py-2 text-sm transition-colors ${active ? "bg-ink text-cream" : "bg-cream text-ink/80"}`;
+    `rounded-full px-3.5 py-2 text-sm transition-[color,background-color,border-color,transform] ${active ? "bg-ink text-cream" : "bg-cream text-ink/80"}`;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
-      <form
-        onSubmit={save}
-        onClick={(e) => e.stopPropagation()}
-        className="pb-safe max-h-[92vh] w-full overflow-y-auto overflow-x-hidden rounded-t-3xl bg-card px-5 pt-5 shadow-xl md:max-w-lg md:rounded-3xl md:pb-6"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{existing ? "Edit task" : "New task"}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-muted">
-            <Icon.close className="size-6" />
-          </button>
-        </div>
+    <Sheet title={existing ? "Edit task" : "New task"} onClose={onClose}>
+      <form onSubmit={save}>
 
         {existing && !existing.completedAt && (
           <div className="mb-3 flex gap-2">
@@ -363,6 +354,6 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
           </button>
         )}
       </form>
-    </div>
+    </Sheet>
   );
 }

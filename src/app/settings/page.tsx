@@ -284,7 +284,7 @@ function OfficeDays() {
               onClick={() => toggleDay(day)}
               aria-pressed={on}
               aria-label={name}
-              className={`rounded-2xl py-3 text-sm font-semibold transition-colors ${on ? "bg-sage-dark text-white" : "bg-cream text-ink/70"}`}
+              className={`rounded-2xl py-3 text-sm font-semibold transition-[color,background-color,border-color,transform] ${on ? "bg-sage-dark text-white" : "bg-cream text-ink/70"}`}
             >
               {name.slice(0, 3)}
             </button>

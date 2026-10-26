@@ -29,6 +29,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Android: the page shrinks above the keyboard, so a sheet's Save button stays reachable.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -38,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* The chosen theme before the first paint, so dark mode doesn't flash white. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var s=JSON.parse(localStorage.getItem("meraki.v1")||"{}");document.documentElement.dataset.theme=(s.settings&&s.settings.theme)||"light"}catch(e){}`,
+            __html: `try{var s=JSON.parse(localStorage.getItem("meraki.v1")||"{}");var t=(s.settings&&s.settings.theme)||"light";document.documentElement.dataset.theme=t;if(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches)){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content","#1b1916")}}catch(e){}`,
           }}
         />
       </head>

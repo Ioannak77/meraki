@@ -35,7 +35,7 @@ export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit:
         onClick={toggle}
         aria-label={done ? `Mark ${task.title} as not done` : `Mark ${task.title} as done`}
         onAnimationEnd={() => setPopped(false)}
-        className={`grid size-7 shrink-0 place-items-center rounded-lg border-2 transition-colors ${
+        className={`grid size-7 shrink-0 place-items-center rounded-lg border-2 transition-[color,background-color,border-color,transform] ${
           done ? "border-sage bg-sage text-white" : "border-line bg-card"
         } ${popped ? "animate-pop" : ""}`}
       >
