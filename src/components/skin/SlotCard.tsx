@@ -2,9 +2,13 @@
 
 // One self-care list for a day (morning skincare, evening skincare or daily self care): tick the steps that are due.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isStepDue, slotKey, type Slot } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
+import { WEATHER_EVENT, cachedWeather } from "@/lib/weather";
+
+/** Sunscreen steps follow today's UV: a must from 3, optional below. */
+const isSunscreen = (name: string) => /sunscreen|spf|sun ?cream|sunblock/i.test(name);
 import { Icon } from "../icons";
 
 export const SLOT_LABEL: Record<Slot, string> = { am: "Morning", pm: "Evening", day: "Daily" };
@@ -20,8 +24,19 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
   const key = slotKey(slot, date);
   const due = dueSteps(steps, slot, date);
   const ticked = done[key] ?? [];
-  const count = due.filter((s) => ticked.includes(s.id)).length;
-  const complete = due.length > 0 && count === due.length;
+  // Draw again when the weather arrives (it's fetched by the card at the top of Today).
+  const [, setWeatherSeen] = useState(0);
+  useEffect(() => {
+    const seen = () => setWeatherSeen((n) => n + 1);
+    window.addEventListener(WEATHER_EVENT, seen);
+    return () => window.removeEventListener(WEATHER_EVENT, seen);
+  }, []);
+  // Today's UV (from the weather on Today), for the morning sunscreen.
+  const uv = slot === "am" && typeof window !== "undefined" ? (cachedWeather()?.uv ?? null) : null;
+  const optional = (name: string) => uv !== null && uv < 3 && isSunscreen(name);
+  const counted = due.filter((s) => !optional(s.name));
+  const count = counted.filter((s) => ticked.includes(s.id)).length;
+  const complete = counted.length > 0 && count === counted.length;
 
   return (
     <section className="rounded-3xl bg-card p-5">
@@ -39,14 +54,14 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
           </span>
         </span>
         <span className={`shrink-0 text-sm font-semibold ${complete ? "text-sage-dark" : "text-muted"}`}>
-          {due.length === 0 ? "Nothing today" : complete ? "Done ✓" : `${count}/${due.length}`}
+          {due.length === 0 ? "Nothing today" : complete ? "Done ✓" : `${count}/${counted.length}`}
         </span>
       </button>
 
       {open && due.length > 0 && (
         <>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
-            <div className="h-full rounded-full bg-rose transition-[width] duration-500" style={{ width: `${(count / due.length) * 100}%` }} />
+            <div className="h-full rounded-full bg-rose transition-[width] duration-500" style={{ width: `${counted.length ? (count / counted.length) * 100 : 0}%` }} />
           </div>
           <ul className="mt-2 divide-y divide-line">
             {due.map((s) => {
@@ -73,6 +88,13 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
                       <span className={`block text-[15px] ${isDone ? "text-muted line-through" : ""}`}>{s.name}</span>
                       {s.note && <span className="block text-xs text-muted">{s.note}</span>}
                     </span>
+                    {uv !== null && isSunscreen(s.name) && (
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${uv >= 3 ? "bg-peach-soft text-peach" : "bg-cream text-muted"}`}
+                      >
+                        UV {uv} · {uv >= 3 ? "must" : "optional"}
+                      </span>
+                    )}
                     {s.schedule.kind !== "daily" && (
                       <span className="shrink-0 rounded-full bg-rose-soft px-2 py-0.5 text-[11px] font-semibold text-rose">today</span>
                     )}

@@ -5,7 +5,7 @@
 // stays on this device. Until there's a place, `fallback` (the full-size rings) shows instead.
 
 import { useEffect, useState } from "react";
-import { describe, findPlace, getWeather, locate, savePlace, savedPlace, weatherTip, type Place, type Weather } from "@/lib/weather";
+import { describe, findPlace, getWeather, locate, savePlace, savedPlace, uvAdvice, weatherTip, type Place, type Weather } from "@/lib/weather";
 
 /** The card's tint follows the sky: warm when clear, blue-grey when cloudy or wet. */
 function tint(code: number) {
@@ -130,6 +130,7 @@ export function WeatherCard({
 
   const now = describe(weather.code);
   const tip = weatherTip(weather);
+  const uv = uvAdvice(weather.uv);
   const tomorrow = describe(weather.tomorrow.code);
   return (
     <section className={`rounded-3xl bg-gradient-to-br ${tint(weather.code)} to-card p-5 shadow-[0_1px_2px_rgba(60,50,40,0.04)]`}>
@@ -141,7 +142,7 @@ export function WeatherCard({
           </div>
           <p className="mt-1.5 truncate text-[14px] font-semibold">{now.text}</p>
           <p className="truncate text-[12px] text-muted">
-            ↑{weather.high}° ↓{weather.low}° · ☔ {weather.rain}%
+            ↑{weather.high}° ↓{weather.low}° · ☔ {weather.rain}% · UV {weather.uv}
           </p>
           <button type="button" onClick={() => setAsking(true)} className="mt-0.5 text-[11px] text-muted" aria-label="Change place">
             {place.name.split(",")[0]} ›
@@ -149,16 +150,16 @@ export function WeatherCard({
         </div>
         <div className="flex shrink-0 gap-2.5 md:gap-5">{progress}</div>
       </div>
-      {(tip || evening) && (
-        <div className="mt-3 space-y-1 border-t border-line/70 pt-3 text-[13px]">
-          {tip && <p>{tip}</p>}
-          {evening && (
-            <p className="text-muted">
-              Tomorrow {tomorrow.icon} ↑{weather.tomorrow.high}° ↓{weather.tomorrow.low}° · ☔ {weather.tomorrow.rain}%
-            </p>
-          )}
-        </div>
-      )}
+      {/* Sunscreen from the UV, always shown: a must from UV 3. */}
+      <div className="mt-3 space-y-1 border-t border-line/70 pt-3 text-[13px]">
+        <p className={uv.must ? "font-semibold text-peach" : "text-muted"}>🧴 {uv.text}</p>
+        {tip && <p>{tip}</p>}
+        {evening && (
+          <p className="text-muted">
+            Tomorrow {tomorrow.icon} ↑{weather.tomorrow.high}° ↓{weather.tomorrow.low}° · ☔ {weather.tomorrow.rain}% · UV {weather.tomorrow.uv}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

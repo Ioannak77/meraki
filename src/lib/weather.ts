@@ -3,6 +3,7 @@
 
 const PLACE_KEY = "merakiDevice.place";
 const CACHE_KEY = "merakiDevice.weather";
+export const WEATHER_EVENT = "meraki:weather";
 
 export type Place = { name: string; lat: number; lon: number };
 export type Weather = {
@@ -12,7 +13,8 @@ export type Weather = {
   high: number;
   low: number;
   rain: number; // highest chance of rain today, %
-  tomorrow: { high: number; low: number; rain: number; code: number };
+  uv: number; // highest UV index today
+  tomorrow: { high: number; low: number; rain: number; code: number; uv: number };
 };
 
 export function savedPlace(): Place | null {
@@ -53,11 +55,12 @@ export async function findPlace(name: string): Promise<Place | null> {
 export async function getWeather(p: Place): Promise<Weather> {
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null") as Weather | null;
-    if (cached && Date.now() - cached.at < 30 * 60 * 1000) return cached;
+    // (Older cached forecasts have no UV: fetch again.)
+    if (cached && cached.uv !== undefined && Date.now() - cached.at < 30 * 60 * 1000) return cached;
   } catch {}
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}` +
-    "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code" +
+    "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,uv_index_max" +
     "&timezone=auto&forecast_days=2";
   const d = await (await fetch(url)).json();
   const w: Weather = {
@@ -67,16 +70,20 @@ export async function getWeather(p: Place): Promise<Weather> {
     high: Math.round(d.daily.temperature_2m_max[0]),
     low: Math.round(d.daily.temperature_2m_min[0]),
     rain: d.daily.precipitation_probability_max[0] ?? 0,
+    uv: Math.round(d.daily.uv_index_max[0] ?? 0),
     tomorrow: {
       high: Math.round(d.daily.temperature_2m_max[1]),
       low: Math.round(d.daily.temperature_2m_min[1]),
       rain: d.daily.precipitation_probability_max[1] ?? 0,
       code: d.daily.weather_code[1],
+      uv: Math.round(d.daily.uv_index_max[1] ?? 0),
     },
   };
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(w));
   } catch {}
+  // Let the morning skincare know today's UV has arrived.
+  window.dispatchEvent(new Event(WEATHER_EVENT));
   return w;
 }
 
@@ -91,6 +98,24 @@ export function describe(code: number): { icon: string; text: string } {
   if (code <= 77) return { icon: "🌨️", text: "Snow" };
   if (code <= 82) return { icon: "🌦️", text: "Showers" };
   return { icon: "⛈️", text: "Thunderstorms" };
+}
+
+/** Sunscreen from today's UV: under 3 it's up to you, from 3 it's a must. */
+export function uvAdvice(uv: number) {
+  return uv >= 3
+    ? { must: true, text: `UV ${uv}: sunscreen is a must today` }
+    : { must: false, text: `UV ${uv}: sunscreen is optional today` };
+}
+
+/** The last forecast fetched on this device (for the Sunscreen step), or null. */
+export function cachedWeather(): Weather | null {
+  try {
+    const w = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null") as Weather | null;
+    // Only today's: a forecast from yesterday says nothing about today's UV.
+    return w && w.uv !== undefined && new Date(w.at).toDateString() === new Date().toDateString() ? w : null;
+  } catch {
+    return null;
+  }
 }
 
 /** A small, useful nudge from the forecast (or null). */
