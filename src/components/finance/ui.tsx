@@ -2,7 +2,7 @@
 
 // Small building blocks shared by the money screens.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { NewChip } from "../NewChip";
 
@@ -30,6 +30,18 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     setClosing(true);
     setTimeout(onClose, 200);
   }, [onClose]);
+
+  // Phones and iPads: no jumping into the first field. Focusing it while the sheet is still sliding
+  // up from below the screen makes iPhone scroll everything to reach it as the keyboard opens, so the
+  // sheet opened scrolled down. You tap the field you want instead. (Runs after the field's autoFocus.)
+  const [pageY] = useState(() => (typeof window === "undefined" ? 0 : window.scrollY));
+  useLayoutEffect(() => {
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
+    const el = panel.current;
+    if (el && document.activeElement instanceof HTMLElement && el.contains(document.activeElement)) document.activeElement.blur();
+    if (el) el.scrollTop = 0;
+    if (window.scrollY !== pageY) window.scrollTo(0, pageY);
+  }, [pageY]);
 
   // Escape closes at once: keyboard actions never animate.
   useEffect(() => {
