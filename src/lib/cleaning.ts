@@ -133,22 +133,26 @@ export const DEFAULT_CLEANING: Routine[] = [
     name: "Bathroom",
     group: "weekly",
     when: { kind: "weekly", weekday: 0 },
-    steps: steps("mon", [
-      ["Toilet, sink and mirror", 10, "Bathroom"],
-      ["Wipe the shower", 5, "Bathroom"],
-      ["Wash the rug", 2, "Bathroom", { hint: "into the machine", wash: true }],
-    ]),
+    steps: [
+      ...steps("mon", [
+        ["Toilet, sink and mirror", 10, "Bathroom"],
+        ["Wipe the shower", 5, "Bathroom"],
+      ]),
+      step("mon-towels", "Wash the towels and the bath rug", 3, "Laundry", { hint: "Monday's load", wash: true }),
+    ],
   },
   {
     id: "tue",
     name: "Floors",
     group: "weekly",
     when: { kind: "weekly", weekday: 1 },
-    steps: steps("tue", [
-      ["Vacuum and mop", 30, "Floors"],
-      ["Shake the entrance mat", 2, "Floors"],
-      ["Vacuum Pari's bed", 3, "Pari"],
-    ]),
+    steps: [
+      ...steps("tue", [
+        ["Vacuum and mop", 30, "Floors"],
+        ["Shake the entrance mat", 2, "Floors"],
+      ]),
+      step("tue-whites", "Wash the whites", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
+    ],
   },
   {
     id: "wed",
@@ -161,22 +165,17 @@ export const DEFAULT_CLEANING: Routine[] = [
       step("wed-2", "Check the fridge for expired food", 5, "Kitchen"),
       step("wed-3", "Deep clean the sink", 5, "Kitchen", { hint: "hot water + baking soda" }),
       step("wed-5", "Deep clean Pari's bowls", 5, "Pari"),
+      step("wed-colours", "Wash the coloured clothes", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
     ],
   },
   {
     id: "thu",
-    name: "Laundry",
+    name: "Pari",
     group: "weekly",
     when: { kind: "weekly", weekday: 3 },
-    note: "One load per pile, only if there's enough",
-    // Each load is optional: sort the basket, then wash whichever piles are big enough.
-    // Hanging and putting away comes up the next morning.
     steps: [
-      step("thu-sort", "Sort the laundry basket", 3, "Laundry", { hint: "see which piles make a load" }),
-      step("thu-whites", "Whites", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
-      step("thu-colours", "Coloured", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
-      step("thu-black", "Black", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
-      step("thu-towels", "Towels", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
+      step("thu-pari-bed", "Vacuum Pari's bed", 3, "Pari"),
+      step("thu-pari-wash", "Wash Pari's bed cover and blanket", 3, "Laundry", { hint: "Thursday's load", wash: true }),
     ],
   },
   {
@@ -184,11 +183,14 @@ export const DEFAULT_CLEANING: Routine[] = [
     name: "Living room",
     group: "weekly",
     when: { kind: "weekly", weekday: 4 },
-    steps: steps("fri", [
-      ["Dust all surfaces", 10, "Living room"],
-      ["Wipe the tables", 3, "Living room"],
-      ["Vacuum and spray the sofa", 10, "Living room"],
-    ]),
+    steps: [
+      ...steps("fri", [
+        ["Dust all surfaces", 10, "Living room"],
+        ["Wipe the tables", 3, "Living room"],
+        ["Vacuum and spray the sofa", 10, "Living room"],
+      ]),
+      step("fri-black", "Wash the black clothes", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
+    ],
   },
   {
     id: "sat",
@@ -197,9 +199,8 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "weekly", weekday: 5 },
     steps: [
       step("sat-0", "Change the sheets", 10, "Bedroom", { hint: "and pillowcases" }),
-      step("sat-sheets", "Wash the sheets", 3, "Laundry", { hint: "into the machine", wash: true }),
+      step("sat-sheets", "Wash the sheets", 3, "Laundry", { hint: "Saturday's load", wash: true }),
       step("sat-2", "Dust", 5, "Bedroom"),
-      step("sat-3", "Wash Pari's bed cover and blanket", 3, "Pari", { hint: "into the machine", wash: true }),
     ],
   },
   {
@@ -226,12 +227,12 @@ export const DEFAULT_CLEANING: Routine[] = [
         ["Vacuum under the bed", 10, "Bedroom"],
         ["Deep clean the fridge", 20, "Kitchen"],
         ["Sanitize the washing machine", 5, "Laundry", { hint: "start the cycle" }],
-        ["Wash the couch throws", 3, "Living room", { hint: "into the machine", wash: true }],
+        ["Wash the couch throws", 3, "Living room", { hint: "Sunday's load", wash: true }],
         ["Clean the vacuums", 10, "Whole home"],
         ["Declutter 1 drawer", 10, "Whole home"],
       ]),
       step("monthly-mattress", "Vacuum the mattress", 5, "Bedroom"),
-      step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "into the machine", wash: true }),
+      step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "in with the sheets on Saturday", wash: true }),
       step("monthly-drain", "Drain cleaner", 2, "Kitchen"),
       step("monthly-bin", "Wash the kitchen bin", 10, "Kitchen"),
     ],
@@ -271,10 +272,10 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "monthly", months: [3, 6, 9, 12] },
     note: "All of Pari's washing in one go",
     steps: steps("q-pari", [
-      ["Wash Pari's inner bed", 5, "Pari", { hint: "into the machine", wash: true }],
+      ["Wash Pari's inner bed", 5, "Pari", { hint: "in with the couch throws on Sunday", wash: true }],
       ["Wash Pari's collars, harness and leash", 5, "Pari"],
       ["Wash Pari's toys", 5, "Pari"],
-      ["Wash the pillows", 5, "Bedroom", { hint: "into the machine", wash: true }],
+      ["Wash the pillows", 5, "Bedroom", { hint: "in with the sheets on Saturday", wash: true }],
       ["Clean inside the bathroom cabinets", 15, "Bathroom"],
     ]),
   },
@@ -288,34 +289,81 @@ export const DEFAULT_CLEANING: Routine[] = [
     note: "Same month as the windows, so the balcony gets done in one go",
     steps: steps("half", [
       ["Rotate the mattress", 10, "Bedroom"],
-      ["Wash the duvet and comforter", 5, "Bedroom", { hint: "into the machine", wash: true }],
+      ["Wash the duvet and comforter", 5, "Bedroom", { hint: "Sunday's load: the couch throws wait a month", wash: true }],
       ["Deep clean the balcony", 30, "Balcony and windows"],
     ]),
   },
 ];
 
-// Steps added to the default schedule after it could be edited. An edited copy gets them too
-// (once: if you delete one after that, it stays deleted).
-const ADDED_STEPS: { list: string; step: string; since: string }[] = [
+// Changes to the default schedule after it could be edited. An edited copy gets them too,
+// once each: if you change it back after that, it stays the way you made it.
+type Change = { list: string; since: string } & (
+  | { step: string } // a new step, placed after the step before it in the default
+  | { remove: string }
+  | { update: string; patch: Partial<Step> }
+  | { rename: Partial<Pick<Routine, "name" | "note">> }
+);
+
+const LOADS = "2026-10-27";
+const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
   { list: "morning", step: "morning-laundry", since: "2026-10-26" },
   { list: "evening", step: "evening-rubbish", since: "2026-10-26" },
   { list: "evening", step: "evening-makeup", since: "2026-10-27" },
   { list: "evening", step: "evening-hairbrush", since: "2026-10-27" },
+  // One machine load a day, so each has a day to dry (Thursday's four loads spread over the week).
+  { list: "mon", remove: "mon-2", since: LOADS },
+  { list: "mon", step: "mon-towels", since: LOADS },
+  { list: "tue", remove: "tue-2", since: LOADS },
+  { list: "tue", step: "tue-whites", since: LOADS },
+  { list: "wed", step: "wed-colours", since: LOADS },
+  ...["thu-sort", "thu-whites", "thu-colours", "thu-black", "thu-towels"].map((id) => ({ list: "thu", remove: id, since: LOADS })),
+  { list: "thu", rename: { name: "Pari", note: undefined }, since: LOADS },
+  { list: "thu", step: "thu-pari-bed", since: LOADS },
+  { list: "thu", step: "thu-pari-wash", since: LOADS },
+  { list: "fri", step: "fri-black", since: LOADS },
+  { list: "sat", remove: "sat-3", since: LOADS },
+  ...[
+    ["sat", "sat-sheets"],
+    ["monthly", "monthly-3"],
+    ["monthly", "monthly-protectors"],
+    ["q-pari", "q-pari-0"],
+    ["q-pari", "q-pari-3"],
+    ["half", "half-1"],
+  ].map(([list, id]) => ({ list, update: id, patch: { hint: defaultStep(list, id).hint }, since: LOADS })),
 ];
 
-/** An edited schedule plus any default steps added since it was saved. */
+function defaultStep(list: string, id: string) {
+  return DEFAULT_CLEANING.find((d) => d.id === list)!.steps.find((st) => st.id === id)!;
+}
+
+function changeKey(c: Change) {
+  if ("step" in c) return c.step;
+  if ("remove" in c) return `-${c.remove}`;
+  if ("update" in c) return `~${c.update}@${c.since}`;
+  return `${c.list}@${c.since}`;
+}
+
+function applyChange(r: Routine, c: Change): Routine {
+  if ("remove" in c) return { ...r, steps: r.steps.filter((st) => st.id !== c.remove) };
+  if ("update" in c) return { ...r, steps: r.steps.map((st) => (st.id === c.update ? { ...st, ...c.patch } : st)) };
+  if ("rename" in c) return { ...r, ...c.rename };
+  if (r.steps.some((st) => st.id === c.step)) return r;
+  const def = DEFAULT_CLEANING.find((d) => d.id === c.list)!.steps;
+  const before = def[def.findIndex((st) => st.id === c.step) - 1];
+  const at = before ? r.steps.findIndex((st) => st.id === before.id) : -1;
+  const steps = [...r.steps];
+  steps.splice(at < 0 ? steps.length : at + 1, 0, defaultStep(c.list, c.step));
+  return { ...r, steps };
+}
+
+/** An edited schedule plus any changes to the default made since it was saved. */
 export function withAddedSteps(lists: Routine[], seen: string[]) {
-  const missing = ADDED_STEPS.filter((a) => !seen.includes(a.step));
+  const missing = CHANGES.filter((c) => !seen.includes(changeKey(c)));
   if (!missing.length) return { lists, seen };
-  const next = lists.map((r) => {
-    const add = missing.filter((a) => a.list === r.id && !r.steps.some((st) => st.id === a.step));
-    if (!add.length) return r;
-    const steps = add.map((a) => DEFAULT_CLEANING.find((d) => d.id === a.list)!.steps.find((st) => st.id === a.step)!);
-    return { ...r, steps: [...r.steps, ...steps] };
-  });
-  return { lists: next, seen: [...seen, ...missing.map((a) => a.step)] };
+  const next = lists.map((r) => missing.filter((c) => c.list === r.id).reduce(applyChange, r));
+  return { lists: next, seen: [...seen, ...missing.map(changeKey)] };
 }
 
 // The schedule in use: the default, or the edited copy saved in the store (set by StoreProvider).
