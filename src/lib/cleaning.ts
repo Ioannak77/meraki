@@ -121,6 +121,9 @@ export const DEFAULT_CLEANING: Routine[] = [
         ["Set up for tomorrow", 3, "Whole home"],
       ]),
       step("evening-rubbish", "Take the rubbish out", 3, "Whole home", { every: { days: 3, from: "2026-10-26" }, hint: "every 3 days" }),
+      // Sunday evenings (counted in days, so they stay on Sunday even if the weekly lists move).
+      step("evening-makeup", "Clean the makeup brushes", 10, "Bathroom", { every: { days: 7, from: "2026-11-01" }, hint: "every Sunday" }),
+      step("evening-hairbrush", "Clean the hairbrush", 5, "Bathroom", { every: { days: 14, from: "2026-11-01" }, hint: "every 2 weeks" }),
     ],
   },
 
@@ -298,6 +301,8 @@ const ADDED_STEPS: { list: string; step: string; since: string }[] = [
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
   { list: "morning", step: "morning-laundry", since: "2026-10-26" },
   { list: "evening", step: "evening-rubbish", since: "2026-10-26" },
+  { list: "evening", step: "evening-makeup", since: "2026-10-27" },
+  { list: "evening", step: "evening-hairbrush", since: "2026-10-27" },
 ];
 
 /** An edited schedule plus any default steps added since it was saved. */
