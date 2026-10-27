@@ -18,6 +18,14 @@ export function dueSteps(steps: ReturnType<typeof useSkin>["steps"], slot: Slot,
   return steps.filter((s) => s.slot === slot && isStepDue(s, d));
 }
 
+/** Every step that counts today is ticked (sunscreen doesn't count when the UV is under 3). */
+export function slotFinished(steps: ReturnType<typeof useSkin>["steps"], done: Record<string, string[]>, slot: Slot, date: Date) {
+  const uv = slot === "am" && typeof window !== "undefined" ? cachedWeather()?.uv : undefined;
+  const counted = dueSteps(steps, slot, date).filter((s) => !(typeof uv === "number" && uv < 3 && isSunscreen(s.name)));
+  const ticked = done[slotKey(slot, date)] ?? [];
+  return counted.length > 0 && counted.every((s) => ticked.includes(s.id));
+}
+
 export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; date: Date; badge?: string; startOpen?: boolean }) {
   const { steps, done, toggle, settings } = useSkin();
   const [open, setOpen] = useState(startOpen);

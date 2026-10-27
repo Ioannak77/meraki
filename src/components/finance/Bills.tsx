@@ -23,7 +23,7 @@ import { AddButton, Card, CardTitle, Chips, DangerButton, Label, MoneyInput, Pri
 
 export function useAllowedKinds() {
   const { has } = useFinance();
-  return BILL_KINDS.filter((k) => has(k.module) || (k.id === "bill" && has("bills")));
+  return BILL_KINDS.filter((k) => has(k.module) || (k.id === "bill" && has("bills")) || k.id === "subscription");
 }
 
 export function dueLabel(d: Date, now: Date) {

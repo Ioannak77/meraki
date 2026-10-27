@@ -6,10 +6,10 @@
 
 import { useMemo, useState } from "react";
 import {
-  allCategories,
   billKeyword,
   categorise,
   category,
+  isBillCategory,
   money,
   ruleKeyword,
   type CategoryId,
@@ -18,7 +18,7 @@ import {
 } from "@/lib/finance";
 import { useFinance, type NewBill } from "@/lib/financeStore";
 import { Icon } from "../icons";
-import { NewChip } from "../NewChip";
+import { CategorySelect } from "./CategorySelect";
 import { PrimaryButton } from "./ui";
 
 type Sorted = ParsedLine & { category: CategoryId };
@@ -29,7 +29,8 @@ function firstGuess(l: ParsedLine, rules: Rule[], bills: Parameters<typeof categ
   const rule = rules.find((r) => text.includes(r.match));
   if (rule) return rule.category;
   if (l.transfer) return "transfer";
-  if (l.amount < 0 && bills.some((b) => text.includes(billKeyword(b)))) return "bills";
+  const bill = l.amount < 0 ? bills.find((b) => text.includes(billKeyword(b))) : undefined;
+  if (bill) return bill.kind === "subscription" ? "subscriptions" : "bills";
   if (l.suggested && l.suggested !== "other") return l.suggested;
   return categorise(l.description, l.amount, [], bills);
 }
@@ -38,35 +39,13 @@ const shortDate = (key: string) => new Date(key + "T12:00:00").toLocaleDateStrin
 
 /** A tidy bill name from a bank line ("NETFLIX.COM 866-579" -> "Netflix"). */
 function billName(description: string) {
-  const word = ruleKeyword(description).split(" ")[0] ?? description;
-  const clean = word.replace(/\.(com|net|io|co)$/, "");
-  return clean.charAt(0).toUpperCase() + clean.slice(1);
+  return ruleKeyword(description).replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function CategoryPicker({ value, onPick, allowIncome }: { value: CategoryId; onPick: (c: CategoryId) => void; allowIncome: boolean }) {
-  const { addCategory } = useFinance();
   return (
-    <div className="animate-reveal mt-2 rounded-2xl bg-cream p-2">
-      <div className="grid grid-cols-2 gap-1.5">
-        {allCategories()
-          .filter((c) => allowIncome || c.id !== "income")
-          .map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => onPick(c.id)}
-              className={`flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[13px] ${
-                value === c.id ? "bg-ink font-bold text-cream" : "bg-card"
-              }`}
-            >
-              <span className="size-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
-              <span className="min-w-0 leading-tight">{c.label}</span>
-            </button>
-          ))}
-      </div>
-      <div className="mt-2">
-        <NewChip onAdd={(name) => onPick(addCategory(name))} placeholder="New category" />
-      </div>
+    <div className="animate-reveal mt-2">
+      <CategorySelect value={value} onChange={onPick} filter={(c) => allowIncome || c.id !== "income"} />
     </div>
   );
 }
@@ -113,8 +92,8 @@ export function StatementReview({
     if (picked[i]) return picked[i];
     const l = lines[i];
     const sub = subs.find((s) => s.match === ruleKeyword(l.description));
-    if (l.subscription && sub && subOn(sub.match)) return "bills";
-    if (tripAsTravel && trip.includes(i) && guesses[i] !== "bills") return "travel";
+    if (l.subscription && sub && subOn(sub.match)) return "subscriptions";
+    if (tripAsTravel && trip.includes(i) && !isBillCategory(guesses[i])) return "travel";
     return guesses[i];
   };
   const final = lines.map((l, i) => ({ ...l, category: finalCategory(i) }));

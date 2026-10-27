@@ -37,6 +37,7 @@ export type BuiltinCategoryId =
   | "fun"
   | "travel"
   | "bills"
+  | "subscriptions"
   | "income"
   | "transfer"
   | "other";
@@ -61,6 +62,7 @@ const BUILTIN: Category[] = [
   { id: "other", label: "Other", color: "#a8a29a", counts: true },
   // These are tracked elsewhere, so they don't count as "spending".
   { id: "bills", label: "Bills (tracked in Bills)", color: "#6b6560", counts: false },
+  { id: "subscriptions", label: "Subscriptions (tracked in Bills)", color: "#8a7fb0", counts: false },
   { id: "income", label: "Income", color: "#3f6b46", counts: false },
   { id: "transfer", label: "Transfer between my accounts", color: "#bdb5aa", counts: false },
 ];
@@ -119,6 +121,9 @@ const DEFAULT_RULES: { match: string; category: CategoryId }[] = [
   ...["ryanair", "aegean", "wizz", "easyjet", "airline", "airways", "airbnb", "booking.com", "hotel", "hostel", "expedia", "duty free"].map(
     (m) => ({ match: m, category: "travel" as const }),
   ),
+  ...["netflix", "spotify", "icloud", "apple.com/bill", "youtube premium", "disney", "prime video", "google one", "chatgpt", "openai"].map(
+    (m) => ({ match: m, category: "subscriptions" as const }),
+  ),
   ...["salary", "payroll", "wages"].map((m) => ({ match: m, category: "income" as const })),
   ...["transfer to", "transfer from", "own account", "revolut top", "top-up", "topup"].map((m) => ({
     match: m,
@@ -132,9 +137,15 @@ export type Rule = { match: string; category: CategoryId };
 export function categorise(description: string, amount: number, rules: Rule[], bills: Bill[]): CategoryId {
   const text = description.toLowerCase();
   for (const r of rules) if (text.includes(r.match)) return r.category;
-  if (amount < 0 && bills.some((b) => text.includes(billKeyword(b)))) return "bills";
+  const bill = amount < 0 ? bills.find((b) => text.includes(billKeyword(b))) : undefined;
+  if (bill) return bill.kind === "subscription" ? "subscriptions" : "bills";
   for (const r of DEFAULT_RULES) if (text.includes(r.match)) return r.category;
   return amount > 0 ? "income" : "other";
+}
+
+/** Paid through Bills (a bill or a subscription): ticks the bill as paid, not counted as spending. */
+export function isBillCategory(c: CategoryId) {
+  return c === "bills" || c === "subscriptions";
 }
 
 /** A short, stable keyword for "always use this category for …" rules. */
@@ -310,7 +321,7 @@ export type Goal = {
 export function billPayments(b: Bill, txns: Txn[]) {
   const key = billKeyword(b);
   return txns
-    .filter((t) => t.amount < 0 && t.category === "bills" && t.description.toLowerCase().includes(key))
+    .filter((t) => t.amount < 0 && isBillCategory(t.category) && t.description.toLowerCase().includes(key))
     .sort((a, c) => c.date.localeCompare(a.date));
 }
 

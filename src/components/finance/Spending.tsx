@@ -3,6 +3,9 @@
 import { useState } from "react";
 import {
   allCategories,
+  billKeyword,
+  isBillCategory,
+  paidKey,
   canLower,
   effectiveBudgets,
   tidy,
@@ -24,11 +27,12 @@ import {
 } from "@/lib/finance";
 import { useFinance, type ImportResult } from "@/lib/financeStore";
 import { StatementReview } from "./StatementReview";
+import { CategorySelect } from "./CategorySelect";
 import { dayKey } from "@/lib/store";
 import { workerPost } from "@/lib/worker";
 import { NewChip } from "../NewChip";
 import { AllowanceBody, AmountSheet } from "./Budgets";
-import { Bar, Card, CardTitle, Chips, DangerButton, Label, MoneyInput, PrimaryButton, Sheet, inputClass } from "./ui";
+import { Bar, Card, CardTitle, DangerButton, Label, MoneyInput, PrimaryButton, Sheet, inputClass } from "./ui";
 import { Icon } from "../icons";
 
 /** Money spent per counted category in a date range (positive numbers). */
@@ -254,69 +258,101 @@ export function SpendingTab({ now }: { now: Date }) {
   );
 }
 
-/** Category chips, including your own categories (read fresh each render). */
-const categoryChoices = () => allCategories().map((c) => ({ id: c.id, label: c.label }));
-
-type Mapping = { always: boolean; match: string };
-
-/** "Just this once" or "Always" for lines containing some text (editable, e.g. just "abc"). */
-function MappingChoice({ value, onChange }: { value: Mapping; onChange: (m: Mapping) => void }) {
-  const seg = (on: boolean) =>
-    `flex-1 rounded-full py-2 text-sm ${on ? "bg-ink font-bold text-cream" : "text-ink/70"}`;
-  return (
-    <div>
-      <div className="flex gap-1 rounded-full bg-cream p-1">
-        <button type="button" className={seg(!value.always)} onClick={() => onChange({ ...value, always: false })}>
-          Just this once
-        </button>
-        <button type="button" className={seg(value.always)} onClick={() => onChange({ ...value, always: true })}>
-          Always
-        </button>
-      </div>
-      {value.always && (
-        <label className="mt-2 flex items-center gap-2 text-sm">
-          <span className="shrink-0 text-muted">for lines containing</span>
-          <input
-            value={value.match}
-            onChange={(e) => onChange({ ...value, match: e.target.value })}
-            className="min-w-0 flex-1 rounded-xl border border-line bg-cream px-3 py-2"
-          />
-        </label>
-      )}
-    </div>
-  );
+/** A bill name from a bank line ("NETFLIX.COM 866-579" -> "Netflix"). */
+function billNameFrom(description: string) {
+  return ruleKeyword(description).replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
-  const { setTxnCategory, deleteTxn, addCategory } = useFinance();
+  const { setTxnCategory, deleteTxn, bills, saveBill, paid, togglePaid } = useFinance();
   const [cat, setCat] = useState<CategoryId>(txn.category);
-  const [mapping, setMapping] = useState<Mapping>({
-    always: txn.source === "import",
-    match: ruleKeyword(txn.description),
-  });
+  const [remember, setRemember] = useState(txn.source === "import");
+  const [match, setMatch] = useState(ruleKeyword(txn.description));
+  // A bill or subscription that isn't in Bills yet can be added from here.
+  const text = txn.description.toLowerCase();
+  const knownBill = bills.find((b) => text.includes(billKeyword(b)));
+  const billable = txn.amount < 0 && isBillCategory(cat) && !knownBill;
+  const [addBill, setAddBill] = useState(true);
+  const [billName, setBillName] = useState(billNameFrom(txn.description));
+  const [frequency, setFrequency] = useState<"monthly" | "yearly">("monthly");
+  const date = new Date(txn.date + "T12:00:00");
+
+  function save() {
+    setTxnCategory(txn.id, cat, remember && match.trim() ? match : undefined);
+    if (billable && addBill && billName.trim()) {
+      const bill = {
+        name: billName.trim(),
+        kind: cat === "subscriptions" ? ("subscription" as const) : ("bill" as const),
+        amount: -txn.amount,
+        frequency,
+        firstDue: txn.date,
+        match: ruleKeyword(txn.description),
+      };
+      const id = saveBill(bill);
+      // This payment is that bill, paid.
+      const key = paidKey({ ...bill, id }, new Date(date.getFullYear(), date.getMonth(), date.getDate()));
+      if (!paid[key]) togglePaid(key);
+    }
+    onClose();
+  }
 
   return (
-    <Sheet title="Transaction" onClose={onClose}>
-      <p className="text-[17px] font-semibold">{txn.description}</p>
-      <p className="text-[15px] text-muted">
-        {new Date(txn.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "long" })} ·{" "}
-        {money(txn.amount)}
-      </p>
+    <Sheet title={txn.amount > 0 ? "Money in" : "Payment"} onClose={onClose}>
+      <div className="rounded-2xl bg-cream px-4 py-5 text-center">
+        <p className={`text-[30px] font-bold leading-none ${txn.amount > 0 ? "text-sage-dark" : ""}`}>{money(txn.amount)}</p>
+        <p className="mt-2 break-words text-[16px] font-semibold">{txn.description}</p>
+        <p className="mt-0.5 text-[13px] text-muted">
+          {date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "long" })} ·{" "}
+          {txn.source === "import" ? "from your statement" : "added by you"}
+        </p>
+      </div>
 
       <Label>Category</Label>
-      <Chips options={categoryChoices()} value={cat} onChange={setCat} onCreate={addCategory} />
+      <CategorySelect value={cat} onChange={setCat} filter={(c) => txn.amount > 0 || c.id !== "income"} />
 
-      <Label>Remember it?</Label>
-      <MappingChoice value={mapping} onChange={setMapping} />
+      {knownBill && isBillCategory(cat) && <p className="mt-2 text-[13px] text-muted">This is your bill “{knownBill.name}”.</p>}
 
-      <PrimaryButton
-        onClick={() => {
-          setTxnCategory(txn.id, cat, mapping.always && mapping.match.trim() ? mapping.match : undefined);
-          onClose();
-        }}
-      >
-        Save
-      </PrimaryButton>
+      {billable && (
+        <div className="mt-3 rounded-2xl border border-line p-3.5">
+          <label className="flex items-center gap-3">
+            <input type="checkbox" checked={addBill} onChange={(e) => setAddBill(e.target.checked)} className="size-5 accent-[var(--color-sage-dark)]" />
+            <span className="text-[15px] font-semibold">Add to Bills</span>
+          </label>
+          <p className="mt-1 text-[13px] text-muted">You&apos;ll see it coming, and it&apos;s ticked as paid when it shows on a statement.</p>
+          {addBill && (
+            <div className="mt-3 flex gap-2">
+              <input value={billName} onChange={(e) => setBillName(e.target.value)} aria-label="Bill name" className={inputClass} />
+              <select
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value as "monthly" | "yearly")}
+                aria-label="How often"
+                className="shrink-0 rounded-2xl border border-line bg-cream px-3 text-base"
+              >
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+
+      <label className="mt-5 flex items-start gap-3">
+        <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--color-sage-dark)]" />
+        <span className="min-w-0">
+          <span className="block text-[15px] font-semibold">Remember for next time</span>
+          <span className="block text-[13px] text-muted">Every payment with this word gets the same category:</span>
+        </span>
+      </label>
+      {remember && (
+        <input
+          value={match}
+          onChange={(e) => setMatch(e.target.value)}
+          aria-label="Word to match"
+          className="ml-8 mt-2 w-[calc(100%-2rem)] rounded-xl border border-line bg-cream px-3 py-2 text-[15px]"
+        />
+      )}
+
+      <PrimaryButton onClick={save}>Save</PrimaryButton>
       <DangerButton
         label="Delete transaction"
         onConfirm={() => {
@@ -330,7 +366,7 @@ export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
 
 /** `only` limits the category choice (a Tracker adds into its own categories). */
 export function AddSpendingSheet({ onClose, now, only }: { onClose: () => void; now: Date; only?: CategoryId[] }) {
-  const { addTxn, has, addCategory } = useFinance();
+  const { addTxn, has } = useFinance();
   const [amount, setAmount] = useState<number | null>(null);
   const [description, setDescription] = useState("");
   const [cat, setCat] = useState<CategoryId>(only?.[0] ?? (has("groceries") ? "groceries" : "other"));
@@ -352,12 +388,7 @@ export function AddSpendingSheet({ onClose, now, only }: { onClose: () => void; 
         <Label>On what? (optional)</Label>
         <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Lidl" className={inputClass} />
         <Label>Category</Label>
-        <Chips
-          options={categoryChoices().filter((c) => (only ? only.includes(c.id) : category(c.id).counts))}
-          value={cat}
-          onChange={setCat}
-          onCreate={only ? undefined : addCategory}
-        />
+        <CategorySelect value={cat} onChange={setCat} filter={(c) => (only ? only.includes(c.id) : c.counts)} allowNew={!only} />
         <Label>Date</Label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
         <PrimaryButton type="submit" disabled={!valid}>

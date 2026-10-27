@@ -10,6 +10,7 @@ import {
   setCustomCategories,
   type Category,
   billKeyword,
+  isBillCategory,
   dueDates,
   paidKey,
   txnHash,
@@ -92,7 +93,8 @@ type FinanceStore = FinanceData & {
   has: (m: ModuleId) => boolean;
   saveSetup: (modules: ModuleId[]) => void;
   setIncome: (income: Income | null) => void;
-  saveBill: (bill: Omit<Bill, "id"> & { id?: string }) => void;
+  /** Returns the bill's id (new or existing). */
+  saveBill: (bill: Omit<Bill, "id"> & { id?: string }) => string;
   deleteBill: (id: string) => void;
   togglePaid: (key: string) => void;
   addTxn: (t: Omit<Txn, "id" | "hash" | "source">) => void;
@@ -147,10 +149,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const setIncome = useCallback((income: Income | null) => setData((d) => ({ ...d, income })), []);
 
   const saveBill = useCallback((bill: Omit<Bill, "id"> & { id?: string }) => {
+    const id = bill.id ?? newId();
     setData((d) => {
       if (bill.id) return { ...d, bills: d.bills.map((b) => (b.id === bill.id ? ({ ...bill, id: b.id } as Bill) : b)) };
-      return { ...d, bills: [...d.bills, { ...bill, id: newId() }] };
+      return { ...d, bills: [...d.bills, { ...bill, id }] };
     });
+    return id;
   }, []);
 
   const deleteBill = useCallback((id: string) => {
@@ -210,7 +214,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const billActuals = { ...data.billActuals };
       let billsMarkedPaid = 0;
       for (const t of added) {
-        if (t.category !== "bills") continue;
+        if (!isBillCategory(t.category)) continue;
         const text = t.description.toLowerCase();
         const bill = allBills.find((b) => text.includes(billKeyword(b)));
         if (!bill) continue;
