@@ -1,0 +1,33 @@
+# Deploys the meraki worker (statement and receipt reader, Advice, phone reminders) to Cloudflare.
+# Runs when the worker's code changes on main, or by hand from the Actions tab ("Run workflow").
+# Needs the repository secret CLOUDFLARE_API_TOKEN (Cloudflare > My Profile > API Tokens >
+# "Edit Cloudflare Workers"); CLOUDFLARE_ACCOUNT_ID is only needed if the token covers several accounts.
+# The worker's own secrets (ANTHROPIC_API_KEY, …) stay in Cloudflare and aren't touched.
+name: Deploy worker
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["workers/receipts/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/receipts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
