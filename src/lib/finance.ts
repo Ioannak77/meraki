@@ -246,6 +246,19 @@ export function paidKey(b: Bill, due: Date) {
   return `${b.id}@${dayKey(due)}`;
 }
 
+/**
+ * Whether one due date counts as paid. Subscriptions come off the card by themselves, so they count
+ * as paid once their date comes; a statement that doesn't show the charge is where you'd notice one failed.
+ */
+export function isBillPaid(b: Bill, due: Date, paid: Record<string, string>, now = today()) {
+  return !!paid[paidKey(b, due)] || (b.kind === "subscription" && dayKey(due) <= dayKey(now));
+}
+
+/** Bills you pay yourself, not subscriptions (those are taken automatically). */
+export function needsPaying(b: Bill) {
+  return b.kind !== "subscription";
+}
+
 /** What one bill costs per month on average (spreads out bills that come every 2, 3 or 12 months). */
 export function monthlyCost(b: Bill) {
   const perYear = { weekly: 52, monthly: 12, bimonthly: 6, quarterly: 4, yearly: 1 }[b.frequency];

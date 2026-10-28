@@ -6,8 +6,10 @@ import {
   dueDates,
   expectedAmount,
   inRange,
+  isBillPaid,
   money,
   monthRange,
+  needsPaying,
   paidKey,
   payPeriod,
   type Bill,
@@ -38,12 +40,12 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   const period = payPeriod(income, now);
   const billsInPeriod = bills.flatMap((b) => dueDates(b, period.start, period.end).map((due) => ({ bill: b, due })));
   const billsTotal = billsInPeriod.reduce((t, x) => t + cost(x.bill, x.due), 0);
-  const billsUnpaid = billsInPeriod.filter((x) => !paid[paidKey(x.bill, x.due)]).reduce((t, x) => t + cost(x.bill, x.due), 0);
+  const billsUnpaid = billsInPeriod.filter((x) => !isBillPaid(x.bill, x.due, paid, now)).reduce((t, x) => t + cost(x.bill, x.due), 0);
   const spentInPeriod = [...spendingByCategory(txns, period.start, now).values()].reduce((a, b) => a + b, 0);
   const left = income ? income.amount - billsTotal - spentInPeriod : 0;
 
-  const soon = upcomingBills(bills, income?.payday ?? null, now, 7).filter(
-    (x) => !paid[paidKey(x.bill, x.due)],
+  const soon = upcomingBills(bills.filter(needsPaying), income?.payday ?? null, now, 7).filter(
+    (x) => !isBillPaid(x.bill, x.due, paid, now),
   );
 
   const { start: mStart, end: mEnd } = monthRange(now);
@@ -106,7 +108,8 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
               <ul className="mt-4 space-y-2 rounded-2xl bg-cream px-4 py-3 text-[15px]">
                 <SummaryRow label={`Pay on ${short(period.start)}`} value={income.amount} />
                 <SummaryRow
-                  label={`Bills before ${short(period.next)}${billsUnpaid ? ` (${money(billsUnpaid, true)} not paid yet)` : ""}`}
+                  label={`Bills before ${short(period.next)}`}
+                  note={billsUnpaid ? `${money(billsUnpaid, true)} of it still to go out` : undefined}
                   value={-billsTotal}
                 />
                 <SummaryRow label={`Spent since ${short(period.start)}`} value={-spentInPeriod} />
@@ -292,11 +295,14 @@ function short(d: Date) {
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 }
 
-function SummaryRow({ label, value }: { label: string; value: number }) {
+function SummaryRow({ label, value, note }: { label: string; value: number; note?: string }) {
   return (
-    <li className="flex justify-between">
-      <span className="text-muted">{label}</span>
-      <span>{money(value)}</span>
+    <li className="flex justify-between gap-3">
+      <span className="min-w-0 text-muted">
+        {label}
+        {note && <span className="block text-xs">{note}</span>}
+      </span>
+      <span className="shrink-0 whitespace-nowrap">{money(value || 0)}</span>
     </li>
   );
 }

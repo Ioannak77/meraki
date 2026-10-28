@@ -27,7 +27,7 @@ import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
 import { AddMenu } from "@/components/AddMenu";
-import { dueDates, money, paidKey } from "@/lib/finance";
+import { dueDates, money, needsPaying, paidKey } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { useGroceries } from "@/lib/groceriesStore";
 import { kindWordFor } from "@/lib/kindWords";
@@ -101,7 +101,7 @@ export default function TodayPage() {
   // Bills due today or tomorrow (unpaid), shown in Coming up.
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const billsSoon = (show("bills") ? finance.bills : [])
+  const billsSoon = (show("bills") ? finance.bills.filter(needsPaying) : [])
     .flatMap((b) => dueDates(b, startToday, tomorrow).map((due) => ({ bill: b, due })))
     .filter((x) => !finance.paid[paidKey(x.bill, x.due)]);
   const shoppingLeft = show("shopping") ? groceries.list.filter((i) => !i.done).length : 0;
@@ -109,7 +109,7 @@ export default function TodayPage() {
   const evening = show("tomorrow") && now.getHours() >= 20;
   const tomorrowKey = dayKey(tomorrow);
   const tomorrowTasks = tasks.filter((t) => !t.completedAt && t.dueDate === tomorrowKey);
-  const tomorrowBills = finance.bills.filter((b) => dueDates(b, tomorrow, tomorrow).some((d) => !finance.paid[paidKey(b, d)]));
+  const tomorrowBills = finance.bills.filter((b) => needsPaying(b) && dueDates(b, tomorrow, tomorrow).some((d) => !finance.paid[paidKey(b, d)]));
   const tomorrowClean = inEndOfMonthWindow(tomorrow) ? "Big clean" : weeklyPlan(settings.officeDays)[weekdayIndex(tomorrow)].routine.name;
 
   // Only rings with something to count.

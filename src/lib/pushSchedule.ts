@@ -2,7 +2,7 @@
 // The list is saved to Supabase (meraki_replace_queue) and the meraki worker sends each one on time.
 
 import { cleaningLists, isDueOn, weeklyPlan, weekdayIndex } from "./cleaning";
-import { type Bill, money, nextDue, paidKey } from "./finance";
+import { type Bill, money, needsPaying, nextDue, paidKey } from "./finance";
 import { kindWordFor } from "./kindWords";
 import { type CareItem, careNextDue, slotKey } from "./skin";
 import { type PushPrefs, type Task, dayKey, leadDays } from "./store";
@@ -100,7 +100,7 @@ export function buildQueue({ now, prefs, tasks, officeDays, bills, paid, skin, r
 
     if (prefs.bills) {
       const tomorrow = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
-      for (const b of bills) {
+      for (const b of bills.filter(needsPaying)) {
         for (const [day, label, time] of [
           [d, "Due today", "09:00"],
           [tomorrow, "Due tomorrow", "18:00"],

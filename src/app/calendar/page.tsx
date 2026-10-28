@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { MONTHS, WEEKDAYS, cleaningLists, isDueOn, monthEndOwner, weeklyPlan, weekdayIndex } from "@/lib/cleaning";
-import { dueDates, money, paidKey } from "@/lib/finance";
+import { dueDates, isBillPaid, money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { careNextDue } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
@@ -68,7 +68,7 @@ export default function CalendarPage() {
   }
   for (const b of finance.bills) {
     for (const d of dueDates(b, first, last)) {
-      add(dayKey(d), { kind: "bill", label: b.name, detail: money(b.amount), done: !!finance.paid[paidKey(b, d)], href: "/finances/" });
+      add(dayKey(d), { kind: "bill", label: b.name, detail: money(b.amount), done: isBillPaid(b, d, finance.paid), href: "/finances/" });
     }
   }
   for (const it of skin.items) {

@@ -7,8 +7,10 @@ import {
   billEstimate,
   dueDates,
   expectedAmount,
+  isBillPaid,
   money,
   monthlyCost,
+  needsPaying,
   nextDue,
   paidKey,
   payPeriod,
@@ -49,19 +51,22 @@ export function upcomingBills(bills: Bill[], payday: number | null, now: Date, d
 
 export function BillsTab({ now, startNew = false }: { now: Date; startNew?: boolean }) {
   const { bills, paid, togglePaid, income, has, txns, billActuals } = useFinance();
-  const [editing, setEditing] = useState<Bill | "new" | null>(startNew ? "new" : null);
-  // Phones show one list at a time; iPad shows both side by side.
-  const [view, setView] = useState<"pay" | "all">("pay");
+  const [editing, setEditing] = useState<Bill | "new" | "newSub" | null>(startNew ? "new" : null);
+  // Phones show one list at a time; iPad shows them side by side.
+  const [view, setView] = useState<"pay" | "all" | "subs">("pay");
   const [showPaid, setShowPaid] = useState(false);
   const kinds = useAllowedKinds();
 
-  const upcoming = useMemo(() => upcomingBills(bills, income?.payday ?? null, now, 45), [bills, income, now]);
+  // Subscriptions are taken automatically, so To pay and All bills only list the bills you pay yourself.
+  const payBills = useMemo(() => bills.filter(needsPaying), [bills]);
+  const subs = bills.filter((b) => !needsPaying(b));
+  const upcoming = useMemo(() => upcomingBills(payBills, income?.payday ?? null, now, 45), [payBills, income, now]);
   const period = payPeriod(income?.payday ? { amount: 0, payday: income.payday } : null, now);
   const today = dayKey(now);
   const weekEnd = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6));
   const periodEnd = dayKey(period.end);
   const amountOf = (bill: Bill, due: Date) => expectedAmount(bill, due, billActuals, txns).amount;
-  const isPaid = (bill: Bill, due: Date) => !!paid[paidKey(bill, due)];
+  const isPaid = (bill: Bill, due: Date) => isBillPaid(bill, due, paid, now);
 
   // To pay: everything late, then each bill once, at its next unpaid date.
   const late = upcoming.filter(({ bill, due }) => !isPaid(bill, due) && dayKey(due) < today);
@@ -87,9 +92,10 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
   const periodTotal = inPeriod.reduce((t, { bill, due }) => t + amountOf(bill, due), 0);
   const periodPaid = paidInPeriod.reduce((t, { bill, due }) => t + amountOf(bill, due), 0);
 
-  const perMonth = bills.reduce((t, b) => t + monthlyCost(b), 0);
+  const perMonth = payBills.reduce((t, b) => t + monthlyCost(b), 0);
+  const subsPerMonth = subs.reduce((t, b) => t + monthlyCost(b), 0);
   const loans = bills.filter((b) => b.kind === "loan" && b.loan);
-  const byKind = BILL_KINDS.map((k) => ({ kind: k, list: bills.filter((b) => b.kind === k.id) })).filter((g) => g.list.length > 0);
+  const byKind = BILL_KINDS.map((k) => ({ kind: k, list: payBills.filter((b) => b.kind === k.id) })).filter((g) => g.list.length > 0);
 
   const row = ({ bill, due }: { bill: Bill; due: Date }) => {
     const key = paidKey(bill, due);
@@ -117,7 +123,8 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
 
   const tabs: [typeof view, string][] = [
     ["pay", "To pay"],
-    ["all", `All bills (${bills.length})`],
+    ["all", "All bills"],
+    ["subs", "Subscriptions"],
   ];
 
   return (
@@ -143,9 +150,9 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
 
       <Card className={`lg:row-span-2 ${view === "pay" ? "" : "hidden lg:block"}`}>
         <CardTitle action={<AddButton onClick={() => setEditing("new")} label="Add a bill" />}>To pay</CardTitle>
-        {bills.length === 0 ? (
+        {payBills.length === 0 ? (
           <p className="py-4 text-muted">
-            No bills yet. Add rent, utilities, subscriptions, insurance… once, and Meraki keeps track of every due date.
+            No bills yet. Add rent, utilities, insurance… once, and Meraki keeps track of every due date.
           </p>
         ) : (
           <>
@@ -195,11 +202,12 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
         )}
       </Card>
 
-      {bills.length > 0 && (
+      {payBills.length > 0 && (
         <Card className={view === "all" ? "" : "hidden lg:block"}>
           <CardTitle action={<AddButton onClick={() => setEditing("new")} label="Add a bill" />}>All bills</CardTitle>
           <p className="text-[15px] text-muted">
-            About <strong className="text-ink">{money(perMonth, true)}</strong> a month, with bills that come every few months spread out.
+            About <strong className="text-ink">{money(perMonth, true)}</strong> a month, with bills that come every few months spread out
+            {subs.length > 0 ? `, plus ${money(subsPerMonth, true)} in subscriptions` : ""}.
           </p>
           {byKind.map(({ kind, list }) => (
             <section key={kind.id} className="mt-4">
@@ -234,6 +242,58 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
         </Card>
       )}
 
+      {bills.length > 0 && (
+        <Card className={view === "subs" ? "" : "hidden lg:block"}>
+          <CardTitle action={<AddButton onClick={() => setEditing("newSub")} label="Add a subscription" />}>Subscriptions</CardTitle>
+          {subs.length === 0 ? (
+            <p className="text-[15px] text-muted">None yet. Add Netflix, Spotify, the gym… to see what they cost you in a year.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="rounded-2xl bg-cream px-2 py-3">
+                  <p className="text-[17px] font-bold">{money(subsPerMonth)}</p>
+                  <p className="text-xs text-muted">a month</p>
+                </div>
+                <div className="rounded-2xl bg-cream px-2 py-3">
+                  <p className="text-[17px] font-bold">{money(subsPerMonth * 12, true)}</p>
+                  <p className="text-xs text-muted">a year</p>
+                </div>
+              </div>
+              <ul className="mt-2 divide-y divide-line">
+                {[...subs]
+                  .sort((a, b) => monthlyCost(b) - monthlyCost(a))
+                  .map((b) => {
+                    const nextDate = nextDue(b, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+                    const est = billEstimate(b, txns);
+                    const each = est ?? b.amount;
+                    return (
+                      <li key={b.id}>
+                        <button type="button" onClick={() => setEditing(b)} className="flex w-full items-center gap-3 py-2.5 text-left">
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[15px] font-semibold">{b.name}</span>
+                            <span className="block truncate text-[13px] text-muted">
+                              {money(each)} {FREQUENCIES.find((f) => f.id === b.frequency)?.label.toLowerCase()}
+                              {nextDate ? ` · next ${nextDate.toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <span className="block text-[15px] font-semibold">{money(monthlyCost({ ...b, amount: each }) * 12, true)}</span>
+                            <span className="block text-xs text-muted">a year</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+              </ul>
+              <p className="mt-2 text-xs text-muted">
+                These come off your card by themselves, so they count as paid on their date. If one fails, it won&apos;t be on your
+                statement.
+              </p>
+            </>
+          )}
+        </Card>
+      )}
+
       {has("loans") && loans.length > 0 && (
         <Card className={view === "all" ? "" : "hidden lg:block"}>
           <CardTitle>Loans</CardTitle>
@@ -245,7 +305,14 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
         </Card>
       )}
 
-      {editing && kinds.length > 0 && <BillSheet bill={editing} onClose={() => setEditing(null)} now={now} />}
+      {editing && kinds.length > 0 && (
+        <BillSheet
+          bill={editing === "newSub" ? "new" : editing}
+          startKind={editing === "newSub" ? "subscription" : undefined}
+          onClose={() => setEditing(null)}
+          now={now}
+        />
+      )}
     </div>
   );
 }
@@ -312,13 +379,13 @@ function LoanRow({ bill }: { bill: Bill }) {
   );
 }
 
-function BillSheet({ bill, onClose, now }: { bill: Bill | "new"; onClose: () => void; now: Date }) {
+function BillSheet({ bill, startKind, onClose, now }: { bill: Bill | "new"; startKind?: BillKind; onClose: () => void; now: Date }) {
   const { saveBill, deleteBill } = useFinance();
   const kinds = useAllowedKinds();
   const existing = bill === "new" ? null : bill;
 
   const [name, setName] = useState(existing?.name ?? "");
-  const [kind, setKind] = useState<BillKind>(existing?.kind ?? kinds[0].id);
+  const [kind, setKind] = useState<BillKind>(existing?.kind ?? startKind ?? kinds.find((k) => k.id !== "subscription")?.id ?? kinds[0].id);
   const [amount, setAmount] = useState<number | null>(existing?.amount ?? null);
   const [frequency, setFrequency] = useState<Frequency>(existing?.frequency ?? "monthly");
   const [firstDue, setFirstDue] = useState(existing?.firstDue ?? dayKey(now));
