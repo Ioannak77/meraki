@@ -171,7 +171,7 @@ export default function InsightsPage() {
 
       {hasMoney && (
         <section className="mt-4 rounded-3xl bg-card p-5">
-          <h2 className="text-lg font-bold">Money</h2>
+          <h2 className="text-lg font-bold">Finances</h2>
           {months.some((m) => m.spent > 0) && (
             <>
               <p className="mt-2 text-sm font-semibold text-muted">Spending per month</p>

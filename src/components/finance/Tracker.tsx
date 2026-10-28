@@ -34,7 +34,7 @@ function monthLabel(key: string) {
   return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
-/** Your trackers. `embedded`: inside Money (no page title of its own). */
+/** Your trackers. `embedded`: inside Finances (no page title of its own). */
 export function TrackerView({ now, embedded = false }: { now: Date; embedded?: boolean }) {
   const { trackers, txns, bills } = useFinance();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -201,7 +201,7 @@ function TrackerBody({ tracker, now, onEdit, lines }: { tracker: Tracker; now: D
         <CardTitle>By month</CardTitle>
         {lines.length === 0 ? (
           <p className="text-muted">
-            Nothing yet. Add something above, or in Money tap a transaction and give it one of this tracker&apos;s
+            Nothing yet. Add something above, or in Finances tap a transaction and give it one of this tracker&apos;s
             categories (choose “Always” so future statements land here by themselves).
           </p>
         ) : (

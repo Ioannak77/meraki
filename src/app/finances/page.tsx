@@ -45,7 +45,7 @@ export default function FinancesPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Money</h1>
+      <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Finances</h1>
 
       <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {tabs.map((t) => (

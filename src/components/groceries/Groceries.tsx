@@ -296,7 +296,7 @@ function ReviewSheet({ receipt, onClose }: { receipt: Omit<Receipt, "id"> & { id
   const [items, setItems] = useState<ReceiptItem[]>(receipt.items);
   const [editing, setEditing] = useState<number | null>(null);
   // If bank statements are imported, the same shop already shows up there.
-  // On by default, so your spending in Money is complete. Off when a statement you've imported
+  // On by default, so your spending in Finances is complete. Off when a statement you've imported
   // already covers that day (the card payment is on it). Later imports skip a matching payment.
   const [toMoney, setToMoney] = useState(() => !receipt.id && !txns.some((t) => t.source === "import" && t.date >= receipt.date));
 
@@ -383,7 +383,7 @@ function ReviewSheet({ receipt, onClose }: { receipt: Omit<Receipt, "id"> & { id
         <label className="mt-4 flex items-center gap-3 rounded-2xl bg-cream px-4 py-3">
           <input type="checkbox" checked={toMoney} onChange={(e) => setToMoney(e.target.checked)} className="size-5 accent-sage" />
           <span className="text-[15px]">
-            Also add to Money as Groceries
+            Also add to Finances as Groceries
             {has("imports") && <span className="block text-xs text-muted">If you import a bank statement later, this payment won&apos;t be counted twice.</span>}
           </span>
         </label>

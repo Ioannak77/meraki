@@ -104,7 +104,7 @@ export function AdviceTab({ now }: { now: Date }) {
           <Card className="lg:col-span-2">
             <p className="text-xs text-muted">
               {new Date(saved.at).toLocaleDateString(undefined, { day: "numeric", month: "long" })}
-              {saved.question ? ` · “${saved.question}”` : " · Money check-in"}
+              {saved.question ? ` · “${saved.question}”` : " · Finances check-in"}
             </p>
             <p className="mt-1 text-[17px] font-bold leading-snug">{a.headline}</p>
             {a.answer && <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed">{a.answer}</p>}

@@ -18,7 +18,7 @@ export function FinanceSetup({ onDone }: { onDone?: () => void }) {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Money</h1>
+      <h1 className="text-[26px] font-bold md:mt-4 md:text-3xl">Finances</h1>
       <p className="mt-1 text-[15px] text-muted">
         What do you want to track? Pick only what&apos;s useful; you can change this any time in Settings.
       </p>

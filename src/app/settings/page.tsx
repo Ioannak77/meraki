@@ -34,7 +34,7 @@ const TITLES: Record<Panel, string> = {
   look: "Appearance",
   today: "Today screen",
   office: "Office days",
-  money: "Money",
+  money: "Finances",
   sync: "Sync",
   backup: "Backup",
 };
@@ -141,8 +141,8 @@ export default function SettingsPage() {
         <Row icon="sun" tone="bg-rose-soft text-rose" label="Skincare and daily self care" note="Steps and times" onClick={() => setOpen("skin")} />
       </Group>
 
-      <Group title="Money">
-        <Row icon="wallet" tone="bg-peach-soft text-peach" label="Money" note="What you track, income, categories" onClick={() => setOpen("money")} />
+      <Group title="Finances">
+        <Row icon="wallet" tone="bg-peach-soft text-peach" label="Finances" note="What you track, income, categories" onClick={() => setOpen("money")} />
       </Group>
 
       <Group title="Your data">
