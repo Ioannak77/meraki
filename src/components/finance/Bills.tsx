@@ -12,6 +12,7 @@ import {
   monthlyCost,
   needsPaying,
   nextDue,
+  paidAutomatically,
   paidKey,
   payPeriod,
   type Bill,
@@ -57,10 +58,11 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
   const [showPaid, setShowPaid] = useState(false);
   const kinds = useAllowedKinds();
 
-  // Subscriptions are taken automatically, so To pay and All bills only list the bills you pay yourself.
-  const payBills = useMemo(() => bills.filter(needsPaying), [bills]);
-  const subs = bills.filter((b) => !needsPaying(b));
-  const upcoming = useMemo(() => upcomingBills(payBills, income?.payday ?? null, now, 45), [payBills, income, now]);
+  // To pay lists only the bills you pay yourself; ones paid automatically just happen.
+  const toPay = useMemo(() => bills.filter(needsPaying), [bills]);
+  const payBills = bills.filter((b) => b.kind !== "subscription");
+  const subs = bills.filter((b) => b.kind === "subscription");
+  const upcoming = useMemo(() => upcomingBills(toPay, income?.payday ?? null, now, 45), [toPay, income, now]);
   const period = payPeriod(income?.payday ? { amount: 0, payday: income.payday } : null, now);
   const today = dayKey(now);
   const weekEnd = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6));
@@ -150,7 +152,7 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
 
       <Card className={`lg:row-span-2 ${view === "pay" ? "" : "hidden lg:block"}`}>
         <CardTitle action={<AddButton onClick={() => setEditing("new")} label="Add a bill" />}>To pay</CardTitle>
-        {payBills.length === 0 ? (
+        {toPay.length === 0 ? (
           <p className="py-4 text-muted">
             No bills yet. Add rent, utilities, insurance… once, and Meraki keeps track of every due date.
           </p>
@@ -225,6 +227,7 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
                           <span className="block truncate text-[15px] font-semibold">{b.name}</span>
                           <span className="block truncate text-[13px] text-muted">
                             {FREQUENCIES.find((f) => f.id === b.frequency)?.label}
+                            {paidAutomatically(b) ? " · automatic" : ""}
                             {nextDate ? ` · next ${nextDate.toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}
                           </span>
                         </span>
@@ -286,8 +289,7 @@ export function BillsTab({ now, startNew = false }: { now: Date; startNew?: bool
                   })}
               </ul>
               <p className="mt-2 text-xs text-muted">
-                These come off your card by themselves, so they count as paid on their date. If one fails, it won&apos;t be on your
-                statement.
+                Subscriptions paid automatically count as paid on their date. If one fails, it won&apos;t be on your statement.
               </p>
             </>
           )}
@@ -392,6 +394,9 @@ function BillSheet({ bill, startKind, onClose, now }: { bill: Bill | "new"; star
   const [match, setMatch] = useState(existing?.match ?? "");
   const [balance, setBalance] = useState<number | null>(existing?.loan?.balance ?? null);
   const [rate, setRate] = useState<number | null>(existing?.loan?.rate ?? null);
+  // Until you tick or untick it, follows the type: subscriptions start ticked.
+  const [autoChoice, setAutoChoice] = useState<boolean | null>(existing?.auto ?? null);
+  const auto = autoChoice ?? kind === "subscription";
 
   const valid = name.trim() && amount !== null && amount > 0 && firstDue;
 
@@ -407,6 +412,7 @@ function BillSheet({ bill, startKind, onClose, now }: { bill: Bill | "new"; star
       firstDue,
       match: match.trim().toLowerCase() || undefined,
       loan: kind === "loan" && balance !== null ? { balance, rate: rate ?? 0 } : undefined,
+      auto,
     });
     onClose();
   }
@@ -428,6 +434,16 @@ function BillSheet({ bill, startKind, onClose, now }: { bill: Bill | "new"; star
 
         <Label>A due date (e.g. the next one)</Label>
         <input type="date" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} className={inputClass} />
+
+        <label className="mt-4 flex items-start gap-3 rounded-2xl bg-cream p-3.5">
+          <input type="checkbox" checked={auto} onChange={(e) => setAutoChoice(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-sage" />
+          <span>
+            <span className="block text-[15px] font-semibold">Paid automatically</span>
+            <span className="block text-xs text-muted">
+              Direct debit or card. It counts as paid on its date, so it stays out of To pay and reminders.
+            </span>
+          </span>
+        </label>
 
         {kind === "loan" && (
           <>
@@ -454,7 +470,7 @@ function BillSheet({ bill, startKind, onClose, now }: { bill: Bill | "new"; star
           placeholder={name ? name.toLowerCase() : "e.g. electricity authority"}
           className={inputClass}
         />
-        <p className="mt-1 text-xs text-muted">When a statement line contains this, the bill is ticked as paid automatically.</p>
+        <p className="mt-1 text-xs text-muted">When a statement line contains this, Meraki ticks the bill off for you.</p>
 
         <PrimaryButton type="submit" disabled={!valid}>
           {existing ? "Save" : "Add bill"}

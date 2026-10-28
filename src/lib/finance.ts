@@ -194,6 +194,7 @@ export type Bill = {
   firstDue: string; // "YYYY-MM-DD": any one due date; it repeats before and after it
   match?: string; // text on the bank statement, lower case (defaults to the name)
   loan?: { balance: number; rate: number }; // what's left to pay, yearly interest %
+  auto?: boolean; // taken automatically (direct debit, card); unset means yes for subscriptions
 };
 
 export function billKeyword(b: Bill) {
@@ -246,17 +247,22 @@ export function paidKey(b: Bill, due: Date) {
   return `${b.id}@${dayKey(due)}`;
 }
 
-/**
- * Whether one due date counts as paid. Subscriptions come off the card by themselves, so they count
- * as paid once their date comes; a statement that doesn't show the charge is where you'd notice one failed.
- */
-export function isBillPaid(b: Bill, due: Date, paid: Record<string, string>, now = today()) {
-  return !!paid[paidKey(b, due)] || (b.kind === "subscription" && dayKey(due) <= dayKey(now));
+/** Taken automatically (direct debit, card), so there's nothing to tick. Subscriptions are, unless you say otherwise. */
+export function paidAutomatically(b: Bill) {
+  return b.auto ?? b.kind === "subscription";
 }
 
-/** Bills you pay yourself, not subscriptions (those are taken automatically). */
+/**
+ * Whether one due date counts as paid. Bills paid automatically count as paid once their date comes;
+ * a statement that doesn't show the charge is where you'd notice one failed.
+ */
+export function isBillPaid(b: Bill, due: Date, paid: Record<string, string>, now = today()) {
+  return !!paid[paidKey(b, due)] || (paidAutomatically(b) && dayKey(due) <= dayKey(now));
+}
+
+/** Bills you pay yourself: the ones in To pay, Today and bill reminders. */
 export function needsPaying(b: Bill) {
-  return b.kind !== "subscription";
+  return !paidAutomatically(b);
 }
 
 /** What one bill costs per month on average (spreads out bills that come every 2, 3 or 12 months). */
