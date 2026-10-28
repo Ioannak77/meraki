@@ -54,44 +54,10 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   const monthSpent = [...monthSpend.values()].reduce((a, b) => a + b, 0);
   const monthIn = monthIncomeTxns || income?.amount || 0;
 
-  // Until things are set up, one checklist instead of a column of empty cards.
-  const steps = [
-    has("income") || has("summary")
-      ? { label: "Add your income and payday", done: !!income, act: () => setEditingIncome(true) }
-      : null,
-    billModules ? { label: "Add your bills (rent, utilities, subscriptions…)", done: bills.length > 0, act: () => go("Bills") } : null,
-    has("imports") ? { label: "Import a bank statement", done: txns.some((t) => t.source === "import"), act: () => setImporting(true) } : null,
-    has("allowance") ? { label: "Set a weekly allowance", done: !!weeklyAllowance, act: () => go("Spending") } : null,
-    has("savings") ? { label: "Start an emergency fund", done: goals.some((g) => g.emergency), act: () => go("Goals") } : null,
-  ].filter((s): s is { label: string; done: boolean; act: () => void } => s !== null);
-  const stepsLeft = steps.filter((s) => !s.done).length;
   const hasMonth = monthIn > 0 || monthBills > 0 || monthSpent > 0;
 
   return (
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-      {stepsLeft > 0 && (
-        <Card className="lg:col-span-2">
-          <CardTitle action={<span className="text-sm text-muted">{steps.length - stepsLeft} of {steps.length} done</span>}>
-            Get started
-          </CardTitle>
-          <ul className="divide-y divide-line">
-            {steps.map((s) => (
-              <li key={s.label}>
-                <button type="button" onClick={s.act} disabled={s.done} className="flex w-full items-center gap-3 py-3 text-left">
-                  <span
-                    className={`grid size-7 shrink-0 place-items-center rounded-full border-2 ${s.done ? "border-sage bg-sage text-white" : "border-line"}`}
-                  >
-                    {s.done && "✓"}
-                  </span>
-                  <span className={`flex-1 text-[15px] ${s.done ? "text-muted line-through" : "font-semibold"}`}>{s.label}</span>
-                  {!s.done && <span className="text-muted">›</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
       {has("imports") && txns.length > 0 && (
         <button
           type="button"
@@ -110,35 +76,51 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
         </button>
       )}
 
-      {(has("summary") || has("income")) && income && (
+      {(has("summary") || has("income")) && (
         <Card className="lg:col-span-2">
           {!income ? (
             <>
-              <CardTitle>Payday forecast</CardTitle>
-              <p className="text-muted">Add your monthly income and payday to see what&apos;s really left to spend.</p>
-              <PrimaryButton onClick={() => setEditingIncome(true)}>Add income and payday</PrimaryButton>
+              <CardTitle>Until payday</CardTitle>
+              <p className="text-muted">Add your monthly pay and payday to see how much you can still spend before you&apos;re paid again.</p>
+              <PrimaryButton onClick={() => setEditingIncome(true)}>Add pay and payday</PrimaryButton>
             </>
           ) : (
             <>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm text-muted">Left to spend until payday</p>
+                  <p className="text-sm text-muted">
+                    Left to spend until payday ({short(period.next)})
+                  </p>
                   <p className={`text-[40px] font-bold leading-tight ${left < 0 ? "text-peach" : ""}`}>{money(left)}</p>
                 </div>
                 <button type="button" onClick={() => setEditingIncome(true)} className="text-sm font-semibold text-sage-dark">
-                  Edit income
+                  Edit pay
                 </button>
               </div>
               <p className="text-[15px] text-muted">
-                Payday {period.daysLeft === 0 ? "is today" : `in ${period.daysLeft} ${period.daysLeft === 1 ? "day" : "days"}`} (
-                {period.next.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })})
+                {period.daysLeft === 0 ? "Payday is today" : `${period.daysLeft} ${period.daysLeft === 1 ? "day" : "days"} to go`}
                 {left > 0 && period.daysLeft > 0 ? ` · about ${money(left / period.daysLeft)} a day` : ""}
+                {left < 0 ? " · you've gone over" : ""}
               </p>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                <Stat label="Income" value={money(income.amount, true)} />
-                <Stat label={billsUnpaid ? `Bills (${money(billsUnpaid, true)} to pay)` : "Bills"} value={money(billsTotal, true)} />
-                <Stat label="Spent so far" value={money(spentInPeriod, true)} />
-              </div>
+              {/* Spelled out as a sum so the big number is never a mystery. */}
+              <ul className="mt-4 space-y-2 rounded-2xl bg-cream px-4 py-3 text-[15px]">
+                <SummaryRow label={`Pay on ${short(period.start)}`} value={income.amount} />
+                <SummaryRow
+                  label={`Bills before ${short(period.next)}${billsUnpaid ? ` (${money(billsUnpaid, true)} not paid yet)` : ""}`}
+                  value={-billsTotal}
+                />
+                <SummaryRow label={`Spent since ${short(period.start)}`} value={-spentInPeriod} />
+                <li className="flex justify-between border-t border-line pt-2 font-bold">
+                  <span>Left</span>
+                  <span className={left < 0 ? "text-peach" : "text-sage-dark"}>{money(left)}</span>
+                </li>
+              </ul>
+              {has("imports") && lastImport && lastImport < dayKey(now) && (
+                <p className="mt-2 text-xs text-muted">
+                  Spending is counted up to {short(new Date(lastImport + "T12:00:00"))}, your latest statement line. Import a newer
+                  statement to bring it up to date.
+                </p>
+              )}
             </>
           )}
         </Card>
@@ -306,13 +288,8 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-cream px-2 py-3">
-      <p className="text-[17px] font-bold">{value}</p>
-      <p className="text-xs text-muted">{label}</p>
-    </div>
-  );
+function short(d: Date) {
+  return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 }
 
 function SummaryRow({ label, value }: { label: string; value: number }) {
