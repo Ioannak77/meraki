@@ -82,7 +82,7 @@ export function SkinSetup() {
       <Card>
         <CardTitle>Times</CardTitle>
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-sm text-muted">
+          <label className="min-w-0 text-sm text-muted">
             Morning
             <input
               type="time"
@@ -91,7 +91,7 @@ export function SkinSetup() {
               className={`${inputClass} mt-1`}
             />
           </label>
-          <label className="text-sm text-muted">
+          <label className="min-w-0 text-sm text-muted">
             Evening
             <input
               type="time"

@@ -248,3 +248,17 @@ body {
     opacity: 0;
   }
 }
+
+/* iPhone: time and date boxes keep a fixed native width and spill out of a two-column row.
+   Without the native look they fill their column like any other field (the picker still opens). */
+input[type="time"],
+input[type="date"] {
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 3.25rem;
+}
+input[type="time"]::-webkit-date-and-time-value,
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
