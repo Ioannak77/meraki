@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   category,
@@ -20,7 +21,7 @@ import { dayKey } from "@/lib/store";
 import { AllowanceBody } from "./Budgets";
 import { useSavings } from "./Goals";
 import { dueLabel, upcomingBills } from "./Bills";
-import { ImportSheet, spendingByCategory } from "./Spending";
+import { spendingByCategory } from "./Spending";
 import { Bar, Card, CardTitle, Label, MoneyInput, PrimaryButton, Sheet } from "./ui";
 import { Icon } from "../icons";
 
@@ -30,7 +31,6 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   const { income, bills, paid, billActuals, txns, weeklyAllowance, has, advice } = useFinance();
   const { goals, plan } = useSavings(now);
   const [editingIncome, setEditingIncome] = useState(false);
-  const [importing, setImporting] = useState(false);
   const billModules = has("bills") || has("home") || has("subscriptions") || has("insurance") || has("loans");
   const spendingModules = has("imports") || has("groceries") || has("pet");
   // Real amount once seen on a statement, else the estimate from past ones.
@@ -61,13 +61,12 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
   return (
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       {has("imports") && txns.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setImporting(true)}
+        <Link
+          href="/finances/import/"
           className="flex items-center justify-between gap-3 rounded-3xl bg-sage-dark px-5 py-4 text-left text-white lg:col-span-2"
         >
           <span>
-            <span className="block text-[17px] font-bold">Import bank statement</span>
+            <span className="block text-[17px] font-bold">Import bank statements</span>
             <span className="block text-sm text-white/80">
               {lastImport
                 ? `Latest line so far: ${new Date(lastImport + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
@@ -75,7 +74,7 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
             </span>
           </span>
           <span className="text-2xl">↑</span>
-        </button>
+        </Link>
       )}
 
       {(has("summary") || has("income")) && (
@@ -286,7 +285,6 @@ export function OverviewTab({ now, go }: { now: Date; go: (tab: FinanceTab) => v
       )}
 
       {editingIncome && <IncomeSheet income={income} onClose={() => setEditingIncome(false)} />}
-      {importing && <ImportSheet onClose={() => setImporting(false)} />}
     </div>
   );
 }

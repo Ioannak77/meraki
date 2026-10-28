@@ -1,7 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
+  afterPaybacks,
+  netCost,
+  paidBackByHash,
   allCategories,
   billKeyword,
   isBillCategory,
@@ -11,34 +15,25 @@ import {
   tidy,
   monthStats,
   category,
-  findHeader,
-  guessColumns,
-  headerSignature,
   inRange,
   money,
   monthRange,
-  parseCsv,
-  readStatement,
   ruleKeyword,
   type CategoryId,
-  type ColumnMap,
-  type ParsedLine,
   type Txn,
 } from "@/lib/finance";
-import { useFinance, type ImportResult } from "@/lib/financeStore";
-import { StatementReview } from "./StatementReview";
+import { useFinance } from "@/lib/financeStore";
+import { LineDetails, PaybackPicker, paybacksFor, shortDate } from "./Paybacks";
 import { CategorySelect } from "./CategorySelect";
 import { dayKey } from "@/lib/store";
-import { workerPost } from "@/lib/worker";
 import { NewChip } from "../NewChip";
 import { AllowanceBody, AmountSheet } from "./Budgets";
 import { Bar, Card, CardTitle, DangerButton, Label, MoneyInput, PrimaryButton, Sheet, inputClass } from "./ui";
-import { Icon } from "../icons";
 
 /** Money spent per counted category in a date range (positive numbers). */
 export function spendingByCategory(txns: Txn[], start: Date, end: Date) {
   const totals = new Map<CategoryId, number>();
-  for (const t of txns) {
+  for (const t of afterPaybacks(txns)) {
     if (t.amount >= 0 || !category(t.category).counts || !inRange(t.date, start, end)) continue;
     totals.set(t.category, (totals.get(t.category) ?? 0) - t.amount);
   }
@@ -49,7 +44,6 @@ export function SpendingTab({ now }: { now: Date }) {
   const { txns, budgets, has, rules, deleteRule, setBudget, addCategory, weeklyAllowance, setWeeklyAllowance } = useFinance();
   const [editingBudget, setEditingBudget] = useState<CategoryId | "allowance" | null>(null);
   const [monthOffset, setMonthOffset] = useState(0);
-  const [importing, setImporting] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Txn | null>(null);
 
@@ -58,6 +52,7 @@ export function SpendingTab({ now }: { now: Date }) {
   const totals = spendingByCategory(txns, start, end);
   const total = [...totals.values()].reduce((a, b) => a + b, 0);
   const lines = txns.filter((t) => inRange(t.date, start, end)).sort((a, b) => b.date.localeCompare(a.date));
+  const back = paidBackByHash(txns);
   const stats = monthStats(txns, now);
   const eff = effectiveBudgets(budgets, stats);
   const isThisMonth = monthOffset === 0;
@@ -72,13 +67,9 @@ export function SpendingTab({ now }: { now: Date }) {
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <div className="flex gap-2 lg:col-span-2">
         {has("imports") && (
-          <button
-            type="button"
-            onClick={() => setImporting(true)}
-            className="flex-1 rounded-2xl bg-sage-dark py-3.5 font-bold text-white"
-          >
-            Import bank statement
-          </button>
+          <Link href="/finances/import/" className="flex-1 rounded-2xl bg-sage-dark py-3.5 text-center font-bold text-white">
+            Import statements
+          </Link>
         )}
         <button type="button" onClick={() => setAdding(true)} className="flex-1 rounded-2xl bg-card py-3.5 font-bold">
           + Add spending
@@ -201,6 +192,7 @@ export function SpendingTab({ now }: { now: Date }) {
           <ul className="divide-y divide-line">
             {lines.map((t) => {
               const c = category(t.category);
+              const cost = t.amount < 0 ? netCost(t, back) : 0;
               return (
                 <li key={t.id}>
                   <button type="button" onClick={() => setEditing(t)} className="flex w-full items-center gap-3 py-3 text-left">
@@ -212,9 +204,13 @@ export function SpendingTab({ now }: { now: Date }) {
                         {c.label}
                       </span>
                     </span>
-                    <span className={`shrink-0 text-[15px] font-semibold ${t.amount > 0 ? "text-sage-dark" : ""}`}>
-                      {t.amount > 0 ? "+" : ""}
-                      {money(t.amount)}
+                    <span className="shrink-0 text-right">
+                      <span className={`block text-[15px] font-semibold ${t.amount > 0 ? "text-sage-dark" : ""}`}>
+                        {t.amount > 0 ? "+" : ""}
+                        {money(t.amount)}
+                      </span>
+                      {t.amount < 0 && cost < -t.amount - 0.005 && <span className="block text-xs text-sage-dark">you paid {money(cost)}</span>}
+                      {t.category === "paid_back" && !t.backFor && <span className="block text-xs text-peach">which payment?</span>}
                     </span>
                   </button>
                 </li>
@@ -242,7 +238,6 @@ export function SpendingTab({ now }: { now: Date }) {
         </Card>
       )}
 
-      {importing && <ImportSheet onClose={() => setImporting(false)} />}
       {adding && <AddSpendingSheet onClose={() => setAdding(false)} now={now} />}
       {editing && <TxnSheet txn={editing} onClose={() => setEditing(null)} />}
       {editingBudget && (
@@ -264,8 +259,23 @@ function billNameFrom(description: string) {
 }
 
 export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
-  const { setTxnCategory, deleteTxn, bills, saveBill, paid, togglePaid } = useFinance();
+  const { setTxnCategory, patchTxn, deleteTxn, bills, saveBill, paid, togglePaid, txns } = useFinance();
   const [cat, setCat] = useState<CategoryId>(txn.category);
+  const [showDetails, setShowDetails] = useState(false);
+  // Paid back: on a payment, cash friends gave you; on money in, the payment it was for.
+  const [cash, setCash] = useState<number | null>(txn.cashBack ?? null);
+  const [backFor, setBackFor] = useState<string | undefined>(txn.backFor);
+  const [linking, setLinking] = useState(false);
+  const linked = txn.amount < 0 ? txns.filter((t) => t.backFor === txn.hash && t.amount > 0) : [];
+  const viaBank = linked.reduce((s, t) => s + t.amount, 0);
+  const cost = Math.max(0, -txn.amount - viaBank - (cash ?? 0));
+  const canLink =
+    txn.amount < 0 && linking
+      ? paybacksFor(
+          txn,
+          txns.filter((t) => t.category !== "transfer" && (!t.backFor || t.backFor === txn.hash) && !linked.includes(t)),
+        )
+      : [];
   const [remember, setRemember] = useState(txn.source === "import");
   const [match, setMatch] = useState(ruleKeyword(txn.description));
   // A bill or subscription that isn't in Bills yet can be added from here.
@@ -279,6 +289,8 @@ export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
 
   function save() {
     setTxnCategory(txn.id, cat, remember && match.trim() ? match : undefined);
+    if (txn.amount < 0 && (cash ?? 0) !== (txn.cashBack ?? 0)) patchTxn(txn.id, { cashBack: cash || null });
+    if (txn.amount > 0) patchTxn(txn.id, { backFor: cat === "paid_back" && backFor ? backFor : null });
     if (billable && addBill && billName.trim()) {
       const bill = {
         name: billName.trim(),
@@ -303,12 +315,81 @@ export function TxnSheet({ txn, onClose }: { txn: Txn; onClose: () => void }) {
         <p className="mt-2 break-words text-[16px] font-semibold">{txn.description}</p>
         <p className="mt-0.5 text-[13px] text-muted">
           {date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "long" })} ·{" "}
-          {txn.source === "import" ? "from your statement" : "added by you"}
+          {txn.source === "import" ? `from your ${txn.account ? `${txn.account} ` : ""}statement` : "added by you"}
         </p>
+        {txn.source === "import" && (
+          <button type="button" onClick={() => setShowDetails(!showDetails)} className="mt-2 text-[13px] font-semibold text-sage-dark">
+            {showDetails ? "Hide details" : "All details"}
+          </button>
+        )}
       </div>
+      {showDetails && (
+        <div className="animate-reveal mt-2">
+          <LineDetails date={txn.date} amount={txn.amount} description={txn.description} account={txn.account} details={txn.details} />
+          {!txn.details?.length && (
+            <p className="mt-1 text-xs text-muted">Statements imported before 28 Oct 2026 only kept the date, amount and description.</p>
+          )}
+        </div>
+      )}
 
       <Label>Category</Label>
-      <CategorySelect value={cat} onChange={setCat} filter={(c) => txn.amount > 0 || c.id !== "income"} />
+      <CategorySelect value={cat} onChange={setCat} filter={(c) => txn.amount > 0 || (c.id !== "income" && c.id !== "paid_back")} />
+
+      {txn.amount > 0 && cat === "paid_back" && (
+        <PaybackPicker payback={txn} pool={txns.filter((t) => t.amount < 0 && t.category !== "transfer")} value={backFor} onChange={setBackFor} />
+      )}
+
+      {txn.amount < 0 && (
+        <div className="mt-3 rounded-2xl border border-line p-3.5">
+          <p className="text-[15px] font-semibold">Paid back by friends</p>
+          {viaBank + (cash ?? 0) > 0 ? (
+            <p className="text-[13px] text-sage-dark">
+              You paid {money(-txn.amount)}, {money(viaBank + (cash ?? 0))} came back, so it cost you <strong>{money(cost)}</strong>.
+            </p>
+          ) : (
+            <p className="text-[13px] text-muted">Did friends pay you their share? Only what it really cost you counts as spending.</p>
+          )}
+          {linked.length > 0 && (
+            <ul className="mt-2 divide-y divide-line">
+              {linked.map((t) => (
+                <li key={t.id} className="flex items-center gap-3 py-2 text-[14px]">
+                  <span className="w-12 shrink-0 text-xs text-muted">{shortDate(t.date)}</span>
+                  <span className="min-w-0 flex-1 truncate">{t.description}</span>
+                  <span className="shrink-0 font-semibold text-sage-dark">+{money(t.amount)}</span>
+                  <button type="button" onClick={() => patchTxn(t.id, { backFor: null })} aria-label={`Unlink ${t.description}`} className="shrink-0 px-1 text-muted">
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!linking ? (
+            <button type="button" onClick={() => setLinking(true)} className="mt-2 text-[13px] font-semibold text-sage-dark">
+              + Link money you received for it
+            </button>
+          ) : canLink.length === 0 ? (
+            <p className="mt-2 text-[13px] text-muted">No money in of {money(-txn.amount)} or less in the 60 days after this.</p>
+          ) : (
+            <ul className="mt-2 space-y-1">
+              {canLink.slice(0, 8).map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => patchTxn(t.id, { backFor: txn.hash, category: "paid_back" })}
+                    className="flex w-full items-center gap-3 rounded-xl bg-cream px-3 py-2 text-left"
+                  >
+                    <span className="w-12 shrink-0 text-xs text-muted">{shortDate(t.date)}</span>
+                    <span className="min-w-0 flex-1 truncate text-[14px]">{t.description}</span>
+                    <span className="shrink-0 text-[14px] font-semibold text-sage-dark">+{money(t.amount)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-[13px] text-muted">Paid back in cash</p>
+          <MoneyInput value={cash} onChange={setCash} label="Paid back in cash" />
+        </div>
+      )}
 
       {knownBill && isBillCategory(cat) && <p className="mt-2 text-[13px] text-muted">This is your bill “{knownBill.name}”.</p>}
 
@@ -395,258 +476,6 @@ export function AddSpendingSheet({ onClose, now, only }: { onClose: () => void; 
           Add
         </PrimaryButton>
       </form>
-    </Sheet>
-  );
-}
-
-type Loaded = { rows: string[][]; header: string[]; signature: string; map: ColumnMap; fileName: string };
-
-/** A PDF statement, read by Claude in the meraki worker (Revolut, Bank of Cyprus, …). */
-type PdfRead = { bank: string; currency: string; lines: ParsedLine[]; fileName: string };
-type StatementReply = {
-  bank: string;
-  currency: string;
-  lines: {
-    date: string;
-    description: string;
-    amount: number;
-    own_transfer: boolean;
-    category?: string;
-    abroad?: boolean;
-    subscription?: "no" | "monthly" | "yearly";
-  }[];
-};
-const NO_COLUMNS: ColumnMap = { date: -1, description: -1, amount: -1, moneyOut: -1, moneyIn: -1 };
-
-async function readPdfStatement(file: File): Promise<PdfRead> {
-  if (file.size > 15_000_000) throw new Error("That PDF is too big. Try a statement for a shorter period.");
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  // Claude suggests a category from your own list (built-in and the ones you made).
-  const categories = allCategories().map((c) => ({ id: c.id, label: c.label }));
-  const known = new Set(categories.map((c) => c.id as string));
-  const r = await workerPost<StatementReply>("/statement", { pdf: btoa(binary), categories }, "statement reader");
-  const lines = r.lines
-    .filter((l) => /^\d{4}-\d{2}-\d{2}$/.test(l.date) && Number.isFinite(l.amount) && l.amount !== 0)
-    .map(
-      (l): ParsedLine => ({
-        date: l.date,
-        description: l.description.trim() || "(no description)",
-        amount: l.amount,
-        transfer: l.own_transfer || undefined,
-        suggested: l.category && known.has(l.category) ? (l.category as CategoryId) : undefined,
-        abroad: l.abroad || undefined,
-        subscription: l.subscription === "monthly" || l.subscription === "yearly" ? l.subscription : undefined,
-      }),
-    );
-  return { bank: r.bank, currency: r.currency, lines, fileName: file.name };
-}
-
-const FIELDS: { key: keyof ColumnMap; label: string }[] = [
-  { key: "date", label: "Date" },
-  { key: "description", label: "Description" },
-  { key: "amount", label: "Amount (one column, minus = money out)" },
-  { key: "moneyOut", label: "…or Money out" },
-  { key: "moneyIn", label: "…and Money in" },
-];
-
-export function ImportSheet({ onClose }: { onClose: () => void }) {
-  const { importLines, importProfiles } = useFinance();
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [pdf, setPdf] = useState<PdfRead | null>(null);
-  const [reading, setReading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ImportResult | null>(null);
-  const [checking, setChecking] = useState(false); // the check screen (StatementReview)
-
-  async function onFile(file: File) {
-    setError(null);
-    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
-      setReading(true);
-      try {
-        const read = await readPdfStatement(file);
-        if (read.lines.length === 0) setError("Couldn't find any transactions in that PDF.");
-        else setPdf(read);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't read that statement.");
-      } finally {
-        setReading(false);
-      }
-      return;
-    }
-    const text = await file.text();
-    const all = parseCsv(text);
-    if (all.length < 2) {
-      setError("That file doesn't look like a statement. Pick the PDF or CSV your bank gives you.");
-      return;
-    }
-    const h = findHeader(all);
-    const header = all[h];
-    const signature = headerSignature(header);
-    const map = importProfiles[signature] ?? guessColumns(header);
-    setLoaded({ rows: all.slice(h + 1), header, signature, map, fileName: file.name });
-  }
-
-  const preview = pdf ? { lines: pdf.lines, unreadable: 0 } : loaded ? readStatement(loaded.rows, loaded.map) : null;
-  const transfers = pdf ? pdf.lines.filter((l) => l.transfer).length : 0;
-  const mapOk = loaded && loaded.map.date >= 0 && loaded.map.description >= 0 && (loaded.map.amount >= 0 || loaded.map.moneyOut >= 0 || loaded.map.moneyIn >= 0);
-
-  if (checking && preview && !result) {
-    return (
-      <Sheet title="Check your statement" onClose={onClose}>
-        <StatementReview
-          source={pdf ? pdf.bank || pdf.fileName : (loaded?.fileName ?? "Statement")}
-          lines={preview.lines}
-          onImport={(lines, rules, bills) => setResult(importLines(lines, loaded?.signature ?? "", loaded?.map ?? NO_COLUMNS, rules, bills))}
-          onBack={() => {
-            setChecking(false);
-            setPdf(null);
-            setLoaded(null);
-          }}
-        />
-      </Sheet>
-    );
-  }
-
-  if (result) {
-    return (
-      <Sheet title="Statement imported" onClose={onClose}>
-        <span className="mx-auto grid size-14 place-items-center rounded-full bg-sage text-white">
-            <Icon.check className="size-8" />
-          </span>
-        <p className="mt-3 text-[17px]">
-          <strong>{result.added}</strong> new {result.added === 1 ? "transaction" : "transactions"} added.
-        </p>
-        {result.duplicates > 0 && <p className="text-[15px] text-muted">{result.duplicates} were already here, so they were skipped.</p>}
-        {result.billsAdded > 0 && (
-          <p className="text-[15px] text-muted">
-            {result.billsAdded} {result.billsAdded === 1 ? "subscription was" : "subscriptions were"} added to Bills.
-          </p>
-        )}
-        {result.billsMarkedPaid > 0 && (
-          <p className="text-[15px] text-muted">
-            {result.billsMarkedPaid} {result.billsMarkedPaid === 1 ? "bill was" : "bills were"} ticked as paid from the statement.
-          </p>
-        )}
-        <p className="mt-3 text-[15px] text-muted">Tap any transaction to fix its category; Meraki learns from it.</p>
-        <PrimaryButton onClick={onClose}>Done</PrimaryButton>
-      </Sheet>
-    );
-  }
-
-  return (
-    <Sheet title="Import bank statement" onClose={onClose}>
-      {pdf ? (
-        <>
-          <p className="text-[15px] text-muted">
-            {pdf.bank || "Statement"} · {pdf.fileName}
-          </p>
-          <p className="mt-1 text-[15px]">
-            <strong>{pdf.lines.length}</strong> transactions found
-            {transfers > 0 ? `, ${transfers} between your own accounts (kept out of your spending)` : ""}.
-          </p>
-          {pdf.currency && pdf.currency.toUpperCase() !== "EUR" && (
-            <p className="mt-2 text-[15px] text-peach">This is a {pdf.currency} account. Amounts are added as they are, not converted to euros.</p>
-          )}
-          <Label>Preview</Label>
-          <ul className="divide-y divide-line rounded-2xl bg-cream px-3">
-            {pdf.lines.slice(0, 5).map((l, i) => (
-              <li key={i} className="flex gap-3 py-2 text-sm">
-                <span className="w-20 shrink-0 text-muted">{l.date}</span>
-                <span className="min-w-0 flex-1 truncate">{l.description}</span>
-                <span className="shrink-0 font-semibold">{money(l.amount)}</span>
-              </li>
-            ))}
-          </ul>
-          <PrimaryButton onClick={() => setChecking(true)}>Next: check {pdf.lines.length} transactions</PrimaryButton>
-          <button type="button" onClick={() => setPdf(null)} className="mt-3 w-full py-2 text-sm font-semibold text-muted">
-            Choose a different file
-          </button>
-        </>
-      ) : !loaded ? (
-        <>
-          <p className="text-[15px] text-muted">
-            Download a statement from your bank as a <strong>PDF</strong> (Revolut, Bank of Cyprus…) or a <strong>CSV</strong>,
-            then pick it here. Importing the same statement twice won&apos;t double count anything.
-          </p>
-          <p className="mt-2 text-[13px] text-muted">
-            A CSV is read on this device. A PDF is read by Meraki&apos;s assistant (Claude) and isn&apos;t kept anywhere.
-          </p>
-          <label
-            className={`mt-5 block rounded-2xl border-2 border-dashed border-line bg-cream py-8 text-center font-semibold ${
-              reading ? "pointer-events-none text-muted" : "cursor-pointer"
-            }`}
-          >
-            {reading ? "Reading your statement… this can take a minute" : "Choose PDF or CSV file"}
-            <input
-              type="file"
-              accept=".pdf,.csv,application/pdf,text/csv"
-              className="hidden"
-              disabled={reading}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void onFile(f);
-              }}
-            />
-          </label>
-          {error && <p className="mt-3 text-[15px] text-peach">{error}</p>}
-        </>
-      ) : (
-        <>
-          <p className="text-[15px] text-muted">
-            {loaded.fileName} · {loaded.rows.length} rows.{" "}
-            {importProfiles[loaded.signature] ? "Using the columns you chose last time." : "Check the columns are right:"}
-          </p>
-
-          <div className="mt-3 space-y-2">
-            {FIELDS.map((f) => (
-              <label key={f.key} className="flex items-center gap-3 text-sm">
-                <span className="w-40 shrink-0 text-muted">{f.label}</span>
-                <select
-                  value={loaded.map[f.key]}
-                  onChange={(e) => setLoaded({ ...loaded, map: { ...loaded.map, [f.key]: Number(e.target.value) } })}
-                  className="min-w-0 flex-1 rounded-xl bg-cream px-3 py-2"
-                >
-                  <option value={-1}>—</option>
-                  {loaded.header.map((h, i) => (
-                    <option key={i} value={i}>
-                      {h || `Column ${i + 1}`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
-          </div>
-
-          {preview && (
-            <>
-              <Label>Preview</Label>
-              <ul className="divide-y divide-line rounded-2xl bg-cream px-3">
-                {preview.lines.slice(0, 5).map((l, i) => (
-                  <li key={i} className="flex gap-3 py-2 text-sm">
-                    <span className="w-20 shrink-0 text-muted">{l.date}</span>
-                    <span className="min-w-0 flex-1 truncate">{l.description}</span>
-                    <span className="shrink-0 font-semibold">{money(l.amount)}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-muted">
-                {preview.lines.length} lines read
-                {preview.unreadable ? `, ${preview.unreadable} skipped (no date or amount, e.g. balance lines)` : ""}.
-              </p>
-            </>
-          )}
-
-          <PrimaryButton disabled={!mapOk || !preview?.lines.length} onClick={() => setChecking(true)}>
-            Next: {preview?.lines.length ?? 0} transactions
-          </PrimaryButton>
-          <button type="button" onClick={() => setLoaded(null)} className="mt-3 w-full py-2 text-sm font-semibold text-muted">
-            Choose a different file
-          </button>
-        </>
-      )}
     </Sheet>
   );
 }

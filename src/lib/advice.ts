@@ -3,6 +3,7 @@
 // Only totals and names are sent (no bank details), and only when you ask.
 
 import {
+  afterPaybacks,
   type Bill,
   type CategoryId,
   type Goal,
@@ -39,7 +40,8 @@ type Input = {
 const round = (n: number) => Math.round(n * 100) / 100;
 
 /** Everything Claude needs, as small, readable numbers. */
-export function moneySummary({ now, income, bills, txns, budgets, weeklyAllowance, goals, receipts }: Input) {
+export function moneySummary({ now, income, bills, txns: all, budgets, weeklyAllowance, goals, receipts }: Input) {
+  const txns = afterPaybacks(all); // what payments really cost once friends paid their share
   const months = Array.from({ length: 6 }, (_, i) => dayKey(new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)).slice(0, 7));
   const thisMonth = months[5];
   const counted = (t: Txn) => t.amount < 0 && category(t.category).counts;

@@ -5,7 +5,7 @@
 
 import { routineProgress } from "@/components/RoutineCard";
 import { MONTHS, dueToday, isSkipped, occurrenceKey } from "@/lib/cleaning";
-import { money } from "@/lib/finance";
+import { afterPaybacks, money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { useGroceries } from "@/lib/groceriesStore";
 import { slotKey } from "@/lib/skin";
@@ -92,7 +92,7 @@ export default function InsightsPage() {
   const months = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(today.getFullYear(), today.getMonth() - 5 + i, 1);
     const key = dayKey(d).slice(0, 7);
-    const spent = finance.txns
+    const spent = afterPaybacks(finance.txns)
       .filter((t) => t.date.startsWith(key) && t.amount < 0 && t.category !== "transfer" && t.category !== "income")
       .reduce((s, t) => s - t.amount, 0);
     const shopping = groceries.receipts.filter((r) => r.date.startsWith(key)).reduce((s, r) => s + r.total, 0);

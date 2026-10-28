@@ -23,6 +23,8 @@ export default function FinancesPage() {
       if (window.location.hash === "#tracker") return setTab("Tracker");
       // Bill notifications open Bills, where the Paid button is.
       if (window.location.hash === "#bills") return setTab("Bills");
+      // Back from importing statements.
+      if (window.location.hash === "#spending") return setTab("Spending");
       if (window.location.hash !== "#new-bill") return;
       setNewBill(true);
       setTab("Bills");

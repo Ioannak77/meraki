@@ -76,7 +76,7 @@ const statementSchema = (categoryIds: string[]) => ({
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["date", "description", "amount", "own_transfer", "category", "abroad", "subscription"],
+        required: ["date", "description", "amount", "own_transfer", "category", "abroad", "subscription", "details"],
         properties: {
           date: { type: "string", description: "Transaction date as YYYY-MM-DD" },
           description: { type: "string", description: "Merchant or payee as printed, tidied (no card numbers or reference codes)" },
@@ -92,6 +92,16 @@ const statementSchema = (categoryIds: string[]) => ({
             enum: ["no", "monthly", "yearly"],
             description: "monthly or yearly if this is a recurring subscription or membership payment, otherwise no",
           },
+          details: {
+            type: "array",
+            description: "Everything else printed about this line, as short label/value pairs in English",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["label", "value"],
+              properties: { label: { type: "string" }, value: { type: "string" } },
+            },
+          },
         },
       },
     },
@@ -104,7 +114,8 @@ Use the transaction date (not the value date) as YYYY-MM-DD; when the year isn't
 Give money out as a negative amount and money in as positive, in the account's currency.
 Keep each description short and recognisable: the merchant or person as printed, without card numbers, terminal IDs or long reference codes. Translate nothing.
 Set own_transfer to true for money moving between the person's own accounts: card or bank top-ups, transfers to or from their other bank account (e.g. Revolut <-> Bank of Cyprus), savings vaults or pockets, and currency exchanges. Payments to other people and shops are false.
-For "category", pick the best fitting id from the list you're given; use "unsure" rather than guessing. Salary and refunds are income; recurring household bills (rent, electricity, water, internet, phone, insurance) are bills.
+For "category", pick the best fitting id from the list you're given; use "unsure" rather than guessing. Salary and refunds from shops are income; money in from a person (a friend sending their share, e.g. "Transfer from Maria", "Payment from …") is paid_back when that id is in the list; recurring household bills (rent, electricity, water, internet, phone, insurance) are bills.
+In "details", list what else the statement prints for the line, each as a short label and value: the full text as printed (label "As printed"), time, payment type (card payment, transfer, direct debit…), card, original amount and currency, exchange rate, fee, location, counterparty or IBAN, reference. Leave out the date and amount already given, and anything not printed. Use an empty list if there is nothing more.
 Set abroad to true only for payments made in person while travelling outside Cyprus (shops, restaurants, taxis, hotels in another country). Online services billed from abroad are not abroad.
 Set subscription to monthly or yearly for recurring services and memberships (streaming, music, cloud storage, apps, gym, software); otherwise no.
 If it isn't a statement or you can't read it, set readable to false and leave lines empty.`;

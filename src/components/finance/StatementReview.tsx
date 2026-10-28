@@ -1,8 +1,9 @@
 "use client";
 
-// After a statement is read: one screen to check it before it's added. Most lines arrive already
+// After the statements are read: one page to check them before they're added. Most lines arrive already
 // sorted (your own rules, your bills, Claude's suggestion for a PDF, then the starter keywords), so
-// this only asks about what's left, offers to file a trip under Travel, and to add subscriptions to Bills.
+// this only asks about what's left, offers to file a trip under Travel, to add subscriptions to Bills,
+// and which money in was friends paying you back. Tap any line for everything the statement says about it.
 
 import { useMemo, useState } from "react";
 import {
@@ -13,12 +14,14 @@ import {
   money,
   ruleKeyword,
   type CategoryId,
+  txnHash,
   type ParsedLine,
   type Rule,
 } from "@/lib/finance";
 import { useFinance, type NewBill } from "@/lib/financeStore";
 import { Icon } from "../icons";
 import { CategorySelect } from "./CategorySelect";
+import { LineDetails, PaybackPicker, shortDate, type Candidate } from "./Paybacks";
 import { PrimaryButton } from "./ui";
 
 type Sorted = ParsedLine & { category: CategoryId };
@@ -31,11 +34,10 @@ function firstGuess(l: ParsedLine, rules: Rule[], bills: Parameters<typeof categ
   if (l.transfer) return "transfer";
   const bill = l.amount < 0 ? bills.find((b) => text.includes(billKeyword(b))) : undefined;
   if (bill) return bill.kind === "subscription" ? "subscriptions" : "bills";
+  if (l.suggested === "paid_back") return l.amount > 0 ? "paid_back" : categorise(l.description, l.amount, [], bills);
   if (l.suggested && l.suggested !== "other") return l.suggested;
   return categorise(l.description, l.amount, [], bills);
 }
-
-const shortDate = (key: string) => new Date(key + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** A tidy bill name from a bank line ("NETFLIX.COM 866-579" -> "Netflix"). */
 function billName(description: string) {
@@ -45,23 +47,24 @@ function billName(description: string) {
 function CategoryPicker({ value, onPick, allowIncome }: { value: CategoryId; onPick: (c: CategoryId) => void; allowIncome: boolean }) {
   return (
     <div className="animate-reveal mt-2">
-      <CategorySelect value={value} onChange={onPick} filter={(c) => allowIncome || c.id !== "income"} />
+      <CategorySelect value={value} onChange={onPick} filter={(c) => allowIncome || (c.id !== "income" && c.id !== "paid_back")} />
     </div>
   );
 }
 
 export function StatementReview({
-  source,
+  sources,
   lines,
   onImport,
   onBack,
 }: {
-  source: string;
+  sources: string[];
   lines: ParsedLine[];
   onImport: (lines: Sorted[], rules: Rule[], bills: NewBill[]) => void;
   onBack: () => void;
 }) {
-  const { rules, bills } = useFinance();
+  const { rules, bills, txns } = useFinance();
+  const [links, setLinks] = useState<Record<number, string>>({}); // paid back: line -> hash of the payment it's for
   const guesses = useMemo(() => lines.map((l) => firstGuess(l, rules, bills)), [lines, rules, bills]);
   const [picked, setPicked] = useState<Record<number, CategoryId>>({}); // your changes, by line
   const [open, setOpen] = useState<string | null>(null); // the row whose picker is showing
@@ -96,7 +99,22 @@ export function StatementReview({
     if (tripAsTravel && trip.includes(i) && !isBillCategory(guesses[i])) return "travel";
     return guesses[i];
   };
-  const final = lines.map((l, i) => ({ ...l, category: finalCategory(i) }));
+  const final = lines.map((l, i) => {
+    const category = finalCategory(i);
+    return { ...l, category, backFor: category === "paid_back" && links[i] ? links[i] : undefined };
+  });
+
+  // Payments a payback can be for: this import's and the ones already in Finances.
+  const pool: Candidate[] = useMemo(
+    () => [
+      ...lines.filter((l) => l.amount < 0 && !l.transfer).map((l) => ({ ...l, hash: txnHash(l.date, l.amount, l.description) })),
+      ...txns.filter((t) => t.amount < 0 && t.category !== "transfer"),
+    ],
+    [lines, txns],
+  );
+  // Money in: pay, refunds, friends paying you back, or a move from your own account. "Transfer from Maria"
+  // can look like any of them, so each one is shown with the choice.
+  const moneyIn = lines.map((l, i) => i).filter((i) => lines[i].amount > 0);
 
   // Still "Other": grouped by shop, so each one is decided once. (A trip's payments are already sorted.)
   const tripSorted = tripAsTravel ? trip : [];
@@ -158,17 +176,41 @@ export function StatementReview({
           <span className="size-2 shrink-0 rounded-full" style={{ background: c.color }} aria-label={c.label} />
           <span className={`shrink-0 text-[14px] font-semibold ${l.amount > 0 ? "text-sage-dark" : ""}`}>{money(l.amount)}</span>
         </button>
-        {open === key && <CategoryPicker value={l.category} allowIncome={l.amount > 0} onPick={(cat) => pickGroup([i], cat)} />}
+        {open === key && lineOpen(i)}
       </li>
     );
   };
+
+  // A line, opened: everything the statement says, its category, and for a payback, what it was for.
+  function lineOpen(i: number) {
+    const l = final[i];
+    const notes = [
+      l.transfer ? "Between your own accounts" : "",
+      l.abroad ? "Paid abroad" : "",
+      l.subscription ? `Looks like a ${l.subscription} subscription` : "",
+    ].filter(Boolean);
+    return (
+      <div className="animate-reveal mt-2 space-y-2">
+        <LineDetails date={l.date} amount={l.amount} description={l.description} account={l.account} details={l.details} notes={notes} />
+        <CategoryPicker
+          value={l.category}
+          allowIncome={l.amount > 0}
+          onPick={(cat) => setPicked((p) => ({ ...p, [i]: cat }))}
+        />
+        {l.category === "paid_back" && (
+          <PaybackPicker payback={l} pool={pool} value={links[i]} onChange={(h) => setLinks((x) => ({ ...x, [i]: h ?? "" }))} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
       {/* What came in */}
       <div className="rounded-2xl bg-cream p-3.5">
         <p className="text-[13px] text-muted">
-          {source} · {dates.length ? `${shortDate(dates[0])} – ${shortDate(dates[dates.length - 1])}` : ""}
+          {sources.length > 1 ? `${sources.length} statements: ${sources.join(", ")}` : sources[0]} ·{" "}
+          {dates.length ? `${shortDate(dates[0])} – ${shortDate(dates[dates.length - 1])}` : ""}
         </p>
         <p className="mt-0.5 text-[17px] font-bold">{lines.length} transactions</p>
         <p className="text-[13px] text-muted">
@@ -225,6 +267,65 @@ export function StatementReview({
         </section>
       )}
 
+      {/* Money in: pay, or friends paying you back */}
+      {moneyIn.length > 0 && (
+        <section className="mt-3 rounded-2xl border border-line p-3.5">
+          <p className="text-[15px] font-semibold">Money in</p>
+          <p className="text-[13px] text-muted">
+            Did a friend pay you back for something? Mark it Paid back and pick the payment, so that payment counts as what you really
+            paid (and it isn&apos;t counted as income). Mine is money from your own account.
+          </p>
+          <ul className="mt-1 divide-y divide-line">
+            {moneyIn.map((i) => {
+              const l = final[i];
+              const key = `in-${i}`;
+              const back = l.category === "paid_back";
+              const linked = back && links[i] ? pool.find((c) => c.hash === links[i]) : undefined;
+              return (
+                <li key={key} className="py-2.5">
+                  <div className="flex flex-col gap-2">
+                    <button type="button" onClick={() => setOpen(open === key ? null : key)} className="min-w-0 text-left">
+                      <span className="block truncate text-[15px] font-semibold">{l.description}</span>
+                      <span className="block text-[12px] text-muted">
+                        {shortDate(l.date)} · <span className="font-semibold text-sage-dark">+{money(l.amount)}</span>
+                        {linked ? ` · for ${linked.description}` : back ? " · pick the payment" : ""}
+                        {l.category === "transfer" ? " · from your own account" : ""}
+                      </span>
+                    </button>
+                    <div className="flex self-start rounded-full bg-cream p-0.5 text-[13px] font-semibold">
+                      {(
+                        [
+                          ["income", "Income"],
+                          ["paid_back", "Paid back"],
+                          ["transfer", "Mine"],
+                        ] as const
+                      ).map(([id, label]) => {
+                        const on = l.category === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => {
+                              setPicked((p) => ({ ...p, [i]: id }));
+                              if (id === "paid_back") setOpen(key);
+                            }}
+                            className={`rounded-full px-3 py-1.5 ${on ? "bg-ink text-cream" : "text-muted"}`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {open === key && lineOpen(i)}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {/* Still to sort */}
       {unsorted.length > 0 && (
         <section className="mt-3 rounded-2xl border border-line p-3.5">
@@ -258,6 +359,11 @@ export function StatementReview({
                   </button>
                   {open === key && (
                     <>
+                      <div className="animate-reveal mt-2 space-y-1.5">
+                        {g.idx.map((i) => (
+                          <LineDetails key={i} date={lines[i].date} amount={lines[i].amount} description={lines[i].description} account={lines[i].account} details={lines[i].details} />
+                        ))}
+                      </div>
                       <CategoryPicker value={c.id} allowIncome={false} onPick={(cat) => pickGroup(g.idx, cat)} />
                       <label className="mt-2 flex items-center gap-2 text-[13px]">
                         <input

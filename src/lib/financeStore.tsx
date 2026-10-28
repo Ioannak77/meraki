@@ -101,12 +101,13 @@ type FinanceStore = FinanceData & {
   /** Lines arrive already categorised (and reviewed); `newRules` are the "always" mappings chosen during review. */
   importLines: (
     lines: (ParsedLine & { category: CategoryId })[],
-    signature: string,
-    map: ColumnMap,
+    profiles: { signature: string; map: ColumnMap }[], // the CSV columns chosen, remembered per bank layout
     newRules: Rule[],
     newBills?: NewBill[],
   ) => ImportResult;
   setTxnCategory: (id: string, category: CategoryId, alwaysFor?: string) => void;
+  /** Paid-back links and cash given back; `null` clears a field. */
+  patchTxn: (id: string, patch: { backFor?: string | null; cashBack?: number | null; category?: CategoryId }) => void;
   deleteRule: (match: string) => void;
   deleteTxn: (id: string) => void;
   setBudget: (category: CategoryId, amount: number | null) => void;
@@ -180,7 +181,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   // Runs the import against the current data synchronously so the screen can
   // show "added / duplicates" straight away, then saves.
   const importLines = useCallback(
-    (lines: (ParsedLine & { category: CategoryId })[], signature: string, map: ColumnMap, newRules: Rule[], newBills: NewBill[] = []): ImportResult => {
+    (lines: (ParsedLine & { category: CategoryId })[], profiles: { signature: string; map: ColumnMap }[], newRules: Rule[], newBills: NewBill[] = []): ImportResult => {
       // Subscriptions found on the statement become bills now, so their payments here tick them as paid.
       const created: Bill[] = newBills.map((b) => ({ ...b, id: newId() }));
       const allBills = [...data.bills, ...created];
@@ -240,8 +241,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           paid,
           billActuals,
           rules: [...fresh, ...d.rules.filter((r) => !fresh.some((f) => f.match === r.match))],
-          // A PDF statement has no columns to remember (signature "").
-          importProfiles: signature ? { ...d.importProfiles, [signature]: map } : d.importProfiles,
+          // A PDF statement has no columns to remember.
+          importProfiles: { ...d.importProfiles, ...Object.fromEntries(profiles.filter((p) => p.signature).map((p) => [p.signature, p.map])) },
         };
       });
       return { added: added.length, duplicates, billsMarkedPaid, billsAdded: created.length };
@@ -264,6 +265,26 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         rules: match ? [{ match, category }, ...d.rules.filter((r) => r.match !== match)] : d.rules,
       };
     });
+  }, []);
+
+  const patchTxn = useCallback((id: string, patch: { backFor?: string | null; cashBack?: number | null; category?: CategoryId }) => {
+    setData((d) => ({
+      ...d,
+      txns: d.txns.map((t) => {
+        if (t.id !== id) return t;
+        const next: Txn = { ...t };
+        if (patch.category) next.category = patch.category;
+        if (patch.backFor !== undefined) {
+          if (patch.backFor) next.backFor = patch.backFor;
+          else delete next.backFor;
+        }
+        if (patch.cashBack !== undefined) {
+          if (patch.cashBack) next.cashBack = patch.cashBack;
+          else delete next.cashBack;
+        }
+        return next;
+      }),
+    }));
   }, []);
 
   const deleteTxn = useCallback((id: string) => setData((d) => ({ ...d, txns: d.txns.filter((t) => t.id !== id) })), []);
@@ -330,6 +351,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       addTxn,
       importLines,
       setTxnCategory,
+      patchTxn,
       deleteRule,
       deleteTxn,
       setBudget,
@@ -352,6 +374,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       addTxn,
       importLines,
       setTxnCategory,
+      patchTxn,
       deleteRule,
       deleteTxn,
       setBudget,

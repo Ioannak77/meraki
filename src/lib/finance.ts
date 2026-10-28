@@ -40,6 +40,7 @@ export type BuiltinCategoryId =
   | "subscriptions"
   | "income"
   | "transfer"
+  | "paid_back"
   | "other";
 
 /** Built-in categories, or ones you make yourself ("custom:…", e.g. Car maintenance, Limassol). */
@@ -65,6 +66,8 @@ const BUILTIN: Category[] = [
   { id: "subscriptions", label: "Subscriptions (tracked in Bills)", color: "#8a7fb0", counts: false },
   { id: "income", label: "Income", color: "#3f6b46", counts: false },
   { id: "transfer", label: "Transfer between my accounts", color: "#bdb5aa", counts: false },
+  // Friends paying you their share: not income, it lowers what the payment it's for really cost you.
+  { id: "paid_back", label: "Paid back to me", color: "#7cb0a0", counts: false },
 ];
 
 export const CUSTOM_COLORS = ["#6f9fa8", "#9b7fc4", "#c48f6a", "#7aa36b", "#c9778a", "#5f86b8", "#b0a24e"];
@@ -319,7 +322,36 @@ export type Txn = {
   category: CategoryId;
   source: "import" | "manual";
   hash: string; // for spotting duplicates when the same statement is imported twice
+  account?: string; // which statement it came from, e.g. "Revolut"
+  details?: LineDetail[]; // everything else the statement says about it
+  backFor?: string; // money paid back to you: the hash of the payment it's for
+  cashBack?: number; // a payment: how much friends gave back in cash
 };
+
+export type LineDetail = { label: string; value: string };
+
+/** How much of each payment (by hash) was paid back through the bank, from "Paid back to me" lines linked to it. */
+export function paidBackByHash(txns: { amount: number; backFor?: string }[]) {
+  const out = new Map<string, number>();
+  for (const t of txns) if (t.backFor && t.amount > 0) out.set(t.backFor, (out.get(t.backFor) ?? 0) + t.amount);
+  return out;
+}
+
+/** What a payment really cost you: its amount less what friends paid back (bank or cash). Positive. */
+export function netCost(t: Txn, back = paidBackByHash([])) {
+  if (t.amount >= 0) return 0;
+  return Math.max(0, -t.amount - (back.get(t.hash) ?? 0) - (t.cashBack ?? 0));
+}
+
+/**
+ * The transactions with each payment lowered by what was paid back, for every spending total.
+ * The paid-back lines themselves are "Paid back to me", which isn't spending or income.
+ */
+export function afterPaybacks(txns: Txn[]): Txn[] {
+  const back = paidBackByHash(txns);
+  if (!back.size && !txns.some((t) => t.cashBack)) return txns;
+  return txns.map((t) => (t.amount < 0 && (back.has(t.hash) || t.cashBack) ? { ...t, amount: -netCost(t, back) } : t));
+}
 
 export function txnHash(date: string, amount: number, description: string) {
   return `${date}|${amount.toFixed(2)}|${description.toLowerCase().replace(/\s+/g, " ").trim()}`;
@@ -374,7 +406,8 @@ export type MonthStats = {
  * Spending averages from the last `count` complete months that have
  * statement lines (the current, unfinished month isn't counted).
  */
-export function monthStats(txns: Txn[], now = today(), count = 3): MonthStats {
+export function monthStats(all: Txn[], now = today(), count = 3): MonthStats {
+  const txns = afterPaybacks(all);
   const thisMonth = dayKey(now).slice(0, 7);
   const keys = [...new Set(txns.map((t) => t.date.slice(0, 7)))].filter((k) => k < thisMonth).sort().slice(-count);
   const per = keys.map((k) => {
@@ -596,10 +629,13 @@ export type ParsedLine = {
   suggested?: CategoryId;
   abroad?: boolean;
   subscription?: "monthly" | "yearly";
+  account?: string; // the statement it came from
+  details?: LineDetail[];
+  backFor?: string;
 };
 
 /** Turns statement rows into lines; rows that can't be read are counted, not guessed. */
-export function readStatement(rows: string[][], map: ColumnMap) {
+export function readStatement(rows: string[][], map: ColumnMap, header?: string[]) {
   const lines: ParsedLine[] = [];
   let unreadable = 0;
   for (const r of rows) {
@@ -617,7 +653,11 @@ export function readStatement(rows: string[][], map: ColumnMap) {
       unreadable++;
       continue;
     }
-    lines.push({ date, description: description || "(no description)", amount });
+    // Every column the bank gives, for the details view.
+    const details = header
+      ? header.map((h, i) => ({ label: h.trim() || `Column ${i + 1}`, value: (r[i] ?? "").trim() })).filter((d) => d.value)
+      : undefined;
+    lines.push({ date, description: description || "(no description)", amount, details });
   }
   return { lines, unreadable };
 }
