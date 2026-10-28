@@ -164,7 +164,7 @@ export function ruleKeyword(description: string) {
 
 // ---------- Bills ----------
 
-export type BillKind = "bill" | "rent" | "utility" | "common" | "subscription" | "insurance" | "loan";
+export type BillKind = "bill" | "rent" | "utility" | "common" | "subscription" | "insurance" | "loan" | "pets";
 export type Frequency = "weekly" | "monthly" | "bimonthly" | "quarterly" | "yearly";
 
 export const BILL_KINDS: { id: BillKind; label: string; module: ModuleId }[] = [
@@ -174,6 +174,7 @@ export const BILL_KINDS: { id: BillKind; label: string; module: ModuleId }[] = [
   { id: "subscription", label: "Subscription", module: "subscriptions" },
   { id: "insurance", label: "Insurance", module: "insurance" },
   { id: "loan", label: "Loan repayment", module: "loans" },
+  { id: "pets", label: "Pets", module: "pet" },
   { id: "bill", label: "Other bill", module: "bills" },
 ];
 
