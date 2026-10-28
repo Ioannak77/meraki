@@ -97,6 +97,17 @@ export function currentSlot(d = today(), pmTime = DEFAULT_SKIN_SETTINGS.pmTime):
   return mins >= minutesOf(pmTime) - 180 ? "pm" : "am";
 }
 
+/**
+ * The skincare that's "now" and the day it belongs to. Until 3am it's still last night's evening
+ * (home late from a night out); from 3 to 5am it's resting (nothing shown as due); morning from 5am.
+ */
+export function skinNow(d = today(), pmTime = DEFAULT_SKIN_SETTINGS.pmTime): { slot: Slot; date: Date; resting: boolean } {
+  const h = d.getHours();
+  if (h < 3) return { slot: "pm", date: new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1, 23, 59), resting: false };
+  if (h < 5) return { slot: "am", date: d, resting: true };
+  return { slot: currentSlot(d, pmTime), date: d, resting: false };
+}
+
 
 // ---------- Repeating self-care reminders (waxing, nails, hair…) ----------
 

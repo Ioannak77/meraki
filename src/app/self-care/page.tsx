@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CareDueCard, CareReminders } from "@/components/skin/CareItems";
 import { SkinSetup } from "@/components/skin/SkinSetup";
 import { SlotCard } from "@/components/skin/SlotCard";
-import { currentSlot } from "@/lib/skin";
+import { skinNow } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
 import { useNow } from "@/lib/useNow";
 
@@ -33,7 +33,8 @@ export default function SelfCarePage() {
   }, []);
   const now = useNow();
   if (!ready) return null;
-  const slot = currentSlot(now, settings.pmTime);
+  // Until 3am the evening card is still last night's; from 3 to 5am neither is "now".
+  const { slot, date: slotDate, resting } = skinNow(now, settings.pmTime);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -73,7 +74,7 @@ export default function SelfCarePage() {
               </button>
             )}
             {(slot === "am" ? (["am", "pm"] as const) : (["pm", "am"] as const)).map((s) => (
-              <SlotCard key={s} slot={s} date={now} badge={s === slot ? "Now" : undefined} startOpen={s === slot} />
+              <SlotCard key={s} slot={s} date={s === slot ? slotDate : now} badge={s === slot && !resting ? "Now" : undefined} startOpen={s === slot} />
             ))}
             {hasDaily && <SlotCard slot="day" date={now} />}
           </div>

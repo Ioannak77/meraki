@@ -22,7 +22,7 @@ import {
 } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { SlotCard, dueSteps, slotFinished } from "@/components/skin/SlotCard";
-import { careIsDueSoon, currentSlot } from "@/lib/skin";
+import { careIsDueSoon, skinNow } from "@/lib/skin";
 import { CareDueCard } from "@/components/skin/CareItems";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
@@ -80,11 +80,12 @@ export default function TodayPage() {
   const skin = useSkin();
   const finance = useFinance();
   const groceries = useGroceries();
-  const skinSlot = currentSlot(now, skin.settings.pmTime);
-  const skinDueNow = dueSteps(skin.steps, skinSlot, now).length;
+  // After midnight it's still last night's evening skincare until 3am; morning shows from 5am.
+  const { slot: skinSlot, date: skinDate, resting: skinResting } = skinNow(now, skin.settings.pmTime);
+  const skinDueNow = dueSteps(skin.steps, skinSlot, skinDate).length;
   // Skincare leaves Today once it's all ticked; morning skincare not done by noon is let go for today.
-  const skinFinished = slotFinished(skin.steps, skin.done, skinSlot, now);
-  const showSkin = skinDueNow > 0 && !skinFinished && !(skinSlot === "am" && now.getHours() >= 12);
+  const skinFinished = slotFinished(skin.steps, skin.done, skinSlot, skinDate);
+  const showSkin = !skinResting && skinDueNow > 0 && !skinFinished && !(skinSlot === "am" && now.getHours() >= 12);
   const dailyDue = dueSteps(skin.steps, "day", now).length > 0;
   const careDue = skin.items.some((i) => careIsDueSoon(i, now));
   // Everything due now that isn't a priority: today's tasks, late ones, and
@@ -202,7 +203,7 @@ export default function TodayPage() {
         {show("selfcare") && skin.ready && (showSkin || careDue || dailyDue) && (
           <Fold id="today-selfcare" title="Self care" variant="group">
             <CareDueCard now={now} />
-            {showSkin && <SlotCard slot={skinSlot} date={now} badge="Now" />}
+            {showSkin && <SlotCard slot={skinSlot} date={skinDate} badge="Now" />}
             {dailyDue && <SlotCard slot="day" date={now} />}
           </Fold>
         )}
