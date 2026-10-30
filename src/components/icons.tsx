@@ -25,8 +25,11 @@ export const Icon = {
   ),
   routines: ({ className }: IconProps) => (
     <svg {...base} className={className}>
-      <path d="M19.5 9A8 8 0 0 0 5 7.5M4.5 15A8 8 0 0 0 19 16.5" />
-      <path d="M19.5 4v5h-5M4.5 20v-5h5" />
+      {/* A spray bottle: the Cleaning schedule. */}
+      <path d="M8.5 12.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2V20a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z" />
+      <path d="M10.5 10.5V8h3v2.5" />
+      <path d="M9 8h6V5H9.5L6.5 6.5" />
+      <path d="M18 4.5l1.5-1M18.5 7h2M18 9.5l1.5 1" />
     </svg>
   ),
   calendar: ({ className }: IconProps) => (
