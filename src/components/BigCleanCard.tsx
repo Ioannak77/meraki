@@ -6,7 +6,7 @@
 // list, so the Cleaning schedule screen stays in sync.
 
 import { useState } from "react";
-import { ROOMS, formatMinutes, occurrenceKey, stepsOn, type Room, type Routine } from "@/lib/cleaning";
+import { ROOMS, formatMinutes, isStartFirst, occurrenceKey, stepsOn, type Room, type Routine } from "@/lib/cleaning";
 import { today } from "@/lib/clock";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
@@ -15,7 +15,7 @@ import { RoutineTimer, unlockTimerAudio, type TimerItem } from "./RoutineTimer";
 export function BigCleanCard({ routines, date = today() }: { routines: Routine[]; date?: Date }) {
   const { routineDone, toggleStep } = useStore();
   const [timing, setTiming] = useState<{ title: string; items: TimerItem[] } | null>(null);
-  const [openRooms, setOpenRooms] = useState<Set<Room> | null>(null);
+  const [openRooms, setOpenRooms] = useState<Set<string> | null>(null);
 
   const items: (TimerItem & { room: Room; listName: string })[] = routines.flatMap((r) => {
     const occurrence = occurrenceKey(r, date);
@@ -26,13 +26,16 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
   const done = counted.filter(isDone).length;
   const minutesLeft = counted.filter((it) => !isDone(it)).reduce((sum, it) => sum + it.step.minutes, 0);
 
-  const byRoom = ROOMS.map((room) => ({ room, items: items.filter((it) => it.room === room) })).filter(
-    (g) => g.items.length > 0,
-  );
+  // First the machine loads and whatever needs time to dry, soak or run; then room by room.
+  const FIRST = "Start first";
+  const byRoom = [
+    { room: FIRST, items: items.filter((it) => isStartFirst(it.step)) },
+    ...ROOMS.map((room) => ({ room: room as string, items: items.filter((it) => it.room === room && !isStartFirst(it.step)) })),
+  ].filter((g) => g.items.length > 0);
   // Rooms start open until they're finished; a finished room folds away.
   const roomDone = (g: (typeof byRoom)[number]) => g.items.every((it) => it.step.optional || isDone(it));
   const isOpen = (g: (typeof byRoom)[number]) => (openRooms ? openRooms.has(g.room) : !roomDone(g));
-  function toggleRoom(room: Room) {
+  function toggleRoom(room: string) {
     setOpenRooms((prev) => {
       const next = new Set(prev ?? byRoom.filter((g) => !roomDone(g)).map((g) => g.room));
       if (next.has(room)) next.delete(room);
@@ -90,7 +93,10 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                 aria-expanded={open}
                 className="flex w-full items-center gap-2 py-3 text-left"
               >
-                <span className="flex-1 text-[16px] font-bold">{g.room}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[16px] font-bold">{g.room}</span>
+                  {g.room === FIRST && <span className="block text-xs text-muted">Washing and things that need time to dry or soak</span>}
+                </span>
                 <span className={`text-sm ${left.length ? "text-muted" : "font-semibold text-sage-dark"}`}>
                   {left.length ? `${left.length} left · ~${formatMinutes(left.reduce((t, it) => t + it.step.minutes, 0))}` : "Done ✓"}
                 </span>

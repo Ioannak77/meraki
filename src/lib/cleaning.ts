@@ -44,6 +44,7 @@ export type Step = {
   every?: { days: number; from: string }; // only every N days, counting from "YYYY-MM-DD" (e.g. watering plants)
   wash?: boolean; // a machine load: ticking it brings up the "afterWash" steps the next day
   afterWash?: boolean; // only the day after a wash step was ticked (hang and put away)
+  startFirst?: boolean; // needs time to dry, soak or run (washed cushions, oven cleaner): first on the month-end weekend
 };
 
 export type Routine = {
@@ -58,7 +59,7 @@ export type Routine = {
 
 const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash">];
+type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst">];
 
 function steps(prefix: string, list: StepInput[]): Step[] {
   return list.map(([title, minutes, room, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, room, ...extra }));
@@ -226,14 +227,14 @@ export const DEFAULT_CLEANING: Routine[] = [
       ...steps("monthly", [
         ["Vacuum under the bed", 10, "Bedroom"],
         ["Deep clean the fridge", 20, "Kitchen"],
-        ["Sanitize the washing machine", 5, "Laundry", { hint: "start the cycle" }],
+        ["Sanitize the washing machine", 5, "Laundry", { hint: "start the cycle", startFirst: true }],
         ["Wash the couch throws", 3, "Living room", { hint: "Sunday's load", wash: true }],
         ["Clean the vacuums", 10, "Whole home"],
         ["Declutter 1 drawer", 10, "Whole home"],
       ]),
       step("monthly-mattress", "Vacuum the mattress", 5, "Bedroom"),
       step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "in with the sheets on Saturday", wash: true }),
-      step("monthly-drain", "Drain cleaner", 2, "Kitchen"),
+      step("monthly-drain", "Drain cleaner", 2, "Kitchen", { hint: "let it work", startFirst: true }),
       step("monthly-bin", "Wash the kitchen bin", 10, "Kitchen"),
     ],
   },
@@ -245,7 +246,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     group: "quarterly",
     when: { kind: "monthly", months: [3, 6, 9, 12] },
     steps: steps("q-kitchen", [
-      ["Clean the oven", 30, "Kitchen"],
+      ["Clean the oven", 30, "Kitchen", { hint: "spray it first and let it soak", startFirst: true }],
       ["Clean the extractor fans", 15, "Kitchen"],
       ["Wipe inside the kitchen cabinets", 20, "Kitchen"],
       ["Clean behind the fridge and oven", 15, "Kitchen"],
@@ -260,7 +261,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     // The windows moved to the balcony's weekends; the other steps keep their ids (and ticks).
     steps: [
       step("q-living-0", "Vacuum under the furniture", 15, "Living room"),
-      step("q-living-1", "Vacuum and wash the couch cushions", 15, "Living room"),
+      step("q-living-1", "Vacuum and wash the couch cushions", 15, "Living room", { hint: "they need time to dry", startFirst: true }),
       step("q-living-3", "Wipe the skirting boards", 15, "Whole home"),
       step("q-living-4", "Dust the lights", 10, "Whole home"),
     ],
@@ -273,8 +274,8 @@ export const DEFAULT_CLEANING: Routine[] = [
     note: "All of Pari's washing in one go",
     steps: steps("q-pari", [
       ["Wash Pari's inner bed", 5, "Pari", { hint: "in with the couch throws on Sunday", wash: true }],
-      ["Wash Pari's collars, harness and leash", 5, "Pari"],
-      ["Wash Pari's toys", 5, "Pari"],
+      ["Wash Pari's collars, harness and leash", 5, "Pari", { hint: "they need time to dry", startFirst: true }],
+      ["Wash Pari's toys", 5, "Pari", { hint: "they need time to dry", startFirst: true }],
       ["Wash the pillows", 5, "Bedroom", { hint: "in with the sheets on Saturday", wash: true }],
       ["Clean inside the bathroom cabinets", 15, "Bathroom"],
     ]),
@@ -298,7 +299,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "monthly", months: [3, 9] },
     note: "Spring and end of summer: the balcony and all the windows in one go",
     steps: [
-      step("half-2", "Deep clean the balcony", 30, "Balcony and windows"),
+      step("half-2", "Deep clean the balcony", 30, "Balcony and windows", { hint: "the floor needs time to dry", startFirst: true }),
       step("q-living-2", "Clean the windows and balcony door", 30, "Balcony and windows"),
     ],
   },
@@ -318,6 +319,7 @@ type Change = { list: string; since: string } & (
 const LOADS = "2026-10-27";
 const YEAR = "2026-10-31";
 const WINDOWS = "2026-11-01";
+const FIRST = "2026-11-01b";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -362,7 +364,25 @@ const CHANGES: Change[] = [
   { list: "q-living", rename: { name: "Living room" }, since: WINDOWS },
   { list: "balcony", step: "q-living-2", since: WINDOWS },
   { list: "balcony", rename: { name: "Balcony and windows", note: "Spring and end of summer: the balcony and all the windows in one go" }, since: WINDOWS },
+  // Things that need to dry, soak or run go first on the month-end weekend.
+  ...[
+    ["monthly", "monthly-2"],
+    ["monthly", "monthly-drain"],
+    ["q-kitchen", "q-kitchen-0"],
+    ["q-living", "q-living-1"],
+    ["q-pari", "q-pari-1"],
+    ["q-pari", "q-pari-2"],
+    ["balcony", "half-2"],
+  ].map(([list, id]) => {
+    const st = defaultStep(list, id);
+    return { list, update: id, patch: { hint: st.hint, startFirst: true }, since: FIRST };
+  }),
 ];
+
+/** Goes first on the month-end weekend: a machine load, or something that needs time to dry, soak or run. */
+export function isStartFirst(s: Step) {
+  return !!(s.wash || s.startFirst);
+}
 
 function defaultStep(list: string, id: string) {
   return DEFAULT_CLEANING.find((d) => d.id === list)!.steps.find((st) => st.id === id)!;

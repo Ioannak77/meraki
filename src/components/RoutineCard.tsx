@@ -2,7 +2,7 @@
 
 import { today } from "@/lib/clock";
 import { useState } from "react";
-import { SKIPPED, formatMinutes, occurrenceKey, plannedMinutes, stepsOn, type Routine } from "@/lib/cleaning";
+import { SKIPPED, formatMinutes, occurrenceKey, isStartFirst, plannedMinutes, stepsOn, type Routine } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 import { RoutineTimer, unlockTimerAudio } from "./RoutineTimer";
@@ -57,7 +57,11 @@ export function RoutineCard({
   const key = round === 1 ? base : `${base}#${round}`;
   const skipped = (routineDone[key] ?? []).includes(SKIPPED);
   const ticked = (routineDone[key] ?? []).filter((id) => id !== ROUND_MARKER && id !== SKIPPED);
-  const daySteps = stepsOn(routine, date);
+  // Month-end lists: machine loads and things that need to dry or soak come first.
+  const daySteps =
+    routine.when.kind === "monthly"
+      ? [...stepsOn(routine, date)].sort((a, b) => Number(isStartFirst(b)) - Number(isStartFirst(a)))
+      : stepsOn(routine, date);
   const { done, total, complete } = routineProgress(routine, ticked, date);
   const style = GROUP_STYLE[routine.group];
   const minutesLeft = daySteps.filter((s) => !s.optional && !ticked.includes(s.id)).reduce((sum, s) => sum + s.minutes, 0);
