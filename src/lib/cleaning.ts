@@ -243,7 +243,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     id: "q-kitchen",
     name: "Kitchen deep clean",
     group: "quarterly",
-    when: { kind: "monthly", months: [1, 4, 7, 10] },
+    when: { kind: "monthly", months: [3, 6, 9, 12] },
     steps: steps("q-kitchen", [
       ["Clean the oven", 30, "Kitchen"],
       ["Clean the extractor fans", 15, "Kitchen"],
@@ -256,7 +256,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     id: "q-living",
     name: "Living room and windows",
     group: "quarterly",
-    when: { kind: "monthly", months: [2, 5, 8, 11] },
+    when: { kind: "monthly", months: [1, 4, 7, 10] },
     steps: steps("q-living", [
       ["Vacuum under the furniture", 15, "Living room"],
       ["Vacuum and wash the couch cushions", 15, "Living room"],
@@ -269,7 +269,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     id: "q-pari",
     name: "Pari wash day + bedroom",
     group: "quarterly",
-    when: { kind: "monthly", months: [3, 6, 9, 12] },
+    when: { kind: "monthly", months: [2, 5, 8, 11] },
     note: "All of Pari's washing in one go",
     steps: steps("q-pari", [
       ["Wash Pari's inner bed", 5, "Pari", { hint: "in with the couch throws on Sunday", wash: true }],
@@ -285,13 +285,19 @@ export const DEFAULT_CLEANING: Routine[] = [
     id: "half",
     name: "Twice a year",
     group: "twice-a-year",
-    when: { kind: "monthly", months: [5, 11] },
-    note: "Same month as the windows, so the balcony gets done in one go",
+    when: { kind: "monthly", months: [4, 11] },
     steps: steps("half", [
       ["Rotate the mattress", 10, "Bedroom"],
       ["Wash the duvet and comforter", 5, "Bedroom", { hint: "Sunday's load: the couch throws wait a month", wash: true }],
-      ["Deep clean the balcony", 30, "Balcony and windows"],
     ]),
+  },
+  {
+    id: "balcony",
+    name: "Balcony",
+    group: "twice-a-year",
+    when: { kind: "monthly", months: [3, 9] },
+    note: "Spring and end of summer, before and after the balcony season",
+    steps: [step("half-2", "Deep clean the balcony", 30, "Balcony and windows")],
   },
 ];
 
@@ -302,9 +308,12 @@ type Change = { list: string; since: string } & (
   | { remove: string }
   | { update: string; patch: Partial<Step> }
   | { rename: Partial<Pick<Routine, "name" | "note">> }
+  | { months: number[] } // moved to other months
+  | { addList: true } // a whole new list from the default
 );
 
 const LOADS = "2026-10-27";
+const YEAR = "2026-10-31";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -332,6 +341,18 @@ const CHANGES: Change[] = [
     ["q-pari", "q-pari-3"],
     ["half", "half-1"],
   ].map(([list, id]) => ({ list, update: id, patch: { hint: defaultStep(list, id).hint }, since: LOADS })),
+  // The year plan one month earlier; the balcony gets its own list in March and September.
+  ...(
+    [
+      ["q-kitchen", [3, 6, 9, 12]],
+      ["q-living", [1, 4, 7, 10]],
+      ["q-pari", [2, 5, 8, 11]],
+      ["half", [4, 11]],
+    ] as const
+  ).map(([list, months]) => ({ list, months: [...months], since: YEAR })),
+  { list: "half", remove: "half-2", since: YEAR },
+  { list: "half", rename: { note: undefined }, since: YEAR },
+  { list: "balcony", addList: true, since: YEAR },
 ];
 
 function defaultStep(list: string, id: string) {
@@ -342,6 +363,8 @@ function changeKey(c: Change) {
   if ("step" in c) return c.step;
   if ("remove" in c) return `-${c.remove}`;
   if ("update" in c) return `~${c.update}@${c.since}`;
+  if ("months" in c) return `${c.list}@months@${c.since}`;
+  if ("addList" in c) return `+${c.list}`;
   return `${c.list}@${c.since}`;
 }
 
@@ -349,6 +372,8 @@ function applyChange(r: Routine, c: Change): Routine {
   if ("remove" in c) return { ...r, steps: r.steps.filter((st) => st.id !== c.remove) };
   if ("update" in c) return { ...r, steps: r.steps.map((st) => (st.id === c.update ? { ...st, ...c.patch } : st)) };
   if ("rename" in c) return { ...r, ...c.rename };
+  if ("months" in c) return r.when.kind === "monthly" ? { ...r, when: { kind: "monthly", months: c.months } } : r;
+  if ("addList" in c) return r;
   if (r.steps.some((st) => st.id === c.step)) return r;
   const def = DEFAULT_CLEANING.find((d) => d.id === c.list)!.steps;
   const before = def[def.findIndex((st) => st.id === c.step) - 1];
@@ -363,6 +388,13 @@ export function withAddedSteps(lists: Routine[], seen: string[]) {
   const missing = CHANGES.filter((c) => !seen.includes(changeKey(c)));
   if (!missing.length) return { lists, seen };
   const next = lists.map((r) => missing.filter((c) => c.list === r.id).reduce(applyChange, r));
+  // New lists go in where the default has them (after the list before them).
+  for (const c of missing) {
+    if (!("addList" in c) || next.some((r) => r.id === c.list)) continue;
+    const i = DEFAULT_CLEANING.findIndex((d) => d.id === c.list);
+    const after = next.findIndex((r) => r.id === DEFAULT_CLEANING[i - 1]?.id);
+    next.splice(after < 0 ? next.length : after + 1, 0, DEFAULT_CLEANING[i]);
+  }
   return { lists: next, seen: [...seen, ...missing.map(changeKey)] };
 }
 
