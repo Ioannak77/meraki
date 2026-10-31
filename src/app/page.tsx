@@ -204,8 +204,8 @@ export default function TodayPage() {
         {show("selfcare") && skin.ready && (showSkin || careDue || dailyDue) && (
           <Fold id="today-selfcare" title="Self care" variant="group">
             <CareDueCard now={now} />
-            {showSkin && <SlotCard slot={skinSlot} date={skinDate} badge="Now" />}
-            {dailyDue && <SlotCard slot="day" date={now} />}
+            {showSkin && <SlotCard slot={skinSlot} date={skinDate} badge="Now" foldId={`today-skin-${skinSlot}`} />}
+            {dailyDue && <SlotCard slot="day" date={now} foldId="today-skin-day" />}
           </Fold>
         )}
 
@@ -256,13 +256,13 @@ export default function TodayPage() {
           }
         >
           {dailyNow.map((r) => (
-            <RoutineCard key={r.id} routine={r} date={now} badge="Now" collapsible />
+            <RoutineCard key={r.id} routine={r} date={now} badge="Now" collapsible foldId={`today-clean-${r.id}`} />
           ))}
           {monthEndOpen ? (
             <BigCleanCard routines={nonDaily} date={now} />
           ) : (
             nonDaily.map((r) => (
-              <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible canSkip />
+              <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible canSkip foldId={`today-clean-${r.id}`} />
             ))
           )}
           {bigCleanSoon && (

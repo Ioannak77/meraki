@@ -6,6 +6,7 @@ import { SKIPPED, formatMinutes, occurrenceKey, plannedMinutes, stepsOn, type Ro
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 import { RoutineTimer, unlockTimerAudio } from "./RoutineTimer";
+import { useRememberedFold } from "./Fold";
 
 const GROUP_STYLE: Record<Routine["group"], { tone: string; bar: string; label: string }> = {
   daily: { tone: "bg-sage-soft text-sage", bar: "bg-sage", label: "Daily" },
@@ -33,6 +34,7 @@ export function RoutineCard({
   collapsible = false,
   startOpen = true,
   canSkip = false,
+  foldId,
 }: {
   routine: Routine;
   date?: Date;
@@ -41,11 +43,13 @@ export function RoutineCard({
   collapsible?: boolean;
   startOpen?: boolean;
   canSkip?: boolean; // offer "Skip today" (weekly lists, for busy or sick days)
+  foldId?: string; // remember on this device when you fold it (Today)
 }) {
   const { routineDone, routineTimes, toggleStep } = useStore();
   // null until you fold or unfold it yourself; a finished list folds by itself.
   const [manualOpen, setManualOpen] = useState<boolean | null>(null);
   const [timing, setTiming] = useState(false);
+  const [folded, setFolded] = useRememberedFold(foldId);
   // After meals can be done again for each meal: rounds are saved as "meals@day", "meals@day#2"…
   const base = occurrenceKey(routine, date);
   let round = 1;
@@ -59,13 +63,17 @@ export function RoutineCard({
   const minutesLeft = daySteps.filter((s) => !s.optional && !ticked.includes(s.id)).reduce((sum, s) => sum + s.minutes, 0);
   const timedSeconds = routineTimes[key];
   // After meals stays open when done: its "again after the next meal" button lives inside.
-  const open = manualOpen ?? (collapsible && ((complete && !routine.repeat) || skipped) ? false : startOpen);
+  const open = folded ? false : (manualOpen ?? (collapsible && ((complete && !routine.repeat) || skipped) ? false : startOpen));
 
   return (
     <section className="rounded-3xl bg-card p-5">
       <button
         type="button"
-        onClick={() => collapsible && setManualOpen(!open)}
+        onClick={() => {
+          if (!collapsible) return;
+          setManualOpen(!open);
+          setFolded(open);
+        }}
         className={`flex w-full items-center gap-3 text-left ${collapsible ? "" : "cursor-default"}`}
         aria-expanded={collapsible ? open : undefined}
       >

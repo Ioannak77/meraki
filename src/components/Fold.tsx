@@ -34,6 +34,28 @@ export function useFold(id: string) {
   return { open, toggle, toggled };
 }
 
+/**
+ * For cards that fold themselves (skincare, cleaning lists on Today): whether you folded this one on this
+ * device, and a way to change it. No `id`: nothing is remembered.
+ */
+export function useRememberedFold(id?: string): [boolean, (folded: boolean) => void] {
+  const [folded, setFoldedState] = useState(false);
+  useEffect(() => {
+    if (!id) return;
+    const t = setTimeout(() => setFoldedState(readFolded().includes(id)), 0);
+    return () => clearTimeout(t);
+  }, [id]);
+  function setFolded(next: boolean) {
+    setFoldedState(next);
+    if (!id) return;
+    try {
+      const rest = readFolded().filter((f) => f !== id);
+      localStorage.setItem(KEY, JSON.stringify(next ? [...rest, id] : rest));
+    } catch {}
+  }
+  return [folded, setFolded];
+}
+
 function Chevron({ open }: { open: boolean }) {
   return (
     <svg viewBox="0 0 24 24" className={`size-5 shrink-0 text-muted transition-transform duration-200 ease-out ${open ? "" : "-rotate-90"}`} aria-hidden>

@@ -10,6 +10,7 @@ import { WEATHER_EVENT, cachedWeather, uvAdvice } from "@/lib/weather";
 /** Sunscreen steps follow today's UV: a must from 3, optional below. */
 const isSunscreen = (name: string) => /sunscreen|spf|sun ?cream|sunblock/i.test(name);
 import { Icon } from "../icons";
+import { useRememberedFold } from "../Fold";
 
 export const SLOT_LABEL: Record<Slot, string> = { am: "Morning", pm: "Evening", day: "Daily" };
 export const SLOT_TITLE: Record<Slot, string> = { am: "Morning skincare", pm: "Evening skincare", day: "Daily self care" };
@@ -26,9 +27,12 @@ export function slotFinished(steps: ReturnType<typeof useSkin>["steps"], done: R
   return counted.length > 0 && counted.every((s) => ticked.includes(s.id));
 }
 
-export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; date: Date; badge?: string; startOpen?: boolean }) {
+/** `foldId`: remember on this device when you fold it (Today). */
+export function SlotCard({ slot, date, badge, startOpen = true, foldId }: { slot: Slot; date: Date; badge?: string; startOpen?: boolean; foldId?: string }) {
   const { steps, done, toggle, settings } = useSkin();
-  const [open, setOpen] = useState(startOpen);
+  const [openState, setOpen] = useState(startOpen);
+  const [folded, setFolded] = useRememberedFold(foldId);
+  const open = openState && !folded;
   const [toggled, setToggled] = useState(false); // opened by a tap (then it animates in)
   const key = slotKey(slot, date);
   const due = dueSteps(steps, slot, date);
@@ -51,7 +55,8 @@ export function SlotCard({ slot, date, badge, startOpen = true }: { slot: Slot; 
   return (
     <section className="rounded-3xl bg-card p-5">
       <button type="button" onClick={() => {
-          setOpen((o) => !o);
+          setOpen(!open);
+          setFolded(open);
           setToggled(true);
         }}
         aria-expanded={open} className="flex w-full items-center gap-3 text-left">
