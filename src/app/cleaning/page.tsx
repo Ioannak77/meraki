@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BigCleanCard } from "@/components/BigCleanCard";
+import { BedroomDayCard } from "@/components/BedroomDayCard";
 import { CleaningEditor } from "@/components/CleaningEditor";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
 import {
@@ -91,7 +92,10 @@ function TodayTab({ now }: { now: Date }) {
         // On the month-end weekend everything but After meals is inside the Big clean.
         .filter((r) => !bigClean || !joinsBigClean(r))
         .sort((a, b) => rank(a) - rank(b))
-        .map((r) => (
+        .map((r) =>
+          todaySwap && r.id === todaySwap.bedroom.id ? (
+            <BedroomDayCard key={r.id} date={now} badge={WEEKDAYS[weekdayIndex(now)]} />
+          ) : (
           <RoutineCard
             key={r.id}
             routine={r}
@@ -110,7 +114,8 @@ function TodayTab({ now }: { now: Date }) {
             startOpen={r.when.kind !== "daily" || r.when.part === part}
             canSkip={r.when.kind === "weekly"}
           />
-        ))}
+          ),
+        )}
       {bigClean ? (
         <BigCleanCard routines={due.filter(joinsBigClean)} date={now} />
       ) : (
@@ -141,15 +146,18 @@ function WeekTab({ now }: { now: Date }) {
         // Around a month-end weekend one day swaps with the Big clean (see monthEndSwap).
         const sw = monthEndSwap(date, settings.officeDays);
         const swappedDay = sw && dayKey(sw.day) === dayKey(date);
+        if (swappedDay) return <BedroomDayCard key={day} date={date} badge={isToday ? "Today" : WEEKDAYS[day].slice(0, 3)} />;
+        // The month-end Saturday's list is the one that matches the deep clean.
+        const sat = sw && dayKey(sw.saturday) === dayKey(date);
         return (
           <RoutineCard
             key={day}
-            routine={swappedDay ? sw.bedroom : slot.routine}
+            routine={sat ? sw.weekly : slot.routine}
             date={date}
             badge={isToday ? "Today" : WEEKDAYS[day].slice(0, 3)}
             subtitle={
-              swappedDay
-                ? `${sw.weekly.name} is in the month-end Big clean`
+              sat
+                ? "In the month-end Big clean"
                 : slot.movedFrom !== undefined
                 ? `${office ? "Office day · " : ""}swapped with ${WEEKDAYS[slot.movedFrom]}`
                 : office

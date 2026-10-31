@@ -6,11 +6,13 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Ring } from "@/components/Ring";
 import { BigCleanCard } from "@/components/BigCleanCard";
+import { BedroomDayCard } from "@/components/BedroomDayCard";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
 import {
   WEEKDAYS,
   currentDayPart,
   dueToday,
+  bedroomDay,
   inEndOfMonthWindow,
   joinsBigClean,
   weeklyListOn,
@@ -262,9 +264,14 @@ export default function TodayPage() {
           {monthEndOpen ? (
             <BigCleanCard routines={bigCleanLists} date={now} />
           ) : (
-            nonDaily.map((r) => (
-              <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible canSkip foldId={`today-clean-${r.id}`} />
-            ))
+            nonDaily.map((r) =>
+              // Around a month-end weekend the Bedroom comes with the month's bedroom jobs.
+              bedroomDay(now, settings.officeDays)?.swap.bedroom.id === r.id ? (
+                <BedroomDayCard key={r.id} date={now} badge={WEEKDAYS[weekdayIndex(now)]} />
+              ) : (
+                <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible canSkip foldId={`today-clean-${r.id}`} />
+              ),
+            )
           )}
           {bigCleanSoon && (
             <Link href="/cleaning/" className="rounded-3xl bg-card/60 p-4 text-[15px] text-muted lg:col-span-2">

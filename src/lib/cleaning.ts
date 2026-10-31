@@ -202,7 +202,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "weekly", weekday: 5 },
     // On a month-end Saturday these join the Big clean: the sheets go in first, the bed is made after the mattress.
     steps: [
-      step("sat-sheets", "Strip the bed and wash the sheets", 5, "Laundry", { hint: "Saturday's load", wash: true, phase: "start" }),
+      step("sat-sheets", "Strip the bed and wash the sheets", 5, "Laundry", { hint: "the day's load", wash: true, phase: "start" }),
       step("sat-0", "Make the bed with fresh sheets", 5, "Bedroom", { hint: "and pillowcases", phase: "bed" }),
       step("sat-2", "Dust the bedroom", 5, "Bedroom", { phase: "high" }),
     ],
@@ -296,7 +296,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     steps: [
       step("q-pari-3", "Wash the pillows", 5, "Bedroom", { hint: "in with the sheets", wash: true, phase: "start" }),
       step("half-0", "Rotate the mattress", 10, "Bedroom", { phase: "bed" }),
-      step("half-1", "Wash the duvet and comforter", 5, "Bedroom", { hint: "its own load on Sunday", wash: true, phase: "close" }),
+      step("half-1", "Wash the duvet and comforter", 5, "Bedroom", { hint: "its own load, after the sheets", wash: true, phase: "close" }),
     ],
   },
   {
@@ -330,6 +330,7 @@ const FIRST = "2026-11-01b";
 const FORTNIGHT = "2026-11-01c";
 const PHASED = "2026-11-01d";
 const PROTECTORS = "2026-11-01e";
+const BEDROOM = "2026-11-01f";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -427,6 +428,9 @@ const CHANGES: Change[] = [
   // Pillow protectors every month, the mattress protector every 2 months (from November).
   { list: "monthly", update: "monthly-protectors", patch: { title: "Wash the pillow protectors", minutes: 3 }, since: PROTECTORS },
   { list: "monthly", step: "monthly-mattress-protector", since: PROTECTORS },
+  // The bedroom jobs moved to the bedroom day, which isn't always a Saturday or Sunday.
+  { list: "sat", update: "sat-sheets", patch: { hint: "the day's load" }, since: BEDROOM },
+  { list: "half", update: "half-1", patch: { hint: "its own load, after the sheets" }, since: BEDROOM },
 ];
 
 // ---------- The Big clean, in the order you clean ----------
@@ -604,10 +608,8 @@ function washedDayBefore(d: Date) {
 export function stepsOn(r: Routine, d = today()) {
   const day = weekdayIndex(d);
   const month = (monthEndOwner(d) ?? d).getMonth() + 1;
-  const part = bedroomPart(r, d);
   return r.steps.filter(
     (s) =>
-      (!part || BED_PHASES.includes(phaseOf(s)) === (part === "bed")) &&
       (!s.months || r.when.kind !== "monthly" || s.months.includes(month)) &&
       (!s.weekdays || s.weekdays.includes(day)) &&
       (!s.every || onEvery(s.every, d)) &&
@@ -720,8 +722,8 @@ export function weeklyPlan(officeDays: number[]): WeekSlot[] {
 
 // ---------- The month-end swap ----------
 // The weekly list that matches the month's deep clean (Kitchen, Pari, Living room) is done inside that
-// weekend's Big clean. On its own day nearest the weekend you dust the bedroom instead; the bed itself
-// (sheets, protectors, making it) stays in the Big clean.
+// weekend's Big clean, in the Saturday's place. The Bedroom list goes to that list's own day nearest the
+// weekend, with the month's bedroom jobs (see bedroomDay).
 
 const MATCHING_WEEKLY: Record<string, string> = { "q-kitchen": "wed", "q-pari": "thu", "q-living": "fri" };
 
@@ -762,19 +764,37 @@ export function monthEndSwap(d = today(), officeDays = officeDaysNow): MonthEndS
 export function weeklyListOn(d = today(), officeDays = officeDaysNow) {
   const sw = monthEndSwap(d, officeDays);
   if (sw && !monthEndOwner(d)) return sw.bedroom;
+  if (sw && dayKey(d) === dayKey(sw.saturday)) return sw.weekly;
   return weeklyPlan(officeDays)[weekdayIndex(d)].routine;
 }
 
-const BED_PHASES: Phase[] = ["start", "bed"];
+/**
+ * The month-end lists' bedroom jobs (protectors, mattress, under the bed, pillows, duvet) are done with the
+ * Bedroom list on the swapped day, when the bed is stripped anyway, not in the Big clean. In this order.
+ */
+export const BEDROOM_DAY = [
+  "monthly-protectors", "monthly-mattress-protector", "q-pari-3", "monthly-mattress", "half-0", "monthly-0", "half-1",
+];
 
-/** The Bedroom list split by the swap: the bed on the month-end Saturday, the rest on the swapped day. */
-function bedroomPart(r: Routine, d: Date): "bed" | "rest" | null {
-  if (r.when.kind !== "weekly") return null;
-  const sw = monthEndSwap(d);
-  if (!sw || sw.bedroom.id !== r.id) return null;
-  if (dayKey(d) === dayKey(sw.saturday)) return "bed";
-  if (dayKey(d) === dayKey(sw.day)) return "rest";
-  return null;
+/** The bedroom day around a month-end weekend: the weekly Bedroom list plus the month's bedroom jobs. */
+export function bedroomDay(d = today(), officeDays = officeDaysNow) {
+  const sw = monthEndSwap(d, officeDays);
+  if (!sw || monthEndOwner(d) || dayKey(sw.day) !== dayKey(d)) return null;
+  const weekly = stepsOn(sw.bedroom, d).map((step) => ({ step, occurrence: occurrenceKey(sw.bedroom, d), list: sw.bedroom.name }));
+  const monthly = routinesForMonth(sw.saturday).flatMap((r) =>
+    stepsOn(r, sw.saturday)
+      .filter((st) => BEDROOM_DAY.includes(st.id))
+      .map((step) => ({ step, occurrence: occurrenceKey(r, sw.saturday), list: r.name })),
+  );
+  // Sheets first, then the month's jobs while the bed is bare, then dusting and making the bed.
+  const rank = (id: string) => {
+    if (id === "sat-sheets") return -1;
+    const i = BEDROOM_DAY.indexOf(id);
+    if (i >= 0) return i;
+    return id === "sat-0" ? 100 : 50;
+  };
+  const items = [...weekly, ...monthly].sort((a, b) => rank(a.step.id) - rank(b.step.id));
+  return { swap: sw, items };
 }
 
 export function isDueOn(r: Routine, d = today(), officeDays: number[] = []) {

@@ -6,7 +6,7 @@
 // Cleaning schedule screen stays in sync.
 
 import { useState } from "react";
-import { PHASES, bigCleanOrder, coveredInBigClean, formatMinutes, monthEndSwap, occurrenceKey, phaseOf, stepsOn, type Room, type Routine } from "@/lib/cleaning";
+import { BEDROOM_DAY, PHASES, bigCleanOrder, coveredInBigClean, formatMinutes, monthEndSwap, occurrenceKey, phaseOf, stepsOn, type Room, type Routine } from "@/lib/cleaning";
 import { today } from "@/lib/clock";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
@@ -32,7 +32,8 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
   const ids = new Set(all.map((it) => it.step.id));
   // Daily steps the Big clean already does (the bed made with fresh sheets, every floor vacuumed) are left out.
   const items: (TimerItem & { room: Room; listName: string })[] = bigCleanOrder(
-    all.filter((it) => !coveredInBigClean(it.step, ids)),
+    // The bedroom jobs are done on the bedroom day (see bedroomDay), not in the Big clean.
+    all.filter((it) => !coveredInBigClean(it.step, ids) && !(swap && BEDROOM_DAY.includes(it.step.id))),
     (it) => it.step,
   );
   const isDone = (it: TimerItem) => (routineDone[it.occurrence] ?? []).includes(it.step.id);
