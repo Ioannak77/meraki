@@ -187,7 +187,8 @@ function YearMonth({ name, month, isCurrent }: { name: string; month: number; is
   const [open, setOpen] = useState(false);
   const lists = cleaningLists().filter((r) => r.when.kind === "monthly" && r.when.months.includes(month));
   const extra = lists.filter((r) => r.group !== "monthly");
-  const minutes = (r: (typeof lists)[number]) => r.steps.filter((st) => !st.optional).reduce((t, st) => t + st.minutes, 0);
+  const inMonth = (r: (typeof lists)[number]) => r.steps.filter((st) => !st.months || st.months.includes(month));
+  const minutes = (r: (typeof lists)[number]) => inMonth(r).filter((st) => !st.optional).reduce((t, st) => t + st.minutes, 0);
   const total = lists.reduce((t, r) => t + minutes(r), 0);
   return (
     <li>
@@ -206,7 +207,7 @@ function YearMonth({ name, month, isCurrent }: { name: string; month: number; is
                 <span className="shrink-0 font-semibold normal-case tracking-normal">~{formatMinutes(minutes(r))}</span>
               </h3>
               <ul className="mt-1 divide-y divide-line">
-                {r.steps.map((st) => (
+                {inMonth(r).map((st) => (
                   <li key={st.id} className="flex items-baseline gap-3 py-1.5 text-[14px]">
                     <span className="min-w-0 flex-1">
                       {st.title}

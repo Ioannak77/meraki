@@ -64,7 +64,8 @@ export const HOW: Record<string, string> = {
   "monthly-4": "Empty the bin or bag, rinse the filters in water (only the washable ones) and let them dry 24 hours, cut the hair off the brush roll.",
   "monthly-5": "One drawer only: empty it, wipe it, put back only what you use. The rest: bin, donate or a better place.",
   "monthly-mattress": "Strip the bed, vacuum the mattress slowly with the upholstery tool, seams too. A sprinkle of baking soda 30 minutes before freshens it.",
-  "monthly-protectors": "Mattress and pillow protectors at 60°C (check the label), dry fully before putting back on.",
+  "monthly-protectors": "Pillow protectors in with the sheets at 60°C (check the label). Dry fully before putting them back on.",
+  "monthly-mattress-protector": "Mattress protector in with the sheets at 60°C (check the label; some say 40°C). Dry it fully, flat or over a rail, before it goes back on: a damp one under the sheet gets musty. Use a spare if it's not dry by bedtime.",
   "monthly-drain": "Pour the drain cleaner as the bottle says and leave it the time it says, then flush with hot water. Never mix two drain products, or drain cleaner with bleach.",
   "monthly-bin": "Empty the bin, take it to the shower or balcony, spray inside and out with soapy water or a disinfectant, rinse, let it dry upside down.",
   // Kitchen deep clean

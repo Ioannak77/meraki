@@ -48,6 +48,7 @@ export type Step = {
   phase?: Phase; // where it goes in the month-end Big clean (see PHASES)
   how?: string; // your own instructions (Edit); else the built-in ones in cleaningHow.ts
   everyOtherWeek?: WeekParity; // weekly lists: only every other week (see weekParity), whichever day the list lands on
+  months?: number[]; // month-end lists: only in these months (1-12), e.g. the mattress protector every 2 months
 };
 
 export type Routine = {
@@ -62,7 +63,7 @@ export type Routine = {
 
 const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst" | "everyOtherWeek" | "phase">];
+type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst" | "everyOtherWeek" | "phase" | "months">];
 
 function steps(prefix: string, list: StepInput[]): Step[] {
   return list.map(([title, minutes, room, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, room, ...extra }));
@@ -226,7 +227,13 @@ export const DEFAULT_CLEANING: Routine[] = [
     group: "monthly",
     when: { kind: "monthly", months: ALL_MONTHS },
     steps: [
-      step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "in with the sheets", wash: true, phase: "start" }),
+      step("monthly-protectors", "Wash the pillow protectors", 3, "Bedroom", { hint: "in with the sheets", wash: true, phase: "start" }),
+      step("monthly-mattress-protector", "Wash the mattress protector", 5, "Bedroom", {
+        hint: "in with the sheets · every 2 months",
+        wash: true,
+        phase: "start",
+        months: [1, 3, 5, 7, 9, 11],
+      }),
       step("monthly-drain", "Drain cleaner", 2, "Kitchen", { hint: "let it work", phase: "start" }),
       step("monthly-5", "Declutter 1 drawer", 10, "Whole home", { phase: "clear" }),
       step("monthly-1", "Empty and deep clean the fridge", 20, "Kitchen", { phase: "clear" }),
@@ -322,6 +329,7 @@ const WINDOWS = "2026-11-01";
 const FIRST = "2026-11-01b";
 const FORTNIGHT = "2026-11-01c";
 const PHASED = "2026-11-01d";
+const PROTECTORS = "2026-11-01e";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -416,6 +424,9 @@ const CHANGES: Change[] = [
       return { list, update: id, patch: { title: st.title, minutes: st.minutes, hint: st.hint, wash: st.wash, phase: st.phase, startFirst: undefined }, since: PHASED };
     }),
   ),
+  // Pillow protectors every month, the mattress protector every 2 months (from November).
+  { list: "monthly", update: "monthly-protectors", patch: { title: "Wash the pillow protectors", minutes: 3 }, since: PROTECTORS },
+  { list: "monthly", step: "monthly-mattress-protector", since: PROTECTORS },
 ];
 
 // ---------- The Big clean, in the order you clean ----------
@@ -460,7 +471,7 @@ export function coveredInBigClean(s: Step, ids: Set<string>) {
 /** Within a phase, the order to do things in (steps not listed come after, in list order). */
 const PHASE_ORDER = [
   "morning-1", "morning-2", "morning-laundry", "morning-0",
-  "sat-sheets", "monthly-protectors", "q-pari-3", "q-living-1", "q-kitchen-0", "q-pari-1", "q-pari-2", "monthly-drain",
+  "sat-sheets", "monthly-protectors", "monthly-mattress-protector", "q-pari-3", "q-living-1", "q-kitchen-0", "q-pari-1", "q-pari-2", "monthly-drain",
   "morning-3", "monthly-5", "monthly-1", "q-kitchen-2", "q-pari-4",
   "q-living-4", "q-kitchen-4", "q-kitchen-1", "q-living-2", "sat-2",
   "monthly-mattress", "half-0", "sat-0", "q-kitchen-oven",
@@ -587,8 +598,10 @@ function washedDayBefore(d: Date) {
 /** Steps of a list that apply on this day (e.g. Pari's bowls only Tue/Thu/Sat). */
 export function stepsOn(r: Routine, d = today()) {
   const day = weekdayIndex(d);
+  const month = (monthEndOwner(d) ?? d).getMonth() + 1;
   return r.steps.filter(
     (s) =>
+      (!s.months || r.when.kind !== "monthly" || s.months.includes(month)) &&
       (!s.weekdays || s.weekdays.includes(day)) &&
       (!s.every || onEvery(s.every, d)) &&
       (!s.everyOtherWeek || weekParity(d) === s.everyOtherWeek) &&
