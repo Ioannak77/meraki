@@ -254,16 +254,16 @@ export const DEFAULT_CLEANING: Routine[] = [
   },
   {
     id: "q-living",
-    name: "Living room and windows",
+    name: "Living room",
     group: "quarterly",
     when: { kind: "monthly", months: [1, 4, 7, 10] },
-    steps: steps("q-living", [
-      ["Vacuum under the furniture", 15, "Living room"],
-      ["Vacuum and wash the couch cushions", 15, "Living room"],
-      ["Clean the windows and balcony door", 30, "Balcony and windows"],
-      ["Wipe the skirting boards", 15, "Whole home"],
-      ["Dust the lights", 10, "Whole home"],
-    ]),
+    // The windows moved to the balcony's weekends; the other steps keep their ids (and ticks).
+    steps: [
+      step("q-living-0", "Vacuum under the furniture", 15, "Living room"),
+      step("q-living-1", "Vacuum and wash the couch cushions", 15, "Living room"),
+      step("q-living-3", "Wipe the skirting boards", 15, "Whole home"),
+      step("q-living-4", "Dust the lights", 10, "Whole home"),
+    ],
   },
   {
     id: "q-pari",
@@ -293,11 +293,14 @@ export const DEFAULT_CLEANING: Routine[] = [
   },
   {
     id: "balcony",
-    name: "Balcony",
+    name: "Balcony and windows",
     group: "twice-a-year",
     when: { kind: "monthly", months: [3, 9] },
-    note: "Spring and end of summer, before and after the balcony season",
-    steps: [step("half-2", "Deep clean the balcony", 30, "Balcony and windows")],
+    note: "Spring and end of summer: the balcony and all the windows in one go",
+    steps: [
+      step("half-2", "Deep clean the balcony", 30, "Balcony and windows"),
+      step("q-living-2", "Clean the windows and balcony door", 30, "Balcony and windows"),
+    ],
   },
 ];
 
@@ -314,6 +317,7 @@ type Change = { list: string; since: string } & (
 
 const LOADS = "2026-10-27";
 const YEAR = "2026-10-31";
+const WINDOWS = "2026-11-01";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -353,6 +357,11 @@ const CHANGES: Change[] = [
   { list: "half", remove: "half-2", since: YEAR },
   { list: "half", rename: { note: undefined }, since: YEAR },
   { list: "balcony", addList: true, since: YEAR },
+  // The windows go with the balcony, twice a year, instead of with the living room four times.
+  { list: "q-living", remove: "q-living-2", since: WINDOWS },
+  { list: "q-living", rename: { name: "Living room" }, since: WINDOWS },
+  { list: "balcony", step: "q-living-2", since: WINDOWS },
+  { list: "balcony", rename: { name: "Balcony and windows", note: "Spring and end of summer: the balcony and all the windows in one go" }, since: WINDOWS },
 ];
 
 function defaultStep(list: string, id: string) {
