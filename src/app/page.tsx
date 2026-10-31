@@ -12,6 +12,7 @@ import {
   currentDayPart,
   dueToday,
   inEndOfMonthWindow,
+  joinsBigClean,
   isSkipped,
   monthEndLabel,
   monthEndSaturday,
@@ -55,12 +56,15 @@ export default function TodayPage() {
     },
     { done: 0, total: 0 },
   );
-  // On Today, show the daily list for this time of day and today's weekly
-  // list. On a month-end weekend the weekly and big lists become one
-  // "Big clean" checklist grouped by room.
+  // On Today, show the daily list for this time of day and today's weekly list. On a month-end
+  // weekend the Morning and Evening lists, the weekly list and the big lists become one "Big clean"
+  // checklist in cleaning order; After meals stays on its own.
   const part = currentDayPart(now);
   const monthEndOpen = inEndOfMonthWindow(now);
-  const dailyNow = routinesToday.filter((r) => r.when.kind === "daily" && r.when.part === part);
+  const dailyNow = routinesToday.filter(
+    (r) => r.when.kind === "daily" && r.when.part === part && !(monthEndOpen && joinsBigClean(r)),
+  );
+  const bigCleanLists = routinesToday.filter(joinsBigClean);
   const nonDaily = routinesToday.filter((r) => r.when.kind !== "daily");
   const monthLists = routinesForMonth(now);
   // A heads-up about the month-end Big clean, in the week before it.
@@ -256,7 +260,7 @@ export default function TodayPage() {
             <RoutineCard key={r.id} routine={r} date={now} badge="Now" collapsible foldId={`today-clean-${r.id}`} />
           ))}
           {monthEndOpen ? (
-            <BigCleanCard routines={nonDaily} date={now} />
+            <BigCleanCard routines={bigCleanLists} date={now} />
           ) : (
             nonDaily.map((r) => (
               <RoutineCard key={r.id} routine={r} date={now} badge={WEEKDAYS[weekdayIndex(now)]} collapsible canSkip foldId={`today-clean-${r.id}`} />

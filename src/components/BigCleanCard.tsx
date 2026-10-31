@@ -6,7 +6,7 @@
 // Cleaning schedule screen stays in sync.
 
 import { useState } from "react";
-import { PHASES, bigCleanOrder, formatMinutes, occurrenceKey, phaseOf, stepsOn, type Room, type Routine } from "@/lib/cleaning";
+import { PHASES, bigCleanOrder, coveredInBigClean, formatMinutes, occurrenceKey, phaseOf, stepsOn, type Room, type Routine } from "@/lib/cleaning";
 import { today } from "@/lib/clock";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
@@ -19,11 +19,14 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
   const [openRooms, setOpenRooms] = useState<Set<string> | null>(null);
   const [howOpen, setHowOpen] = useState<string | null>(null); // the step whose instructions are open
 
+  const all = routines.flatMap((r) => {
+    const occurrence = occurrenceKey(r, date);
+    return stepsOn(r, date).map((step) => ({ step, occurrence, room: step.room, listName: r.name, label: PHASES.find((p) => p.id === phaseOf(step))!.label }));
+  });
+  const ids = new Set(all.map((it) => it.step.id));
+  // Daily steps the Big clean already does (the bed made with fresh sheets, every floor vacuumed) are left out.
   const items: (TimerItem & { room: Room; listName: string })[] = bigCleanOrder(
-    routines.flatMap((r) => {
-      const occurrence = occurrenceKey(r, date);
-      return stepsOn(r, date).map((step) => ({ step, occurrence, room: step.room, listName: r.name, label: PHASES.find((p) => p.id === phaseOf(step))!.label }));
-    }),
+    all.filter((it) => !coveredInBigClean(it.step, ids)),
     (it) => it.step,
   );
   const isDone = (it: TimerItem) => (routineDone[it.occurrence] ?? []).includes(it.step.id);

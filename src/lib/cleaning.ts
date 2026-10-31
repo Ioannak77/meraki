@@ -431,19 +431,47 @@ export const PHASES: { id: Phase; label: string; when: string; note: string }[] 
   { id: "close", label: "Second load and close down", when: "Sunday", note: "The last loads, then put everything away; the washing machine is sanitized last" },
 ];
 
+/**
+ * On the month-end weekend the Morning and Evening lists join the Big clean (After meals stays on its own:
+ * it's ticked after every meal). Where their steps go, and the ones the Big clean already covers.
+ */
+const DAILY_PHASE: Record<string, Phase> = {
+  "morning-0": "start", "morning-1": "start", "morning-2": "start", "morning-laundry": "start",
+  "morning-3": "clear",
+  "morning-plants": "close", "evening-0": "close", "evening-1": "close", "evening-2": "close", "evening-3": "close",
+  "evening-4": "close", "evening-rubbish": "close", "evening-makeup": "close", "evening-hairbrush": "close",
+};
+const COVERED_BY: Record<string, string> = {
+  "morning-0": "sat-0", // Saturday's bed is made with fresh sheets later on
+  "evening-3": "monthly-floors", // every floor is vacuumed and mopped
+};
+
+/** Daily lists that join the Big clean on the month-end weekend: all but the ones done again after each meal. */
+export function joinsBigClean(r: Routine) {
+  return r.when.kind !== "daily" || !r.repeat;
+}
+
+/** A step left out of the Big clean because another step in it does the job. */
+export function coveredInBigClean(s: Step, ids: Set<string>) {
+  const by = COVERED_BY[s.id];
+  return !!by && ids.has(by);
+}
+
 /** Within a phase, the order to do things in (steps not listed come after, in list order). */
 const PHASE_ORDER = [
+  "morning-1", "morning-2", "morning-laundry", "morning-0",
   "sat-sheets", "monthly-protectors", "q-pari-3", "q-living-1", "q-kitchen-0", "q-pari-1", "q-pari-2", "monthly-drain",
-  "monthly-5", "monthly-1", "q-kitchen-2", "q-pari-4",
+  "morning-3", "monthly-5", "monthly-1", "q-kitchen-2", "q-pari-4",
   "q-living-4", "q-kitchen-4", "q-kitchen-1", "q-living-2", "sat-2",
   "monthly-mattress", "half-0", "sat-0", "q-kitchen-oven",
   "q-kitchen-3", "q-living-3", "q-living-0", "monthly-0", "half-2", "monthly-floors",
-  "monthly-3", "q-pari-0", "half-1", "sun-1", "sun-2", "sun-3", "monthly-bin", "monthly-4", "monthly-2",
+  "monthly-3", "q-pari-0", "half-1", "sun-1", "sun-2", "sun-3", "morning-plants",
+  "evening-0", "evening-2", "evening-1", "evening-makeup", "evening-hairbrush", "monthly-bin", "evening-rubbish", "monthly-4", "monthly-2", "evening-4",
 ];
 
 /** Which part of the Big clean a step belongs to. Steps from before phases: "start first" ones go first. */
 export function phaseOf(s: Step): Phase {
-  return s.phase ?? ((s.startFirst ?? !!s.wash) ? "start" : "clear");
+  return s.phase ?? DAILY_PHASE[s.id] ?? ((s.startFirst ?? !!s.wash) ? "start" : "clear");
 }
 
 /** Sorts steps into Big clean order: by phase, then the usual order within it. */

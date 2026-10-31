@@ -15,6 +15,7 @@ import {
   type DayPart,
   dueToday,
   inEndOfMonthWindow,
+  joinsBigClean,
   monthEndLabel,
   monthEndSaturday,
   routinesForMonth,
@@ -84,7 +85,8 @@ function TodayTab({ now }: { now: Date }) {
         </p>
       )}
       {due
-        .filter((r) => r.when.kind === "daily" || !bigClean)
+        // On the month-end weekend everything but After meals is inside the Big clean.
+        .filter((r) => !bigClean || !joinsBigClean(r))
         .sort((a, b) => rank(a) - rank(b))
         .map((r) => (
           <RoutineCard
@@ -105,7 +107,7 @@ function TodayTab({ now }: { now: Date }) {
           />
         ))}
       {bigClean ? (
-        <BigCleanCard routines={due.filter((r) => r.when.kind !== "daily")} date={now} />
+        <BigCleanCard routines={due.filter(joinsBigClean)} date={now} />
       ) : (
         // A heads-up in the week before; the details are in the Big clean tab.
         daysToBigClean > 0 &&
