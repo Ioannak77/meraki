@@ -539,8 +539,10 @@ export function dueToday(d = today(), officeDays: number[] = []) {
 }
 
 /** Daily list to put first right now: morning before 12, evening from 18. */
-export function currentDayPart(d = today()): DayPart {
+/** The daily list for this time of day; none from midnight to 5am (nobody should be cleaning then). */
+export function currentDayPart(d = today()): DayPart | null {
   const h = d.getHours();
+  if (h < 5) return null;
   if (h < 12) return "morning";
   if (h < 18) return "meals";
   return "evening";

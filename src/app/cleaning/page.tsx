@@ -69,7 +69,7 @@ function TodayTab({ now }: { now: Date }) {
   const bigClean = inEndOfMonthWindow(now);
   // Only the list for now (and today's weekly one) starts open; earlier ones go quiet.
   const order: DayPart[] = ["morning", "meals", "evening"];
-  const isPast = (p: DayPart) => order.indexOf(p) < order.indexOf(part);
+  const isPast = (p: DayPart) => part !== null && order.indexOf(p) < order.indexOf(part);
   // The list for now first, then today's weekly list, then the other daily lists.
   const rank = (r: (typeof due)[number]) => (r.when.kind === "daily" ? (r.when.part === part ? 0 : 2) : 1);
   const daysToBigClean = Math.round(

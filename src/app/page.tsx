@@ -36,6 +36,7 @@ import { Fold } from "@/components/Fold";
 import { dayKey, isDoneToday, todaysTasks, useStore, type Task, type TodayCard } from "@/lib/store";
 
 function greeting(hour: number) {
+  if (hour < 5) return "Good night";
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
   return "Good evening";
@@ -140,7 +141,7 @@ export default function TodayPage() {
     <div className="mx-auto max-w-5xl">
       <header className="flex items-center justify-between gap-4 md:mt-4">
         <div className="flex items-center gap-3">
-          {now.getHours() < 18 ? <Icon.sun className="hidden size-11 shrink-0 md:block" /> : <Icon.moon className="hidden size-10 shrink-0 md:block" />}
+          {now.getHours() >= 5 && now.getHours() < 18 ? <Icon.sun className="hidden size-11 shrink-0 md:block" /> : <Icon.moon className="hidden size-10 shrink-0 md:block" />}
           <div>
             <p className="text-xs uppercase tracking-wider text-muted">
               {now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
@@ -241,7 +242,8 @@ export default function TodayPage() {
           </Fold>
         )}
 
-        {show("cleaning") && (
+        {/* From midnight to 5am there's no cleaning "now". */}
+        {show("cleaning") && part !== null && (
         <Fold
           id="today-cleaning"
           title="Cleaning now"
