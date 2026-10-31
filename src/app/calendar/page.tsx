@@ -9,8 +9,6 @@ import { useState } from "react";
 import { MONTHS, WEEKDAYS, cleaningLists, isDueOn, monthEndOwner, weeklyPlan, weekdayIndex } from "@/lib/cleaning";
 import { dueDates, isBillPaid, money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
-import { careNextDue } from "@/lib/skin";
-import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
 import { advanceDate, dayKey, useStore, type Task } from "@/lib/store";
 import { useNow } from "@/lib/useNow";
@@ -36,7 +34,6 @@ const DOT: Record<Entry["kind"], string> = {
 export default function CalendarPage() {
   const { ready, tasks, settings } = useStore();
   const finance = useFinance();
-  const skin = useSkin();
   const now = useNow();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [picked, setPicked] = useState(() => dayKey(now));
@@ -70,10 +67,6 @@ export default function CalendarPage() {
     for (const d of dueDates(b, first, last)) {
       add(dayKey(d), { kind: "bill", label: b.name, detail: money(b.amount), done: isBillPaid(b, d, finance.paid), href: "/finances/" });
     }
-  }
-  for (const it of skin.items) {
-    const due = careNextDue(it);
-    if (due?.startsWith(dayKey(first).slice(0, 7))) add(due, { kind: "care", label: it.name, href: "/self-care/" });
   }
   for (const d of days) {
     const key = dayKey(d);

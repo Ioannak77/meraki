@@ -10,9 +10,7 @@ import { Sheet } from "@/components/finance/ui";
 import { Icon, type IconName } from "@/components/icons";
 import { CleaningEditor } from "@/components/CleaningEditor";
 import { KindWordsSettings } from "@/components/KindWordsSettings";
-import { CareReminders } from "@/components/skin/CareItems";
 import { SkinSetup } from "@/components/skin/SkinSetup";
-import { useNow } from "@/lib/useNow";
 import { NotificationsCard } from "@/components/NotificationsCard";
 import { SyncCard } from "@/components/SyncCard";
 import { TodayCardsSettings } from "@/components/TodayCardsSettings";
@@ -20,15 +18,14 @@ import { WEEKDAYS, formatMinutes, plannedMinutes, weeklyPlan } from "@/lib/clean
 import { DEFAULT_PUSH, TODAY_CARDS, useStore } from "@/lib/store";
 import { getServerSyncState, getSyncState, subscribeSync } from "@/lib/sync";
 
-type Panel = "home" | "notifications" | "kind" | "care" | "today" | "office" | "cleaning" | "look" | "skin" | "money" | "sync" | "backup";
+type Panel = "home" | "notifications" | "kind" | "today" | "office" | "cleaning" | "look" | "skin" | "money" | "sync" | "backup";
 // Full editors from other pages, shown as they are (no card frame to strip).
-const FULL: Panel[] = ["care", "cleaning", "skin"];
+const FULL: Panel[] = ["cleaning", "skin"];
 
 const TITLES: Record<Panel, string> = {
   home: "Add to your home screen",
   notifications: "Notifications",
   kind: "Kind words",
-  care: "Self-care reminders",
   cleaning: "Cleaning lists",
   skin: "Skincare and daily self care",
   look: "Appearance",
@@ -53,7 +50,6 @@ export default function SettingsPage() {
   const { ready, settings } = useStore();
   const sync = useSyncExternalStore(subscribeSync, getSyncState, getServerSyncState);
   const [open, setOpen] = useState<Panel | null>(null);
-  const now = useNow();
   const [installed, setInstalled] = useState(true);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
 
@@ -105,7 +101,6 @@ export default function SettingsPage() {
           attention={sync.status === "on" && !push.on}
           onClick={() => setOpen("notifications")}
         />
-        <Row icon="heart" tone="bg-rose-soft text-rose" label="Self-care reminders" note="Waxing, nails, hair…" onClick={() => setOpen("care")} />
         <Row
           icon="heart"
           tone="bg-peach-soft text-peach"
@@ -177,7 +172,6 @@ export default function SettingsPage() {
               FULL.includes(open) ? "grid gap-4 pb-4" : "pb-4 [&>section]:mt-0 [&>section]:bg-transparent [&>section]:p-0 [&>section>h2:first-child]:hidden"
             }
           >
-            {open === "care" && <CareReminders now={now} />}
             {open === "cleaning" && <CleaningEditor />}
             {open === "skin" && <SkinSetup />}
             {open === "home" && <HomeScreenCard />}

@@ -1,28 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CareDueCard, CareReminders } from "@/components/skin/CareItems";
 import { SkinSetup } from "@/components/skin/SkinSetup";
 import { SlotCard } from "@/components/skin/SlotCard";
 import { skinNow } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
 import { useNow } from "@/lib/useNow";
 
-const TABS = ["Today", "Reminders", "Set up"] as const;
+// Repeating things (waxing, nails, hair…) moved to Reminders.
+const TABS = ["Today", "Set up"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function SelfCarePage() {
-  const { ready, settings, items, steps } = useSkin();
+  const { ready, settings, steps } = useSkin();
   const hasDaily = steps.some((s) => s.slot === "day");
-  // Reminders don't know when they're due until they know when you last did them.
-  const needDate = items.filter((i) => i.lastDone === null).length;
   // Settings links here with #reminders or #skincare.
   const [tab, setTab] = useState<Tab>("Today");
   useEffect(() => {
     const read = () => {
       const h = window.location.hash;
-      if (h === "#reminders") setTab("Reminders");
-      else if (h === "#skincare") setTab("Set up");
+      if (h === "#skincare") setTab("Set up");
     };
     const t = setTimeout(read, 0);
     window.addEventListener("hashchange", read);
@@ -57,29 +54,13 @@ export default function SelfCarePage() {
       <div className="mt-4">
         {tab === "Today" && (
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-            <div className="lg:col-span-2">
-              <CareDueCard now={now} />
-            </div>
             {/* The skincare slot for now first. */}
-            {needDate > 0 && (
-              <button
-                type="button"
-                onClick={() => setTab("Reminders")}
-                className="rounded-3xl bg-rose-soft px-5 py-4 text-left text-[15px] text-rose lg:col-span-2"
-              >
-                <strong>
-                  {needDate} {needDate === 1 ? "reminder needs" : "reminders need"} a last date
-                </strong>{" "}
-                · Set {needDate === 1 ? "it" : "them"} →
-              </button>
-            )}
             {(slot === "am" ? (["am", "pm"] as const) : (["pm", "am"] as const)).map((s) => (
               <SlotCard key={s} slot={s} date={s === slot ? slotDate : now} badge={s === slot && !resting ? "Now" : undefined} startOpen={s === slot} />
             ))}
             {hasDaily && <SlotCard slot="day" date={now} />}
           </div>
         )}
-        {tab === "Reminders" && <CareReminders now={now} />}
         {tab === "Set up" && <SkinSetup />}
       </div>
     </div>

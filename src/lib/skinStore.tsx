@@ -38,12 +38,12 @@ function load(): SkinData {
       return {
         steps: saved.steps ?? [],
         done: saved.done ?? {},
-        items: saved.items ?? starterCareItems(),
+        items: saved.items ?? starterCareItems(), // moved into Reminders once (see CareMove)
         settings: { ...DEFAULT_SKIN_SETTINGS, ...saved.settings },
       };
     }
   } catch {}
-  return { steps: starterSteps(), done: {}, settings: DEFAULT_SKIN_SETTINGS, items: starterCareItems() };
+  return { steps: starterSteps(), done: {}, settings: DEFAULT_SKIN_SETTINGS, items: [] };
 }
 
 type SkinStore = SkinData & {
@@ -58,6 +58,8 @@ type SkinStore = SkinData & {
   saveItem: (i: Omit<CareItem, "id"> & { id?: string }) => void;
   deleteItem: (id: string) => void;
   markDone: (id: string, date: string) => void;
+  /** Empties the old self-care reminders once they've moved into Reminders. */
+  clearItems: () => void;
 };
 
 const SkinContext = createContext<SkinStore | null>(null);
@@ -143,9 +145,11 @@ export function SkinProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({ ...d, items: d.items.map((x) => (x.id === id ? { ...x, lastDone: date } : x)) }));
   }, []);
 
+  const clearItems = useCallback(() => setData((d) => ({ ...d, items: [] })), []);
+
   const value = useMemo<SkinStore>(
-    () => ({ ...data, ready, saveStep, deleteStep, moveStep, reorderSteps, toggle, updateSettings, saveItem, deleteItem, markDone }),
-    [data, ready, saveStep, deleteStep, moveStep, reorderSteps, toggle, updateSettings, saveItem, deleteItem, markDone],
+    () => ({ ...data, ready, saveStep, deleteStep, moveStep, reorderSteps, toggle, updateSettings, saveItem, deleteItem, markDone, clearItems }),
+    [data, ready, saveStep, deleteStep, moveStep, reorderSteps, toggle, updateSettings, saveItem, deleteItem, markDone, clearItems],
   );
 
   return <SkinContext.Provider value={value}>{children}</SkinContext.Provider>;

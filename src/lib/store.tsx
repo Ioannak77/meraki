@@ -29,6 +29,7 @@ export type Task = {
   completedAt: string | null; // ISO timestamp
   createdAt: string;
   repeat?: Repeat | null; // ticking it off makes the next one
+  repeatFromDone?: boolean; // the next one counts from the day you tick it (waxing every 4 weeks), not from the due date
   nextId?: string; // the next one made from this repeating task (so unticking can take it back)
   steps?: TaskStep[]; // small steps inside the task
   remindAt?: string | null; // "YYYY-MM-DDTHH:MM": a phone notification then
@@ -115,7 +116,7 @@ export const DEFAULT_PUSH: PushPrefs = {
 export const TODAY_CARDS = [
   { id: "weather", label: "Weather" },
   { id: "priorities", label: "Your priorities today" },
-  { id: "selfcare", label: "Self care (skincare and reminders)" },
+  { id: "selfcare", label: "Self care (skincare)" },
   { id: "comingup", label: "Coming up" },
   { id: "bills", label: "Bills due today or tomorrow (in Coming up)" },
   { id: "shopping", label: "Shopping list reminder" },
@@ -230,6 +231,8 @@ type Store = Data & {
   updateTask: (id: string, patch: Partial<Task>) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
+  /** Adds tasks made elsewhere (the old Self care reminders), skipping ids already here. */
+  importTasks: (tasks: Task[]) => void;
   setMood: (mood: Mood) => void;
   toggleStep: (occurrence: string, stepId: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -287,7 +290,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         let nextId = t.nextId;
         if (t.repeat && !nextId) {
           nextId = newId();
-          const from = t.dueDate ?? dayKey();
+          const from = t.repeatFromDone || !t.dueDate ? dayKey() : t.dueDate;
           const due = advanceDate(from, t.repeat, t.wholeMonth);
           const next: Task = {
             ...t,
@@ -313,6 +316,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       return { ...d, tasks };
     });
+  }, []);
+
+  const importTasks = useCallback((list: Task[]) => {
+    setData((d) => ({ ...d, tasks: [...d.tasks, ...list.filter((t) => !d.tasks.some((x) => x.id === t.id))] }));
   }, []);
 
   const deleteTask = useCallback((id: string) => {
@@ -373,6 +380,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateTask,
       toggleTask,
       deleteTask,
+      importTasks,
       setMood,
       toggleStep,
       updateSettings,
@@ -381,7 +389,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       finishTimedRun,
       areaById: (id) => data.areas.find((a) => a.id === id),
     }),
-    [data, ready, addTask, updateTask, toggleTask, deleteTask, setMood, toggleStep, updateSettings, saveCleaning, addArea, finishTimedRun],
+    [data, ready, addTask, updateTask, toggleTask, deleteTask, importTasks, setMood, toggleStep, updateSettings, saveCleaning, addArea, finishTimedRun],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

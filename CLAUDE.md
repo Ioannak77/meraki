@@ -10,8 +10,9 @@
 - The tasks section is called **Reminders** (tab bar, page title; renamed from "Tasks" 2026-10-31): one-off things and
   recurring ones (a check-up every year, a passport every 10 years). Page `/tasks/`; code still uses `Task`.
 - The money section is called **Finances** (tab bar, page title, Settings; renamed from "Money" 2026-10-28). Never call it "Money" in the UI. The page lives at `/finances/`.
-- The **Self care** section (page `/self-care/`) covers skincare, repeating reminders (waxing, nails, hair…)
-  and photo check-ins. Never call the section "Skin" or "Skincare"; "skincare" is only the morning/evening
+- The **Self care** section (page `/self-care/`) covers skincare and daily self care. Its repeating reminders
+  (waxing, nails, hair…) moved into **Reminders** on 2026-10-31 (src/components/CareMove.tsx, once per device,
+  task ids "care-…", "Count from the day I do it"). Never call the section "Skin" or "Skincare"; "skincare" is only the morning/evening
   skin steps inside it. The tab of your own trackers is **Tracker** (a tab inside Finances since 2026-10-25; /tracker/ forwards there).
 - Pari is Ioanna's dog; she has her own task area and appears in cleaning and money categories.
 

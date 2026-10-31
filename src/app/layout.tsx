@@ -8,6 +8,7 @@ import { GroceriesProvider } from "@/lib/groceriesStore";
 import { AppShell } from "@/components/AppShell";
 import { OfflineSupport } from "@/components/OfflineSupport";
 import { SyncStart } from "@/components/SyncStart";
+import { CareMove } from "@/components/CareMove";
 import { PushScheduler } from "@/components/PushScheduler";
 import { ThemeApply } from "@/components/ThemeApply";
 import { BASE } from "@/lib/base";
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <ThemeApply />
                 <OfflineSupport />
                 <SyncStart />
+                <CareMove />
               </GroceriesProvider>
             </SkinProvider>
           </FinanceProvider>

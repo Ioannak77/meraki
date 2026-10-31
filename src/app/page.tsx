@@ -22,8 +22,7 @@ import {
 } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { SlotCard, dueSteps, slotFinished } from "@/components/skin/SlotCard";
-import { careIsDueSoon, skinNow } from "@/lib/skin";
-import { CareDueCard } from "@/components/skin/CareItems";
+import { skinNow } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
 import { TaskSheet } from "@/components/TaskSheet";
 import { AddMenu } from "@/components/AddMenu";
@@ -88,7 +87,6 @@ export default function TodayPage() {
   const skinFinished = slotFinished(skin.steps, skin.done, skinSlot, skinDate);
   const showSkin = !skinResting && skinDueNow > 0 && !skinFinished && !(skinSlot === "am" && now.getHours() >= 12);
   const dailyDue = dueSteps(skin.steps, "day", now).length > 0;
-  const careDue = skin.items.some((i) => careIsDueSoon(i, now));
   // Everything due now that isn't a priority: today's tasks, late ones, and
   // ones showing early (an MOT two weeks before its date). Soonest first.
   const hidden = settings.todayHidden ?? [];
@@ -201,9 +199,8 @@ export default function TodayPage() {
           </Fold>
         )}
 
-        {show("selfcare") && skin.ready && (showSkin || careDue || dailyDue) && (
+        {show("selfcare") && skin.ready && (showSkin || dailyDue) && (
           <Fold id="today-selfcare" title="Self care" variant="group">
-            <CareDueCard now={now} />
             {showSkin && <SlotCard slot={skinSlot} date={skinDate} badge="Now" foldId={`today-skin-${skinSlot}`} />}
             {dailyDue && <SlotCard slot="day" date={now} foldId="today-skin-day" />}
           </Fold>

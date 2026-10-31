@@ -7,6 +7,7 @@ import { useState } from "react";
 import {
   LEAD_CHOICES,
   REPEAT_CHOICES,
+  repeatLabel,
   dayKey,
   leadDays,
   monthEndKey,
@@ -54,6 +55,7 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
   const [minutes, setMinutes] = useState<number | null>(existing?.minutes ?? 5);
   const [isEssential, setIsEssential] = useState(existing?.isEssential ?? false);
   const [repeat, setRepeat] = useState<Repeat | null>(existing?.repeat ?? null);
+  const [fromDone, setFromDone] = useState(existing?.repeatFromDone ?? false);
   const [steps, setSteps] = useState<TaskStep[]>(existing?.steps ?? []);
   const [newStep, setNewStep] = useState("");
   const [remindTime, setRemindTime] = useState(existing?.remindAt?.slice(11, 16) ?? "");
@@ -73,6 +75,7 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
       energy: existing?.energy ?? "normal",
       isEssential,
       repeat,
+      repeatFromDone: repeat && fromDone ? true : undefined,
       steps: [...steps, ...(newStep.trim() ? [{ id: Math.random().toString(36).slice(2, 9), title: newStep.trim(), done: false }] : [])],
       // On the due day (or today, for a task without a date).
       remindAt: remindTime ? `${dueDate ?? dayKey()}T${remindTime}` : null,
@@ -214,6 +217,12 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
 
         <p className="mb-2 mt-5 text-sm font-semibold text-muted">Repeats</p>
         <div className="flex flex-wrap gap-2">
+          {/* A repeat that isn't one of the choices (e.g. every 4 weeks, from Self care) stays selectable. */}
+          {repeat && !REPEAT_CHOICES.some((c) => JSON.stringify(c.repeat) === JSON.stringify(repeat)) && (
+            <button type="button" className={chip(true)}>
+              {repeatLabel(repeat)}
+            </button>
+          )}
           {REPEAT_CHOICES.map((c) => (
             <button
               key={c.label}
@@ -225,7 +234,20 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
             </button>
           ))}
         </div>
-        {repeat && <p className="mt-2 text-xs text-muted">When you tick it off, the next one appears by itself.</p>}
+        {repeat && (
+          <>
+            <p className="mt-2 text-xs text-muted">When you tick it off, the next one appears by itself.</p>
+            <label className="mt-3 flex items-start gap-3 rounded-2xl bg-cream p-3.5">
+              <input type="checkbox" checked={fromDone} onChange={(e) => setFromDone(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-sage" />
+              <span>
+                <span className="block text-[15px] font-semibold">Count from the day I do it</span>
+                <span className="block text-xs text-muted">
+                  For waxing, a haircut or a check-up: done a week late, the next one moves a week too.
+                </span>
+              </span>
+            </label>
+          </>
+        )}
 
         <p className="mb-2 mt-5 text-sm font-semibold text-muted">Remind me at</p>
         <div className="flex items-center gap-2">
