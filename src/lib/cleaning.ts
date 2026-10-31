@@ -44,7 +44,8 @@ export type Step = {
   every?: { days: number; from: string }; // only every N days, counting from "YYYY-MM-DD" (e.g. watering plants)
   wash?: boolean; // a machine load: ticking it brings up the "afterWash" steps the next day
   afterWash?: boolean; // only the day after a wash step was ticked (hang and put away)
-  startFirst?: boolean; // needs time to dry, soak or run (washed cushions, oven cleaner): first on the month-end weekend; machine loads too unless set to false
+  startFirst?: boolean; // older edits: "start first" (now phase "start"); machine loads count too unless set to false
+  phase?: Phase; // where it goes in the month-end Big clean (see PHASES)
   how?: string; // your own instructions (Edit); else the built-in ones in cleaningHow.ts
   everyOtherWeek?: WeekParity; // weekly lists: only every other week (see weekParity), whichever day the list lands on
 };
@@ -61,7 +62,7 @@ export type Routine = {
 
 const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst" | "everyOtherWeek">];
+type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst" | "everyOtherWeek" | "phase">];
 
 function steps(prefix: string, list: StepInput[]): Step[] {
   return list.map(([title, minutes, room, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, room, ...extra }));
@@ -187,11 +188,9 @@ export const DEFAULT_CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 4 },
     steps: [
-      ...steps("fri", [
-        ["Dust all surfaces", 10, "Living room"],
-        ["Wipe the tables", 3, "Living room"],
-        ["Vacuum and spray the sofa", 10, "Living room"],
-      ]),
+      step("fri-0", "Dust the living room", 10, "Living room"),
+      step("fri-1", "Wipe the tables", 3, "Living room"),
+      step("fri-2", "Vacuum and spray the sofa", 10, "Living room"),
       step("fri-black", "Wash the black clothes", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
     ],
   },
@@ -200,10 +199,11 @@ export const DEFAULT_CLEANING: Routine[] = [
     name: "Bedroom",
     group: "weekly",
     when: { kind: "weekly", weekday: 5 },
+    // On a month-end Saturday these join the Big clean: the sheets go in first, the bed is made after the mattress.
     steps: [
-      step("sat-0", "Change the sheets", 10, "Bedroom", { hint: "and pillowcases" }),
-      step("sat-sheets", "Wash the sheets", 3, "Laundry", { hint: "Saturday's load", wash: true }),
-      step("sat-2", "Dust", 5, "Bedroom"),
+      step("sat-sheets", "Strip the bed and wash the sheets", 5, "Laundry", { hint: "Saturday's load", wash: true, phase: "start" }),
+      step("sat-0", "Make the bed with fresh sheets", 5, "Bedroom", { hint: "and pillowcases", phase: "bed" }),
+      step("sat-2", "Dust the bedroom", 5, "Bedroom", { phase: "high" }),
     ],
   },
   {
@@ -213,86 +213,84 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "weekly", weekday: 6 },
     // The rubbish is in Evening now (every 3 days); the other ids stay as they were.
     steps: [
-      step("sun-1", "Restock toiletries", 5, "Bathroom"),
-      step("sun-2", "Plan groceries", 10, "Kitchen"),
-      step("sun-3", "Quick tidy up", 10, "Whole home"),
+      step("sun-1", "Restock toiletries", 5, "Bathroom", { phase: "close" }),
+      step("sun-2", "Plan groceries", 10, "Kitchen", { phase: "close" }),
+      step("sun-3", "Quick tidy up", 10, "Whole home", { phase: "close" }),
     ],
   },
 
-  // ---------- Last weekend of every month ----------
+  // ---------- Last weekend of every month: the Big clean, in the order you clean (see PHASES) ----------
   {
     id: "monthly",
     name: "Monthly reset",
     group: "monthly",
     when: { kind: "monthly", months: ALL_MONTHS },
     steps: [
-      ...steps("monthly", [
-        ["Vacuum under the bed", 10, "Bedroom"],
-        ["Deep clean the fridge", 20, "Kitchen"],
-        ["Sanitize the washing machine", 5, "Laundry", { hint: "start the cycle", startFirst: true }],
-        ["Wash the couch throws", 3, "Living room", { hint: "Sunday's load", wash: true }],
-        ["Clean the vacuums", 10, "Whole home"],
-        ["Declutter 1 drawer", 10, "Whole home"],
-      ]),
-      step("monthly-mattress", "Vacuum the mattress", 5, "Bedroom"),
-      step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "in with the sheets on Saturday", wash: true }),
-      step("monthly-drain", "Drain cleaner", 2, "Kitchen", { hint: "let it work", startFirst: true }),
-      step("monthly-bin", "Wash the kitchen bin", 10, "Kitchen"),
+      step("monthly-protectors", "Wash the mattress and pillow protectors", 5, "Bedroom", { hint: "in with the sheets", wash: true, phase: "start" }),
+      step("monthly-drain", "Drain cleaner", 2, "Kitchen", { hint: "let it work", phase: "start" }),
+      step("monthly-5", "Declutter 1 drawer", 10, "Whole home", { phase: "clear" }),
+      step("monthly-1", "Empty and deep clean the fridge", 20, "Kitchen", { phase: "clear" }),
+      step("monthly-mattress", "Vacuum the mattress", 5, "Bedroom", { phase: "bed" }),
+      step("monthly-0", "Vacuum under the bed", 10, "Bedroom", { phase: "floors" }),
+      step("monthly-floors", "Vacuum and mop all the floors", 30, "Floors", { hint: "last, after everything else", phase: "floors" }),
+      step("monthly-3", "Wash the couch throws", 3, "Living room", { hint: "Sunday's load", wash: true, phase: "close" }),
+      step("monthly-bin", "Wash the kitchen bin", 10, "Kitchen", { phase: "close" }),
+      step("monthly-4", "Clean the vacuums", 10, "Whole home", { hint: "after all the vacuuming", phase: "close" }),
+      step("monthly-2", "Sanitize the washing machine", 15, "Laundry", { hint: "last, once the loads are done", phase: "close" }),
     ],
   },
 
-  // ---------- Every 3 months, spread so each month gets one set ----------
+  // ---------- Every 3 months, one set each month ----------
   {
     id: "q-kitchen",
     name: "Kitchen deep clean",
     group: "quarterly",
-    when: { kind: "monthly", months: [3, 6, 9, 12] },
-    steps: steps("q-kitchen", [
-      ["Clean the oven", 30, "Kitchen", { hint: "spray it first and let it soak", startFirst: true }],
-      ["Clean the extractor fans", 15, "Kitchen"],
-      ["Wipe inside the kitchen cabinets", 20, "Kitchen"],
-      ["Clean behind the fridge and oven", 15, "Kitchen"],
-      ["Clean on top of the cabinets and fridge", 10, "Kitchen"],
-    ]),
+    when: { kind: "monthly", months: [1, 4, 7, 10] },
+    steps: [
+      step("q-kitchen-0", "Spray the oven and let it soak", 5, "Kitchen", { phase: "start" }),
+      step("q-kitchen-2", "Wipe inside the kitchen cabinets", 20, "Kitchen", { phase: "clear" }),
+      step("q-kitchen-4", "Clean on top of the cabinets and fridge", 10, "Kitchen", { phase: "high" }),
+      step("q-kitchen-1", "Clean the extractor fans", 15, "Kitchen", { phase: "high" }),
+      step("q-kitchen-oven", "Wipe out the oven and wash the racks", 25, "Kitchen", { phase: "bed" }),
+      step("q-kitchen-3", "Clean behind the fridge and oven", 15, "Kitchen", { phase: "floors" }),
+    ],
   },
   {
     id: "q-living",
-    name: "Living room",
+    name: "Living room deep clean",
     group: "quarterly",
-    when: { kind: "monthly", months: [1, 4, 7, 10] },
-    // The windows moved to the balcony's weekends; the other steps keep their ids (and ticks).
+    when: { kind: "monthly", months: [3, 6, 9, 12] },
     steps: [
-      step("q-living-0", "Vacuum under the furniture", 15, "Living room"),
-      step("q-living-1", "Vacuum and wash the couch cushions", 15, "Living room", { hint: "they need time to dry", startFirst: true }),
-      step("q-living-3", "Wipe the skirting boards", 15, "Whole home"),
-      step("q-living-4", "Dust the lights", 10, "Whole home"),
+      step("q-living-1", "Wash the couch cushion covers", 10, "Living room", { hint: "load 2: they need the day to dry", wash: true, phase: "start" }),
+      step("q-living-4", "Dust the lights", 10, "Whole home", { phase: "high" }),
+      step("q-living-3", "Wipe the skirting boards", 15, "Whole home", { phase: "floors" }),
+      step("q-living-0", "Vacuum under the furniture", 15, "Living room", { phase: "floors" }),
     ],
   },
   {
     id: "q-pari",
-    name: "Pari wash day + bedroom",
+    name: "Pari's things + bathroom cabinets",
     group: "quarterly",
     when: { kind: "monthly", months: [2, 5, 8, 11] },
-    note: "All of Pari's washing in one go",
-    steps: steps("q-pari", [
-      ["Wash Pari's inner bed", 5, "Pari", { hint: "in with the couch throws on Sunday", wash: true }],
-      ["Wash Pari's collars, harness and leash", 5, "Pari", { hint: "they need time to dry", startFirst: true }],
-      ["Wash Pari's toys", 5, "Pari", { hint: "they need time to dry", startFirst: true }],
-      ["Wash the pillows", 5, "Bedroom", { hint: "in with the sheets on Saturday", wash: true }],
-      ["Clean inside the bathroom cabinets", 15, "Bathroom"],
-    ]),
+    steps: [
+      step("q-pari-1", "Soak Pari's collars, harness and leash", 5, "Pari", { hint: "they need time to dry", phase: "start" }),
+      step("q-pari-2", "Wash Pari's toys", 5, "Pari", { hint: "they need time to dry", phase: "start" }),
+      step("q-pari-4", "Clean inside the bathroom cabinets", 15, "Bathroom", { phase: "clear" }),
+      step("q-pari-0", "Wash Pari's inner bed", 5, "Pari", { hint: "in with the couch throws", wash: true, phase: "close" }),
+    ],
   },
 
-  // ---------- Every 6 months ----------
+  // ---------- Twice a year ----------
   {
     id: "half",
-    name: "Twice a year",
+    name: "Bedding",
     group: "twice-a-year",
     when: { kind: "monthly", months: [4, 11] },
-    steps: steps("half", [
-      ["Rotate the mattress", 10, "Bedroom"],
-      ["Wash the duvet and comforter", 5, "Bedroom", { hint: "Sunday's load: the couch throws wait a month", wash: true }],
-    ]),
+    steps: [
+      step("q-pari-3", "Wash the pillows", 5, "Bedroom", { hint: "in with the sheets", wash: true, phase: "start" }),
+      step("half-0", "Rotate the mattress", 10, "Bedroom", { phase: "bed" }),
+      step("half-1", "Wash the duvet and comforter", 5, "Bedroom", { hint: "its own load on Sunday", wash: true, phase: "close" }),
+    ],
   },
   {
     id: "balcony",
@@ -301,8 +299,8 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "monthly", months: [3, 9] },
     note: "Spring and end of summer: the balcony and all the windows in one go",
     steps: [
-      step("half-2", "Deep clean the balcony", 30, "Balcony and windows", { hint: "the floor needs time to dry", startFirst: true }),
-      step("q-living-2", "Clean the windows and balcony door", 30, "Balcony and windows"),
+      step("q-living-2", "Clean the windows and balcony door", 30, "Balcony and windows", { phase: "high" }),
+      step("half-2", "Deep clean the balcony", 30, "Balcony and windows", { hint: "its floor dries overnight", phase: "floors" }),
     ],
   },
 ];
@@ -323,6 +321,7 @@ const YEAR = "2026-10-31";
 const WINDOWS = "2026-11-01";
 const FIRST = "2026-11-01b";
 const FORTNIGHT = "2026-11-01c";
+const PHASED = "2026-11-01d";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -388,15 +387,85 @@ const CHANGES: Change[] = [
     const st = defaultStep(list, id);
     return { list, update: id, patch: { hint: st.hint, everyOtherWeek: st.everyOtherWeek }, since: FORTNIGHT };
   }),
+  // The Big clean in phases (1 Nov 2026): clearer names, kitchen and living room swap months, pillows to Bedding,
+  // the oven in two parts, the floors at the end, the washing machine last.
+  { list: "q-kitchen", months: [1, 4, 7, 10], since: PHASED },
+  { list: "q-living", months: [3, 6, 9, 12], since: PHASED },
+  { list: "q-living", rename: { name: "Living room deep clean" }, since: PHASED },
+  { list: "q-pari", rename: { name: "Pari's things + bathroom cabinets", note: undefined }, since: PHASED },
+  { list: "half", rename: { name: "Bedding" }, since: PHASED },
+  { list: "q-pari", remove: "q-pari-3", since: PHASED },
+  { list: "half", step: "q-pari-3", since: PHASED },
+  { list: "monthly", step: "monthly-floors", since: PHASED },
+  { list: "q-kitchen", step: "q-kitchen-oven", since: PHASED },
+  ...(
+    [
+      ["fri", ["fri-0"]],
+      ["sat", ["sat-sheets", "sat-0", "sat-2"]],
+      ["sun", ["sun-1", "sun-2", "sun-3"]],
+      ["monthly", ["monthly-protectors", "monthly-drain", "monthly-5", "monthly-1", "monthly-mattress", "monthly-0", "monthly-3", "monthly-bin", "monthly-4", "monthly-2"]],
+      ["q-kitchen", ["q-kitchen-0", "q-kitchen-2", "q-kitchen-4", "q-kitchen-1", "q-kitchen-3"]],
+      ["q-living", ["q-living-1", "q-living-4", "q-living-3", "q-living-0"]],
+      ["q-pari", ["q-pari-1", "q-pari-2", "q-pari-4", "q-pari-0"]],
+      ["half", ["half-0", "half-1"]],
+      ["balcony", ["q-living-2", "half-2"]],
+    ] as const
+  ).flatMap(([list, ids]) =>
+    ids.map((id) => {
+      const st = defaultStep(list, id);
+      return { list, update: id, patch: { title: st.title, minutes: st.minutes, hint: st.hint, wash: st.wash, phase: st.phase, startFirst: undefined }, since: PHASED };
+    }),
+  ),
 ];
 
-/** Goes first on the month-end weekend: a machine load, or something that needs time to dry, soak or run. */
+// ---------- The Big clean, in the order you clean ----------
+
+export type Phase = "start" | "clear" | "high" | "bed" | "floors" | "close";
+
+export const PHASES: { id: Phase; label: string; when: string; note: string }[] = [
+  { id: "start", label: "Get things going", when: "Saturday morning", note: "Machines, soaks and drying first, so they work while you do the rest" },
+  { id: "clear", label: "Clear out", when: "Saturday", note: "Empty, bin, wipe, put back" },
+  { id: "high", label: "High up", when: "Saturday", note: "Dust falls down, so start at the top" },
+  { id: "bed", label: "Bed and appliances", when: "Saturday", note: "The bed while it's stripped, the oven once it has soaked" },
+  { id: "floors", label: "Low and floors", when: "Saturday afternoon", note: "Last, so you clean up everything that fell" },
+  { id: "close", label: "Second load and close down", when: "Sunday", note: "The last loads, then put everything away; the washing machine is sanitized last" },
+];
+
+/** Within a phase, the order to do things in (steps not listed come after, in list order). */
+const PHASE_ORDER = [
+  "sat-sheets", "monthly-protectors", "q-pari-3", "q-living-1", "q-kitchen-0", "q-pari-1", "q-pari-2", "monthly-drain",
+  "monthly-5", "monthly-1", "q-kitchen-2", "q-pari-4",
+  "q-living-4", "q-kitchen-4", "q-kitchen-1", "q-living-2", "sat-2",
+  "monthly-mattress", "half-0", "sat-0", "q-kitchen-oven",
+  "q-kitchen-3", "q-living-3", "q-living-0", "monthly-0", "half-2", "monthly-floors",
+  "monthly-3", "q-pari-0", "half-1", "sun-1", "sun-2", "sun-3", "monthly-bin", "monthly-4", "monthly-2",
+];
+
+/** Which part of the Big clean a step belongs to. Steps from before phases: "start first" ones go first. */
+export function phaseOf(s: Step): Phase {
+  return s.phase ?? ((s.startFirst ?? !!s.wash) ? "start" : "clear");
+}
+
+/** Sorts steps into Big clean order: by phase, then the usual order within it. */
+export function bigCleanOrder<T>(items: T[], stepOf: (x: T) => Step) {
+  const rank = (st: Step) => {
+    const i = PHASE_ORDER.indexOf(st.id);
+    return PHASES.findIndex((p) => p.id === phaseOf(st)) * 1000 + (i < 0 ? 999 : i);
+  };
+  return items.map((x, i) => ({ x, i })).sort((a, b) => rank(stepOf(a.x)) - rank(stepOf(b.x)) || a.i - b.i).map((e) => e.x);
+}
+
+/** Goes first on the month-end weekend. */
 export function isStartFirst(s: Step) {
-  return s.startFirst ?? !!s.wash;
+  return phaseOf(s) === "start";
 }
 
 function defaultStep(list: string, id: string) {
-  return DEFAULT_CLEANING.find((d) => d.id === list)!.steps.find((st) => st.id === id)!;
+  // A step that later moved to another list is still found (the pillows went from Pari's list to Bedding).
+  return (
+    DEFAULT_CLEANING.find((d) => d.id === list)?.steps.find((st) => st.id === id) ??
+    DEFAULT_CLEANING.flatMap((d) => d.steps).find((st) => st.id === id)!
+  );
 }
 
 function changeKey(c: Change) {
@@ -589,7 +658,8 @@ export function weeklyPlan(officeDays: number[]): WeekSlot[] {
   for (const day of longestFirst) {
     const other = slots
       .map((_, d) => d)
-      .filter((d) => !office.has(d) && !swapped.has(d) && cost(d) < cost(day))
+      // Never onto the weekend: Saturday's sheets and Sunday's reset carry the month-end Big clean.
+      .filter((d) => d < 5 && !office.has(d) && !swapped.has(d) && cost(d) < cost(day))
       .sort((a, b) => cost(a) - cost(b) || Math.abs(a - day) - Math.abs(b - day))[0];
     if (other === undefined) continue;
     const mine = slots[day].routine;

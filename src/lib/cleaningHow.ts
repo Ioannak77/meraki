@@ -49,8 +49,8 @@ export const HOW: Record<string, string> = {
   "fri-2": "Vacuum the sofa with the upholstery tool: under the cushions and the seams too. Then a light spray of fabric freshener and let it dry.",
   "fri-black": "Black clothes inside out, cold or 30°C, a detergent for darks. Dry out of direct sun so they don't fade.",
   // Saturday
-  "sat-0": "Strip the bed, put the sheets and pillowcases straight into the machine, then make the bed with a fresh set.",
-  "sat-sheets": "Sheets and pillowcases at 60°C. Shake out well before hanging so they need no ironing.",
+  "sat-0": "Once the mattress is vacuumed (and rotated, in April and November): protectors back on (or a spare set if they're still drying), fresh sheet pulled tight, fresh pillowcases, duvet on top.",
+  "sat-sheets": "Take off the sheets, pillowcases and the mattress and pillow protectors, and put them straight in the machine at 60°C. Leave the mattress bare for now: you vacuum it later.",
   "sat-2": "Damp microfibre cloth, top to bottom, the places Friday's dust missed: lamps, frames, the top of the door.",
   // Sunday
   "sun-1": "Check toilet paper, soap, shampoo, toothpaste, cleaning products. Anything low goes on the shopping list.",
@@ -58,7 +58,7 @@ export const HOW: Record<string, string> = {
   "sun-3": "10 minutes with a timer: a basket for things in the wrong room, then put them back.",
   // Monthly reset
   "monthly-0": "Pull out anything stored under the bed, vacuum with the long nozzle, wipe what you put back.",
-  "monthly-1": "Take everything out (cool bag for what needs to stay cold), bin old things, remove the shelves and drawers, wash them in warm soapy water, wipe the inside with water and a little baking soda, dry and put back.",
+  "monthly-1": "Take everything out (cool bag for what needs to stay cold), bin old things, take out the shelves and drawers and wash them in warm soapy water, wipe the inside with water and a little baking soda, dry, and put everything back.",
   "monthly-2": "1. Filter first, while the machine is cold and off: put a towel and a shallow tray under the small hatch at the bottom front, open it, let the water drain out, then unscrew the filter, clear out the fluff and bits, rinse it and screw it back tight. 2. Pull out the detergent drawer (press the release tab) and scrub it in hot water with an old toothbrush, plus the slot it sits in. 3. Run the machine empty on 90°C. 4. Afterwards wipe inside the rubber seal, folding it back to reach the gunk, and leave the door and drawer open to dry.",
   "monthly-3": "Couch throws on their label's temperature (usually 30–40°C), gentle cycle. Hang them over a rail to dry.",
   "monthly-4": "Empty the bin or bag, rinse the filters in water (only the washable ones) and let them dry 24 hours, cut the hair off the brush roll.",
@@ -68,14 +68,14 @@ export const HOW: Record<string, string> = {
   "monthly-drain": "Pour the drain cleaner as the bottle says and leave it the time it says, then flush with hot water. Never mix two drain products, or drain cleaner with bleach.",
   "monthly-bin": "Empty the bin, take it to the shower or balcony, spray inside and out with soapy water or a disinfectant, rinse, let it dry upside down.",
   // Kitchen deep clean
-  "q-kitchen-0": "Take out the racks. Spray oven cleaner (or spread a paste of baking soda and water) on the inside, avoiding the heating elements, and let it soak 20–30 minutes (or overnight). Wipe off with a damp cloth, rinse well. Racks soak in the sink with hot water and washing-up liquid.",
+  "q-kitchen-0": "Take out the racks and put them in the sink with hot water and washing-up liquid. Spray oven cleaner (or spread a paste of baking soda and water) on the inside, avoiding the heating elements, close the door and leave it to soak while you do the rest. Open a window.",
   "q-kitchen-1": "Take the grease filters out of the hood and soak them in very hot water with washing-up liquid and a spoon of baking soda for 15 minutes, scrub, rinse and dry. Wipe the hood inside and out.",
   "q-kitchen-2": "One cupboard at a time: everything out, wipe the shelves with a damp cloth and a little washing-up liquid, dry, put back (bin anything expired).",
   "q-kitchen-3": "Unplug the fridge if you need to pull it out. Vacuum the dust behind and underneath (and the fridge coils), mop the floor, push back.",
   "q-kitchen-4": "Stand on a step stool, not a chair. Spray degreaser or warm soapy water on the tops, leave a minute, wipe, then dry.",
   // Living room
   "q-living-0": "Move the sofa and chairs if you can, vacuum underneath with the long nozzle, then put them back.",
-  "q-living-1": "Vacuum the cushions first. Covers that zip off: wash as the label says (usually 30°C, gentle) and dry flat or hanging, then put back while slightly damp so they don't shrink. Fixed covers: spot clean with upholstery cleaner. Start early: they need hours to dry.",
+  "q-living-1": "Vacuum the cushions first. Covers that zip off: wash as the label says (usually 30°C, gentle) as load 2, and hang them to dry; put them back on while still slightly damp so they don't shrink. Fixed covers: spot clean with upholstery cleaner.",
   "q-living-3": "Damp cloth with a little washing-up liquid along the skirting boards, room by room; a dry cloth after. A sock on your hand works too.",
   "q-living-4": "Lights off and cool. Dust the shades and bulbs with a dry microfibre cloth; glass shades can be washed and dried fully before putting back.",
   // Pari wash day + bedroom
@@ -90,6 +90,8 @@ export const HOW: Record<string, string> = {
   // Balcony and windows
   "half-2": "Clear the balcony, sweep the floor, wipe the railing and furniture, then scrub the floor with warm water and floor cleaner and rinse. Water the plants after. Start early so the floor dries.",
   "q-living-2": "Wipe the frames and sills first. Then the glass: a little washing-up liquid in warm water (or window spray), wash, squeegee top to bottom, dry the edges with a microfibre cloth. Not in direct sun, or it streaks.",
+  "q-kitchen-oven": "Wipe the softened grease out with a damp cloth or sponge, rinse the cloth often, then wipe once more with clean water so no cleaner is left. Scrub the soaked racks, rinse, dry and put back.",
+  "monthly-floors": "After everything else is done: vacuum every room, edges and corners too, then mop with warm water and a little floor cleaner, from the far end of the flat towards the door so you don't walk on it.",
 };
 
 /** The instructions for a step: yours from Edit, else the built-in ones. */

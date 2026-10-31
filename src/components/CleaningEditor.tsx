@@ -13,7 +13,9 @@ import {
   cleaningLists,
   formatMinutes,
   groupForMonths,
-  isStartFirst,
+  PHASES,
+  phaseOf,
+  type Phase,
   weekParity,
   type WeekParity,
   type Room,
@@ -278,16 +280,20 @@ function ListSheet({
                   Only if needed (doesn&apos;t count towards the time)
                 </button>
                 {!isDaily && (
-                  <button
-                    type="button"
-                    onClick={() => setStep(s.id, { startFirst: !isStartFirst(s) })}
-                    className="flex items-center gap-2 text-left text-sm"
-                  >
-                    <span className={`grid size-6 shrink-0 place-items-center rounded-md border-2 ${isStartFirst(s) ? "border-sage bg-sage text-white" : "border-line bg-card"}`}>
-                      {isStartFirst(s) && <Icon.check className="size-4" />}
-                    </span>
-                    Start first on the month-end weekend (a machine load, or it needs time to dry or soak)
-                  </button>
+                  <label className="flex items-center gap-2 text-sm text-muted">
+                    In the Big clean
+                    <select
+                      value={phaseOf(s)}
+                      onChange={(e) => setStep(s.id, { phase: e.target.value as Phase, startFirst: undefined })}
+                      className={`${inputClass} flex-1`}
+                    >
+                      {PHASES.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label} ({p.when})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
                 {draft.when.kind === "weekly" && (
                   <label className="flex items-center gap-2 text-sm text-muted">

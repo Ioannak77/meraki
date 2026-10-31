@@ -1,12 +1,12 @@
 "use client";
 
-// Month-end weekends: the weekly list and the month's big lists merged into
-// one checklist, grouped by room, so it's one focused clean instead of
-// jumping between "weekly" and "monthly". Each step still saves to its own
-// list, so the Cleaning schedule screen stays in sync.
+// Month-end weekends: the weekend's weekly list and the month's big lists merged into one checklist,
+// in the order you'd clean (machines and soaks first, high to low, floors last, close down on Sunday;
+// see PHASES), instead of jumping between lists. Each step still saves to its own list, so the
+// Cleaning schedule screen stays in sync.
 
 import { useState } from "react";
-import { ROOMS, formatMinutes, isStartFirst, occurrenceKey, stepsOn, type Room, type Routine } from "@/lib/cleaning";
+import { PHASES, bigCleanOrder, formatMinutes, occurrenceKey, phaseOf, stepsOn, type Room, type Routine } from "@/lib/cleaning";
 import { today } from "@/lib/clock";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
@@ -19,21 +19,22 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
   const [openRooms, setOpenRooms] = useState<Set<string> | null>(null);
   const [howOpen, setHowOpen] = useState<string | null>(null); // the step whose instructions are open
 
-  const items: (TimerItem & { room: Room; listName: string })[] = routines.flatMap((r) => {
-    const occurrence = occurrenceKey(r, date);
-    return stepsOn(r, date).map((step) => ({ step, occurrence, room: step.room, listName: r.name, label: step.room }));
-  });
+  const items: (TimerItem & { room: Room; listName: string })[] = bigCleanOrder(
+    routines.flatMap((r) => {
+      const occurrence = occurrenceKey(r, date);
+      return stepsOn(r, date).map((step) => ({ step, occurrence, room: step.room, listName: r.name, label: PHASES.find((p) => p.id === phaseOf(step))!.label }));
+    }),
+    (it) => it.step,
+  );
   const isDone = (it: TimerItem) => (routineDone[it.occurrence] ?? []).includes(it.step.id);
   const counted = items.filter((it) => !it.step.optional);
   const done = counted.filter(isDone).length;
   const minutesLeft = counted.filter((it) => !isDone(it)).reduce((sum, it) => sum + it.step.minutes, 0);
 
-  // First the machine loads and whatever needs time to dry, soak or run; then room by room.
-  const FIRST = "Start first";
-  const byRoom = [
-    { room: FIRST, items: items.filter((it) => isStartFirst(it.step)) },
-    ...ROOMS.map((room) => ({ room: room as string, items: items.filter((it) => it.room === room && !isStartFirst(it.step)) })),
-  ].filter((g) => g.items.length > 0);
+  // One group per part of the clean, in order (only the parts this weekend has).
+  const byRoom = PHASES.map((p) => ({ room: p.label, phase: p, items: items.filter((it) => phaseOf(it.step) === p.id) })).filter(
+    (g) => g.items.length > 0,
+  );
   // Rooms start open until they're finished; a finished room folds away.
   const roomDone = (g: (typeof byRoom)[number]) => g.items.every((it) => it.step.optional || isDone(it));
   const isOpen = (g: (typeof byRoom)[number]) => (openRooms ? openRooms.has(g.room) : !roomDone(g));
@@ -79,7 +80,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
           onClick={() => start("Big clean", byRoom.flatMap((g) => g.items))}
           className="mt-4 w-full rounded-2xl bg-sage-dark py-3.5 text-[16px] font-bold text-white"
         >
-          {done ? "Continue" : "Start"} room by room · ~{formatMinutes(minutesLeft)}
+          {done ? "Continue" : "Start"} in order · ~{formatMinutes(minutesLeft)}
         </button>
       )}
 
@@ -96,8 +97,9 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                 className="flex w-full items-center gap-2 py-3 text-left"
               >
                 <span className="min-w-0 flex-1">
+                  <span className="block text-[11px] font-bold uppercase tracking-wide text-peach">{g.phase.when}</span>
                   <span className="block text-[16px] font-bold">{g.room}</span>
-                  {g.room === FIRST && <span className="block text-xs text-muted">Washing and things that need time to dry or soak</span>}
+                  <span className="block text-xs text-muted">{g.phase.note}</span>
                 </span>
                 <span className={`text-sm ${left.length ? "text-muted" : "font-semibold text-sage-dark"}`}>
                   {left.length ? `${left.length} left · ~${formatMinutes(left.reduce((t, it) => t + it.step.minutes, 0))}` : "Done ✓"}
@@ -154,7 +156,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                       onClick={() => start(g.room, g.items)}
                       className="mb-2 mt-1 w-full rounded-xl bg-sage-soft py-2.5 text-sm font-bold text-sage-dark"
                     >
-                      Just {g.room} · ~{formatMinutes(left.reduce((t, it) => t + it.step.minutes, 0))}
+                      Just this part · ~{formatMinutes(left.reduce((t, it) => t + it.step.minutes, 0))}
                     </button>
                   )}
                 </>
