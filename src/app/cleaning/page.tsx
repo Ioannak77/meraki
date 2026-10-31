@@ -6,6 +6,7 @@ import { CleaningEditor } from "@/components/CleaningEditor";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
 import {
   cleaningLists,
+  formatMinutes,
   weeklyPlan,
   MONTHS,
   WEEKDAYS,
@@ -168,22 +169,60 @@ function MonthTab({ now }: { now: Date }) {
 
       <section className="rounded-3xl bg-card p-5 lg:col-span-2">
         <h2 className="text-lg font-bold">Year plan</h2>
-        <p className="text-sm text-muted">Each month&apos;s end-of-month lists, on top of the Monthly reset.</p>
+        <p className="text-sm text-muted">Each month&apos;s end-of-month lists, on top of the Monthly reset. Tap a month to see everything in it.</p>
         <ul className="mt-3 divide-y divide-line">
-          {MONTHS.map((name, i) => {
-            const extra = cleaningLists().filter(
-              (r) => r.when.kind === "monthly" && r.group !== "monthly" && r.when.months.includes(i + 1),
-            );
-            const isCurrent = i === now.getMonth();
-            return (
-              <li key={name} className="flex gap-3 py-2.5 text-[15px]">
-                <span className={`w-24 shrink-0 ${isCurrent ? "font-bold" : "text-muted"}`}>{name}</span>
-                <span className={isCurrent ? "font-semibold" : ""}>{extra.map((r) => r.name).join(" + ")}</span>
-              </li>
-            );
-          })}
+          {MONTHS.map((name, i) => (
+            <YearMonth key={name} name={name} month={i + 1} isCurrent={i === now.getMonth()} />
+          ))}
         </ul>
       </section>
     </>
+  );
+}
+
+/** One month of the year plan: its lists at a glance, and every step when you tap it. */
+function YearMonth({ name, month, isCurrent }: { name: string; month: number; isCurrent: boolean }) {
+  const [open, setOpen] = useState(false);
+  const lists = cleaningLists().filter((r) => r.when.kind === "monthly" && r.when.months.includes(month));
+  const extra = lists.filter((r) => r.group !== "monthly");
+  const minutes = (r: (typeof lists)[number]) => r.steps.filter((st) => !st.optional).reduce((t, st) => t + st.minutes, 0);
+  const total = lists.reduce((t, r) => t + minutes(r), 0);
+  return (
+    <li>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 py-2.5 text-left text-[15px]">
+        <span className={`w-24 shrink-0 ${isCurrent ? "font-bold" : "text-muted"}`}>{name}</span>
+        <span className={`min-w-0 flex-1 ${isCurrent ? "font-semibold" : ""}`}>{extra.map((r) => r.name).join(" + ") || "Monthly reset only"}</span>
+        <span className={`shrink-0 text-muted transition-transform duration-200 ease-out ${open ? "rotate-90" : ""}`}>›</span>
+      </button>
+      {open && (
+        <div className="animate-reveal mb-3 space-y-3 rounded-2xl bg-cream p-3.5">
+          <p className="text-[13px] text-muted">About {formatMinutes(total)} in all, on the month-end weekend.</p>
+          {lists.map((r) => (
+            <section key={r.id}>
+              <h3 className="flex justify-between gap-3 text-xs font-bold uppercase tracking-wide text-muted">
+                <span>{r.name}</span>
+                <span className="shrink-0 font-semibold normal-case tracking-normal">~{formatMinutes(minutes(r))}</span>
+              </h3>
+              <ul className="mt-1 divide-y divide-line">
+                {r.steps.map((st) => (
+                  <li key={st.id} className="flex items-baseline gap-3 py-1.5 text-[14px]">
+                    <span className="min-w-0 flex-1">
+                      {st.title}
+                      <span className="block text-xs text-muted">
+                        {st.room}
+                        {st.hint ? ` · ${st.hint}` : ""}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs text-muted">
+                      {st.minutes} min{st.optional ? " · if needed" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+    </li>
   );
 }
