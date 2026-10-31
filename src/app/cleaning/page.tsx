@@ -16,12 +16,13 @@ import {
   dueToday,
   inEndOfMonthWindow,
   joinsBigClean,
+  monthEndSwap,
   monthEndLabel,
   monthEndSaturday,
   routinesForMonth,
   weekdayIndex,
 } from "@/lib/cleaning";
-import { useStore } from "@/lib/store";
+import { dayKey, useStore } from "@/lib/store";
 import { useNow } from "@/lib/useNow";
 
 const TABS = ["Today", "This week", "Big clean", "Edit"] as const;
@@ -67,6 +68,8 @@ function TodayTab({ now }: { now: Date }) {
   const due = dueToday(now, settings.officeDays);
   const monthLists = routinesForMonth(now);
   const todaySlot = weeklyPlan(settings.officeDays)[weekdayIndex(now)];
+  const swapNow = monthEndSwap(now, settings.officeDays);
+  const todaySwap = swapNow && dayKey(swapNow.day) === dayKey(now) ? swapNow : null;
   const isOffice = settings.officeDays.includes(weekdayIndex(now));
   const bigClean = inEndOfMonthWindow(now);
   // Only the list for now (and today's weekly one) starts open; earlier ones go quiet.
@@ -95,7 +98,9 @@ function TodayTab({ now }: { now: Date }) {
             date={now}
             badge={r.when.kind === "daily" && r.when.part === part ? "Now" : r.when.kind === "weekly" ? WEEKDAYS[weekdayIndex(now)] : undefined}
             subtitle={
-              r.when.kind === "weekly" && todaySlot.movedFrom !== undefined
+              r.when.kind === "weekly" && todaySwap
+                ? `${todaySwap.weekly.name} is in the month-end Big clean`
+                : r.when.kind === "weekly" && todaySlot.movedFrom !== undefined
                 ? `Swapped with ${WEEKDAYS[todaySlot.movedFrom]}`
                 : r.when.kind === "daily" && isPast(r.when.part) && !routineProgress(r, routineDone[occurrenceKey(r, now)] ?? [], now).complete
                   ? "Missed it? No worries"
@@ -133,14 +138,19 @@ function WeekTab({ now }: { now: Date }) {
         date.setDate(monday.getDate() + day);
         const isToday = day === weekdayIndex(now);
         const office = settings.officeDays.includes(day);
+        // Around a month-end weekend one day swaps with the Big clean (see monthEndSwap).
+        const sw = monthEndSwap(date, settings.officeDays);
+        const swappedDay = sw && dayKey(sw.day) === dayKey(date);
         return (
           <RoutineCard
             key={day}
-            routine={slot.routine}
+            routine={swappedDay ? sw.bedroom : slot.routine}
             date={date}
             badge={isToday ? "Today" : WEEKDAYS[day].slice(0, 3)}
             subtitle={
-              slot.movedFrom !== undefined
+              swappedDay
+                ? `${sw.weekly.name} is in the month-end Big clean`
+                : slot.movedFrom !== undefined
                 ? `${office ? "Office day · " : ""}swapped with ${WEEKDAYS[slot.movedFrom]}`
                 : office
                   ? "Office day"

@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { MONTHS, WEEKDAYS, cleaningLists, isDueOn, monthEndOwner, weeklyPlan, weekdayIndex } from "@/lib/cleaning";
+import { MONTHS, WEEKDAYS, cleaningLists, isDueOn, monthEndOwner, weeklyListOn, weekdayIndex } from "@/lib/cleaning";
 import { dueDates, isBillPaid, money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { TaskSheet } from "@/components/TaskSheet";
@@ -45,7 +45,6 @@ export default function CalendarPage() {
   const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
   const lead = weekdayIndex(first);
   const days = Array.from({ length: last.getDate() }, (_, i) => new Date(first.getFullYear(), first.getMonth(), i + 1));
-  const plan = weeklyPlan(settings.officeDays);
 
   // Everything planned per day of the shown month.
   const byDay = new Map<string, Entry[]>();
@@ -74,7 +73,7 @@ export default function CalendarPage() {
       const big = cleaningLists().filter((r) => r.when.kind === "monthly" && isDueOn(r, d, settings.officeDays));
       add(key, { kind: "big", label: "Big clean", detail: big.map((r) => r.name).join(", "), href: "/cleaning/" });
     } else {
-      const r = plan[weekdayIndex(d)].routine;
+      const r = weeklyListOn(d, settings.officeDays);
       add(key, { kind: "clean", label: `Cleaning: ${r.name}`, detail: settings.officeDays.includes(weekdayIndex(d)) ? "office day" : undefined, href: "/cleaning/" });
     }
   }

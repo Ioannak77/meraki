@@ -451,8 +451,13 @@ const DAILY_PHASE: Record<string, Phase> = {
   "morning-3": "clear",
   "morning-plants": "close", "evening-0": "close", "evening-1": "close", "evening-2": "close", "evening-3": "close",
   "evening-4": "close", "evening-rubbish": "close", "evening-makeup": "close", "evening-hairbrush": "close",
+  // The weekly list that joins the Big clean on its matching month (see monthEndSwap).
+  "wed-colours": "start", "wed-0": "clear", "wed-3": "clear", "wed-1": "high", "wed-5": "close",
+  "thu-pari-wash": "start", "thu-pari-bed": "floors",
+  "fri-black": "start", "fri-1": "clear", "fri-0": "high", "fri-2": "floors",
 };
 const COVERED_BY: Record<string, string> = {
+  "wed-2": "monthly-1", // the fridge is emptied and cleaned anyway
   "morning-0": "sat-0", // Saturday's bed is made with fresh sheets later on
   "evening-3": "monthly-floors", // every floor is vacuumed and mopped
 };
@@ -599,8 +604,10 @@ function washedDayBefore(d: Date) {
 export function stepsOn(r: Routine, d = today()) {
   const day = weekdayIndex(d);
   const month = (monthEndOwner(d) ?? d).getMonth() + 1;
+  const part = bedroomPart(r, d);
   return r.steps.filter(
     (s) =>
+      (!part || BED_PHASES.includes(phaseOf(s)) === (part === "bed")) &&
       (!s.months || r.when.kind !== "monthly" || s.months.includes(month)) &&
       (!s.weekdays || s.weekdays.includes(day)) &&
       (!s.every || onEvery(s.every, d)) &&
@@ -711,12 +718,71 @@ export function weeklyPlan(officeDays: number[]): WeekSlot[] {
   return slots;
 }
 
+// ---------- The month-end swap ----------
+// The weekly list that matches the month's deep clean (Kitchen, Pari, Living room) is done inside that
+// weekend's Big clean. On its own day nearest the weekend you dust the bedroom instead; the bed itself
+// (sheets, protectors, making it) stays in the Big clean.
+
+const MATCHING_WEEKLY: Record<string, string> = { "q-kitchen": "wed", "q-pari": "thu", "q-living": "fri" };
+
+// The office days, kept in sync by StoreProvider (like the schedule), for the screens that don't pass them.
+let officeDaysNow: number[] = [];
+export function setOfficeDays(days: number[]) {
+  officeDaysNow = days;
+}
+
+export type MonthEndSwap = { saturday: Date; weekly: Routine; bedroom: Routine; day: Date };
+
+function swapForSaturday(sat: Date, officeDays: number[]): MonthEndSwap | null {
+  const deep = routinesForMonth(sat).find((r) => MATCHING_WEEKLY[r.id]);
+  if (!deep) return null;
+  const plan = weeklyPlan(officeDays);
+  const k = plan.findIndex((slot) => slot.routine.id === MATCHING_WEEKLY[deep.id]);
+  if (k < 0 || k >= 5) return null;
+  // The list's day in the weekend's own week, or the week after: whichever is closer to the Saturday.
+  const before = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() - 5 + k);
+  const after = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() + 2 + k);
+  const day = 5 - k <= k + 2 ? before : after;
+  return { saturday: sat, weekly: plan[k].routine, bedroom: plan[5].routine, day };
+}
+
+/** The swap whose weekend `d` is on, or whose swapped day `d` is. */
+export function monthEndSwap(d = today(), officeDays = officeDaysNow): MonthEndSwap | null {
+  const key = dayKey(d);
+  const owner = monthEndOwner(d);
+  if (owner) return swapForSaturday(owner, officeDays);
+  for (const sat of [monthEndSaturday(d), monthEndSaturday(new Date(d.getFullYear(), d.getMonth() - 1, 1))]) {
+    const sw = swapForSaturday(sat, officeDays);
+    if (sw && dayKey(sw.day) === key) return sw;
+  }
+  return null;
+}
+
+/** The weekly list for a day: the usual one, or the Bedroom on a swapped day. */
+export function weeklyListOn(d = today(), officeDays = officeDaysNow) {
+  const sw = monthEndSwap(d, officeDays);
+  if (sw && !monthEndOwner(d)) return sw.bedroom;
+  return weeklyPlan(officeDays)[weekdayIndex(d)].routine;
+}
+
+const BED_PHASES: Phase[] = ["start", "bed"];
+
+/** The Bedroom list split by the swap: the bed on the month-end Saturday, the rest on the swapped day. */
+function bedroomPart(r: Routine, d: Date): "bed" | "rest" | null {
+  if (r.when.kind !== "weekly") return null;
+  const sw = monthEndSwap(d);
+  if (!sw || sw.bedroom.id !== r.id) return null;
+  if (dayKey(d) === dayKey(sw.saturday)) return "bed";
+  if (dayKey(d) === dayKey(sw.day)) return "rest";
+  return null;
+}
+
 export function isDueOn(r: Routine, d = today(), officeDays: number[] = []) {
   switch (r.when.kind) {
     case "daily":
       return true;
     case "weekly":
-      return weeklyPlan(officeDays)[weekdayIndex(d)].routine.id === r.id;
+      return weeklyListOn(d, officeDays).id === r.id;
     case "monthly": {
       const owner = monthEndOwner(d);
       return owner !== null && r.when.months.includes(owner.getMonth() + 1);

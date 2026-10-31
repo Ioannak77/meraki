@@ -13,13 +13,13 @@ import {
   dueToday,
   inEndOfMonthWindow,
   joinsBigClean,
+  weeklyListOn,
   isSkipped,
   monthEndLabel,
   monthEndSaturday,
   occurrenceKey,
   routinesForMonth,
   weekdayIndex,
-  weeklyPlan,
 } from "@/lib/cleaning";
 import { TaskRow } from "@/components/TaskRow";
 import { SlotCard, dueSteps, slotFinished } from "@/components/skin/SlotCard";
@@ -114,7 +114,7 @@ export default function TodayPage() {
   const tomorrowKey = dayKey(tomorrow);
   const tomorrowTasks = tasks.filter((t) => !t.completedAt && t.dueDate === tomorrowKey);
   const tomorrowBills = finance.bills.filter((b) => needsPaying(b) && dueDates(b, tomorrow, tomorrow).some((d) => !finance.paid[paidKey(b, d)]));
-  const tomorrowClean = inEndOfMonthWindow(tomorrow) ? "Big clean" : weeklyPlan(settings.officeDays)[weekdayIndex(tomorrow)].routine.name;
+  const tomorrowClean = inEndOfMonthWindow(tomorrow) ? "Big clean" : weeklyListOn(tomorrow, settings.officeDays).name;
 
   // Only rings with something to count.
   const rings = (small: boolean) => (
