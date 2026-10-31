@@ -7,8 +7,9 @@ import { TaskSheet } from "@/components/TaskSheet";
 import { today } from "@/lib/clock";
 import { dayKey, isDueNow, useStore, type Task } from "@/lib/store";
 
+// Reminders: one-off things to do and recurring ones (a check-up every year, a passport every 10).
 // "All" is already grouped into Overdue, Today, This week, Later and No date.
-const FILTERS = ["All", "Done"] as const;
+const FILTERS = ["All", "Repeating", "Done"] as const;
 type Filter = (typeof FILTERS)[number];
 
 function addDaysKey(n: number) {
@@ -24,15 +25,17 @@ function groupAll(open: Task[]) {
     { title: "Overdue", tasks: [] },
     { title: "Today", tasks: [] },
     { title: "This week", tasks: [] },
-    { title: "Later", tasks: [] },
+    { title: "Later this year", tasks: [] },
+    { title: "Next year and after", tasks: [] },
     { title: "No date", tasks: [] },
   ];
   for (const t of open) {
-    if (t.dueDate === null) groups[4].tasks.push(t);
+    if (t.dueDate === null) groups[5].tasks.push(t);
     else if (t.dueDate < today) groups[0].tasks.push(t);
     else if (t.dueDate === today || isDueNow(t)) groups[1].tasks.push(t);
     else if (t.dueDate <= weekEnd) groups[2].tasks.push(t);
-    else groups[3].tasks.push(t);
+    else if (t.dueDate.slice(0, 4) === today.slice(0, 4)) groups[3].tasks.push(t);
+    else groups[4].tasks.push(t);
   }
   return groups.filter((g) => g.tasks.length > 0);
 }
@@ -51,7 +54,7 @@ export default function TasksPage() {
       return inArea.filter((t) => t.completedAt).sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
     }
     return inArea
-      .filter((t) => !t.completedAt)
+      .filter((t) => !t.completedAt && (filter !== "Repeating" || t.repeat))
       .sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
   }, [inArea, filter]);
 
@@ -75,10 +78,10 @@ export default function TasksPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="flex items-center justify-between md:mt-4">
-        <h1 className="text-[26px] font-bold md:text-3xl">Tasks</h1>
+        <h1 className="text-[26px] font-bold md:text-3xl">Reminders</h1>
         <button
           onClick={() => setSheet("new")}
-          aria-label="Add a task"
+          aria-label="Add a reminder"
           className="grid size-10 place-items-center rounded-full bg-sage-dark text-white"
         >
           <Icon.plus className="size-5" />
@@ -89,7 +92,7 @@ export default function TasksPage() {
         <input
           value={quick}
           onChange={(e) => setQuick(e.target.value)}
-          placeholder="Quick capture: type a task and press enter"
+          placeholder="Quick capture: type it and press enter"
           enterKeyHint="done"
           className="w-full rounded-2xl border border-line bg-card px-4 py-3.5 text-base outline-none focus:border-sage"
         />

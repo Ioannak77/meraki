@@ -43,7 +43,13 @@ export const REPEAT_CHOICES: { label: string; repeat: Repeat | null }[] = [
   { label: "Every 2 weeks", repeat: { every: 2, unit: "week" } },
   { label: "Every month", repeat: { every: 1, unit: "month" } },
   { label: "Every 3 months", repeat: { every: 3, unit: "month" } },
+  { label: "Every 6 months", repeat: { every: 6, unit: "month" } },
   { label: "Every year", repeat: { every: 1, unit: "year" } },
+  // Check-ups and documents (a gynaecologist visit, a passport or ID card).
+  { label: "Every 2 years", repeat: { every: 2, unit: "year" } },
+  { label: "Every 3 years", repeat: { every: 3, unit: "year" } },
+  { label: "Every 5 years", repeat: { every: 5, unit: "year" } },
+  { label: "Every 10 years", repeat: { every: 10, unit: "year" } },
 ];
 
 export function repeatLabel(r: Repeat) {
@@ -406,6 +412,10 @@ export const LEAD_CHOICES = [
   { days: 7, label: "1 week before" },
   { days: 14, label: "2 weeks before" },
   { days: 30, label: "1 month before" },
+  // Things that need booking or paperwork well ahead (a new passport).
+  { days: 61, label: "2 months before" },
+  { days: 91, label: "3 months before" },
+  { days: 182, label: "6 months before" },
 ];
 
 /** Whole-month tasks default to showing in the month's last week; dated ones on the day. */
@@ -447,12 +457,17 @@ export function dueLabel(t: Task) {
     return `By end of ${d.toLocaleDateString(undefined, { month: "short" })}`;
   }
   if (t.dueDate === now) return "Today";
-  const date = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  // Another year (a passport in 2031): say the year.
+  const otherYear = d.getFullYear() !== new Date(now + "T12:00:00").getFullYear();
+  const date = otherYear
+    ? d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+    : d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
   // Showing early (e.g. "book the MOT"): say how long is left.
   const left = daysUntil(t) ?? 0;
   if (leadDays(t) > 0 && left <= leadDays(t)) {
-    const short = d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-    return `by ${short} · ${left === 1 ? "1 day" : `${left} days`} left`;
+    const short = d.toLocaleDateString(undefined, otherYear ? { day: "numeric", month: "short", year: "numeric" } : { day: "numeric", month: "short" });
+    const months = Math.round(left / 30.4);
+    return `by ${short} · ${left > 60 ? `${months} months` : left === 1 ? "1 day" : `${left} days`} left`;
   }
   return date;
 }

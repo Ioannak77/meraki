@@ -12,7 +12,7 @@ import { Icon, type IconName } from "./icons";
 // `short` is the label under the icon in the phone tab bar, where space is tight.
 const NAV: { href: string; label: string; short?: string; icon: IconName; phone: boolean }[] = [
   { href: "/", label: "Today", icon: "home", phone: true },
-  { href: "/tasks/", label: "Tasks", icon: "tasks", phone: true },
+  { href: "/tasks/", label: "Reminders", icon: "tasks", phone: true },
   { href: "/cleaning/", label: "Cleaning schedule", short: "Cleaning", icon: "routines", phone: true },
   { href: "/finances/", label: "Finances", icon: "wallet", phone: true },
   { href: "/groceries/", label: "Groceries", icon: "basket", phone: true },

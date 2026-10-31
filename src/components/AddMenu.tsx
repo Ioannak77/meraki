@@ -61,8 +61,8 @@ export function AddMenu({ onNewTask }: { onNewTask: () => void }) {
               >
                 {badge("tasks", "bg-sky-soft text-sky")}
                 <span className="flex-1">
-                  <span className="block text-[16px] font-semibold">Task</span>
-                  <span className="block text-[13px] text-muted">Something to do, with a date if you like</span>
+                  <span className="block text-[16px] font-semibold">Reminder</span>
+                  <span className="block text-[13px] text-muted">Something to do, once or every so often</span>
                 </span>
               </button>
             </li>

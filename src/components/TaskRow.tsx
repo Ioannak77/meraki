@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { dueLabel, useStore, type Task, type Tone } from "@/lib/store";
+import { dueLabel, repeatLabel, useStore, type Task, type Tone } from "@/lib/store";
 import { Icon } from "./icons";
 
 export const TONE_CLASSES: Record<Tone, string> = {
@@ -20,6 +20,8 @@ export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit:
   const done = !!task.completedAt;
   const AreaGlyph = area ? Icon[area.icon] : null;
   const label = dueLabel(task);
+  const longLabel = label.startsWith("by ") || /\d{4}/.test(label); // another year, or showing early
+  const urgent = label === "Overdue" || label === "Today" || label.startsWith("by ");
 
   function toggle() {
     if (!done) {
@@ -53,8 +55,10 @@ export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit:
           {task.title}
         </span>
         <span className="block truncate text-[13px] text-muted">
+          {/* A long date ("by Feb 10, 2027 · 3 months left") goes here, so the name keeps its room. */}
+          {longLabel && !done && <span className={urgent ? "text-peach" : ""}>{label} · </span>}
           {[
-            task.repeat ? "↻" : null,
+            task.repeat ? `↻ ${repeatLabel(task.repeat).toLowerCase()}` : null,
             task.remindAt ? `reminder ${task.remindAt.slice(11, 16)}` : null,
             task.steps?.length ? `${task.steps.filter((s) => s.done).length}/${task.steps.length} steps` : null,
             task.minutes ? `${task.minutes} min` : null,
@@ -65,9 +69,9 @@ export function TaskRow({ task, onEdit, showArea = true }: { task: Task; onEdit:
         </span>
       </button>
 
-      <span className={`shrink-0 text-xs ${label === "Overdue" || label === "Today" || label.startsWith("by ") ? "text-peach" : "text-muted"}`}>
-        {done ? "Done" : label}
-      </span>
+      {(done || !longLabel) && (
+        <span className={`shrink-0 text-xs ${urgent ? "text-peach" : "text-muted"}`}>{done ? "Done" : label}</span>
+      )}
       {!done && (
         <button
           onClick={() => updateTask(task.id, { isEssential: !task.isEssential })}

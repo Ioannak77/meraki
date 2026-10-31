@@ -86,7 +86,7 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
     `rounded-full px-3.5 py-2 text-sm transition-[color,background-color,border-color,transform] ${active ? "bg-ink text-cream" : "bg-cream text-ink/80"}`;
 
   return (
-    <Sheet title={existing ? "Edit task" : "New task"} onClose={onClose}>
+    <Sheet title={existing ? "Edit reminder" : "New reminder"} onClose={onClose}>
       <form onSubmit={save}>
 
         {existing && !existing.completedAt && (
@@ -334,7 +334,7 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
           disabled={!title.trim()}
           className="mt-6 w-full rounded-2xl bg-sage-dark py-4 text-base font-bold text-white disabled:opacity-40"
         >
-          {existing ? "Save" : "Add task"}
+          {existing ? "Save" : "Add reminder"}
         </button>
 
         {existing && (
@@ -350,7 +350,7 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
               confirmDelete ? "bg-rose text-white" : "text-muted"
             }`}
           >
-            {confirmDelete ? "Tap again to delete" : "Delete task"}
+            {confirmDelete ? "Tap again to delete" : "Delete reminder"}
           </button>
         )}
       </form>

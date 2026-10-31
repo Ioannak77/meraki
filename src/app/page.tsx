@@ -215,7 +215,7 @@ export default function TodayPage() {
             title="Coming up"
             right={
               <Link href="/tasks/" className="shrink-0 text-sm font-semibold text-sage-dark">
-                All tasks →
+                All reminders →
               </Link>
             }
           >
