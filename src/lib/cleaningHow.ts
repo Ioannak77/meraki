@@ -59,7 +59,7 @@ export const HOW: Record<string, string> = {
   // Monthly reset
   "monthly-0": "Pull out anything stored under the bed, vacuum with the long nozzle, wipe what you put back.",
   "monthly-1": "Take everything out (cool bag for what needs to stay cold), bin old things, remove the shelves and drawers, wash them in warm soapy water, wipe the inside with water and a little baking soda, dry and put back.",
-  "monthly-2": "Empty drum. A washing machine cleaner (or 2 cups of white vinegar) in the drum, the hottest cycle. Afterwards wipe the rubber seal and the detergent drawer, and leave the door open to dry.",
+  "monthly-2": "1. Filter first, while the machine is cold and off: put a towel and a shallow tray under the small hatch at the bottom front, open it, let the water drain out, then unscrew the filter, clear out the fluff and bits, rinse it and screw it back tight. 2. Pull out the detergent drawer (press the release tab) and scrub it in hot water with an old toothbrush, plus the slot it sits in. 3. Run the machine empty on 90°C. 4. Afterwards wipe inside the rubber seal, folding it back to reach the gunk, and leave the door and drawer open to dry.",
   "monthly-3": "Couch throws on their label's temperature (usually 30–40°C), gentle cycle. Hang them over a rail to dry.",
   "monthly-4": "Empty the bin or bag, rinse the filters in water (only the washable ones) and let them dry 24 hours, cut the hair off the brush roll.",
   "monthly-5": "One drawer only: empty it, wipe it, put back only what you use. The rest: bin, donate or a better place.",
