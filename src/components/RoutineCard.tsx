@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 import { RoutineTimer, unlockTimerAudio } from "./RoutineTimer";
 import { useRememberedFold } from "./Fold";
+import { HowButton, HowText } from "./StepHow";
 
 const GROUP_STYLE: Record<Routine["group"], { tone: string; bar: string; label: string }> = {
   daily: { tone: "bg-sage-soft text-sage", bar: "bg-sage", label: "Daily" },
@@ -49,6 +50,7 @@ export function RoutineCard({
   // null until you fold or unfold it yourself; a finished list folds by itself.
   const [manualOpen, setManualOpen] = useState<boolean | null>(null);
   const [timing, setTiming] = useState(false);
+  const [howOpen, setHowOpen] = useState<string | null>(null); // the step whose instructions are open
   const [folded, setFolded] = useRememberedFold(foldId);
   // After meals can be done again for each meal: rounds are saved as "meals@day", "meals@day#2"…
   const base = occurrenceKey(routine, date);
@@ -110,13 +112,14 @@ export function RoutineCard({
               const isDone = ticked.includes(step.id);
               return (
                 <li key={step.id}>
+                  <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       if (!isDone) navigator.vibrate?.(20);
                       toggleStep(key, step.id);
                     }}
-                    className="flex w-full items-center gap-3 py-3 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left"
                     aria-pressed={isDone}
                   >
                     <span
@@ -127,11 +130,14 @@ export function RoutineCard({
                       {isDone && <Icon.check className="size-4" />}
                     </span>
                     <span className={`flex-1 text-[15px] ${isDone ? "text-muted line-through" : ""}`}>{step.title}</span>
-                    <span className="shrink-0 text-right text-xs text-muted">
+                    <span className="max-w-[40%] shrink-0 text-right text-xs text-muted">
                       {step.minutes} min
                       {step.hint && <span className="block">{step.hint}</span>}
                     </span>
                   </button>
+                  <HowButton step={step} open={howOpen === step.id} onToggle={() => setHowOpen(howOpen === step.id ? null : step.id)} />
+                  </div>
+                  {howOpen === step.id && <HowText step={step} />}
                 </li>
               );
             })}

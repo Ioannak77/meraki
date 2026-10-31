@@ -44,7 +44,8 @@ export type Step = {
   every?: { days: number; from: string }; // only every N days, counting from "YYYY-MM-DD" (e.g. watering plants)
   wash?: boolean; // a machine load: ticking it brings up the "afterWash" steps the next day
   afterWash?: boolean; // only the day after a wash step was ticked (hang and put away)
-  startFirst?: boolean; // needs time to dry, soak or run (washed cushions, oven cleaner): first on the month-end weekend
+  startFirst?: boolean; // needs time to dry, soak or run (washed cushions, oven cleaner): first on the month-end weekend; machine loads too unless set to false
+  how?: string; // your own instructions (Edit); else the built-in ones in cleaningHow.ts
 };
 
 export type Routine = {
@@ -381,7 +382,7 @@ const CHANGES: Change[] = [
 
 /** Goes first on the month-end weekend: a machine load, or something that needs time to dry, soak or run. */
 export function isStartFirst(s: Step) {
-  return !!(s.wash || s.startFirst);
+  return s.startFirst ?? !!s.wash;
 }
 
 function defaultStep(list: string, id: string) {

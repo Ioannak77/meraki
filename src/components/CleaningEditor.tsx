@@ -13,11 +13,13 @@ import {
   cleaningLists,
   formatMinutes,
   groupForMonths,
+  isStartFirst,
   type Room,
   type Routine,
   type Step,
 } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
+import { HOW } from "@/lib/cleaningHow";
 import { DragList } from "./DragList";
 import { Icon } from "./icons";
 import { DangerButton, Label, PrimaryButton, Sheet, inputClass } from "./finance/ui";
@@ -273,6 +275,29 @@ function ListSheet({
                   </span>
                   Only if needed (doesn&apos;t count towards the time)
                 </button>
+                {!isDaily && (
+                  <button
+                    type="button"
+                    onClick={() => setStep(s.id, { startFirst: !isStartFirst(s) })}
+                    className="flex items-center gap-2 text-left text-sm"
+                  >
+                    <span className={`grid size-6 shrink-0 place-items-center rounded-md border-2 ${isStartFirst(s) ? "border-sage bg-sage text-white" : "border-line bg-card"}`}>
+                      {isStartFirst(s) && <Icon.check className="size-4" />}
+                    </span>
+                    Start first on the month-end weekend (a machine load, or it needs time to dry or soak)
+                  </button>
+                )}
+                <label className="text-sm text-muted">
+                  How to do it
+                  <textarea
+                    value={s.how ?? ""}
+                    onChange={(e) => setStep(s.id, { how: e.target.value || undefined })}
+                    placeholder={HOW[s.id] || "Steps, products, what to watch out for…"}
+                    rows={4}
+                    className={`${inputClass} mt-1 text-[15px]`}
+                  />
+                  {!s.how && HOW[s.id] && <span className="mt-1 block text-xs">Empty: the instructions above (greyed) are used.</span>}
+                </label>
                 {isDaily && (
                   <label className="flex items-center gap-2 text-sm text-muted">
                     Every

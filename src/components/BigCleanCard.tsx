@@ -11,11 +11,13 @@ import { today } from "@/lib/clock";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 import { RoutineTimer, unlockTimerAudio, type TimerItem } from "./RoutineTimer";
+import { HowButton, HowText } from "./StepHow";
 
 export function BigCleanCard({ routines, date = today() }: { routines: Routine[]; date?: Date }) {
   const { routineDone, toggleStep } = useStore();
   const [timing, setTiming] = useState<{ title: string; items: TimerItem[] } | null>(null);
   const [openRooms, setOpenRooms] = useState<Set<string> | null>(null);
+  const [howOpen, setHowOpen] = useState<string | null>(null); // the step whose instructions are open
 
   const items: (TimerItem & { room: Room; listName: string })[] = routines.flatMap((r) => {
     const occurrence = occurrenceKey(r, date);
@@ -109,6 +111,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                       const ticked = isDone(it);
                       return (
                         <li key={it.occurrence + it.step.id}>
+                          <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {
@@ -116,7 +119,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                               toggleStep(it.occurrence, it.step.id);
                             }}
                             aria-pressed={ticked}
-                            className="flex w-full items-center gap-3 py-2.5 text-left"
+                            className="flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left"
                           >
                             <span
                               className={`grid size-7 shrink-0 place-items-center rounded-full border-2 transition-[color,background-color,border-color,transform] ${
@@ -129,11 +132,18 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
                               <span className={`block text-[15px] ${ticked ? "text-muted line-through" : ""}`}>{it.step.title}</span>
                               <span className="block text-xs text-muted">{it.listName}</span>
                             </span>
-                            <span className="shrink-0 text-right text-xs text-muted">
+                            <span className="max-w-[40%] shrink-0 text-right text-xs text-muted">
                               {it.step.minutes} min
                               {it.step.hint && <span className="block">{it.step.hint}</span>}
                             </span>
                           </button>
+                          <HowButton
+                            step={it.step}
+                            open={howOpen === it.occurrence + it.step.id}
+                            onToggle={() => setHowOpen(howOpen === it.occurrence + it.step.id ? null : it.occurrence + it.step.id)}
+                          />
+                          </div>
+                          {howOpen === it.occurrence + it.step.id && <HowText step={it.step} />}
                         </li>
                       );
                     })}

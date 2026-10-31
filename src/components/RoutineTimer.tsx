@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatMinutes, type Step } from "@/lib/cleaning";
+import { howTo } from "@/lib/cleaningHow";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 
@@ -36,6 +37,7 @@ export function RoutineTimer({
     items.filter((it) => !(routineDone[it.occurrence] ?? []).includes(it.step.id)),
   );
   const [index, setIndex] = useState(0);
+  const [howFor, setHowFor] = useState<string | null>(null); // the step whose instructions are open
   const [stepStart, setStepStart] = useState(() => Date.now());
   const [pausedAt, setPausedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -148,6 +150,14 @@ export function RoutineTimer({
           <p className="mt-1 min-h-6 text-[15px] text-muted">
             {step.optional ? `Optional${step.hint ? `, ${step.hint}` : ""}. Skip it if it's not needed.` : step.hint ?? ""}
           </p>
+          {howTo(step) &&
+            (howFor === step.id ? (
+              <p className="animate-reveal mt-2 rounded-2xl bg-card px-4 py-3 text-left text-[14px] leading-snug">{howTo(step)}</p>
+            ) : (
+              <button type="button" onClick={() => setHowFor(step.id)} className="mt-1 text-sm font-semibold text-sage-dark">
+                How to do it
+              </button>
+            ))}
 
           <div className="relative my-6 aspect-square w-[min(72vw,300px)]">
             <svg viewBox="0 0 200 200" className="size-full -rotate-90" aria-hidden>
