@@ -14,6 +14,8 @@ import {
   formatMinutes,
   groupForMonths,
   isStartFirst,
+  weekParity,
+  type WeekParity,
   type Room,
   type Routine,
   type Step,
@@ -286,6 +288,22 @@ function ListSheet({
                     </span>
                     Start first on the month-end weekend (a machine load, or it needs time to dry or soak)
                   </button>
+                )}
+                {draft.when.kind === "weekly" && (
+                  <label className="flex items-center gap-2 text-sm text-muted">
+                    How often
+                    <select
+                      value={s.everyOtherWeek ?? "every"}
+                      onChange={(e) =>
+                        setStep(s.id, { everyOtherWeek: e.target.value === "every" ? undefined : (e.target.value as WeekParity) })
+                      }
+                      className={`${inputClass} flex-1`}
+                    >
+                      <option value="every">Every week</option>
+                      <option value={weekParity()}>Every other week, starting this week</option>
+                      <option value={weekParity() === "odd" ? "even" : "odd"}>Every other week, starting next week</option>
+                    </select>
+                  </label>
                 )}
                 <label className="text-sm text-muted">
                   How to do it

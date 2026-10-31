@@ -46,6 +46,7 @@ export type Step = {
   afterWash?: boolean; // only the day after a wash step was ticked (hang and put away)
   startFirst?: boolean; // needs time to dry, soak or run (washed cushions, oven cleaner): first on the month-end weekend; machine loads too unless set to false
   how?: string; // your own instructions (Edit); else the built-in ones in cleaningHow.ts
+  everyOtherWeek?: WeekParity; // weekly lists: only every other week (see weekParity), whichever day the list lands on
 };
 
 export type Routine = {
@@ -60,7 +61,7 @@ export type Routine = {
 
 const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst">];
+type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst" | "everyOtherWeek">];
 
 function steps(prefix: string, list: StepInput[]): Step[] {
   return list.map(([title, minutes, room, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, room, ...extra }));
@@ -140,7 +141,7 @@ export const DEFAULT_CLEANING: Routine[] = [
         ["Toilet, sink and mirror", 10, "Bathroom"],
         ["Wipe the shower", 5, "Bathroom"],
       ]),
-      step("mon-towels", "Wash the towels and the bath rug", 3, "Laundry", { hint: "Monday's load", wash: true }),
+      step("mon-towels", "Wash the towels and the bath rug", 3, "Laundry", { hint: "every other week", wash: true, everyOtherWeek: "odd" }),
     ],
   },
   {
@@ -177,7 +178,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "weekly", weekday: 3 },
     steps: [
       step("thu-pari-bed", "Vacuum Pari's bed", 3, "Pari"),
-      step("thu-pari-wash", "Wash Pari's bed cover and blanket", 3, "Laundry", { hint: "Thursday's load", wash: true }),
+      step("thu-pari-wash", "Wash Pari's bed cover and blanket", 3, "Laundry", { hint: "every other week", wash: true, everyOtherWeek: "even" }),
     ],
   },
   {
@@ -321,6 +322,7 @@ const LOADS = "2026-10-27";
 const YEAR = "2026-10-31";
 const WINDOWS = "2026-11-01";
 const FIRST = "2026-11-01b";
+const FORTNIGHT = "2026-11-01c";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -377,6 +379,14 @@ const CHANGES: Change[] = [
   ].map(([list, id]) => {
     const st = defaultStep(list, id);
     return { list, update: id, patch: { hint: st.hint, startFirst: true }, since: FIRST };
+  }),
+  // Towels and Pari's bed cover every other week, on alternate weeks.
+  ...[
+    ["mon", "mon-towels"],
+    ["thu", "thu-pari-wash"],
+  ].map(([list, id]) => {
+    const st = defaultStep(list, id);
+    return { list, update: id, patch: { hint: st.hint, everyOtherWeek: st.everyOtherWeek }, since: FORTNIGHT };
   }),
 ];
 
@@ -481,8 +491,21 @@ function washedDayBefore(d: Date) {
 export function stepsOn(r: Routine, d = today()) {
   const day = weekdayIndex(d);
   return r.steps.filter(
-    (s) => (!s.weekdays || s.weekdays.includes(day)) && (!s.every || onEvery(s.every, d)) && (!s.afterWash || washedDayBefore(d)),
+    (s) =>
+      (!s.weekdays || s.weekdays.includes(day)) &&
+      (!s.every || onEvery(s.every, d)) &&
+      (!s.everyOtherWeek || weekParity(d) === s.everyOtherWeek) &&
+      (!s.afterWash || washedDayBefore(d)),
   );
+}
+
+export type WeekParity = "odd" | "even";
+
+/** Weeks (Monday to Sunday) alternate odd and even, counted from Monday 5 January 2026 (even). */
+export function weekParity(d = today()): WeekParity {
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - weekdayIndex(d));
+  const weeks = Math.round((monday.getTime() - new Date(2026, 0, 5).getTime()) / (7 * 86_400_000));
+  return ((weeks % 2) + 2) % 2 === 0 ? "even" : "odd";
 }
 
 /** Is `d` one of the "every N days" days (counting from `from`)? */
