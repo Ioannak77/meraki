@@ -4,13 +4,23 @@
 // and nothing here is a score to beat: the point is to notice what fits and what doesn't.
 
 import { routineProgress } from "@/components/RoutineCard";
-import { MONTHS, dueToday, isSkipped, occurrenceKey } from "@/lib/cleaning";
+import {
+  MONTHS,
+  bedroomDay,
+  bigCleanItems,
+  dueToday,
+  isSkipped,
+  joinsBigClean,
+  monthEndSaturday,
+  monthEndSwap,
+  occurrenceKey,
+} from "@/lib/cleaning";
 import { afterPaybacks, money } from "@/lib/finance";
 import { useFinance } from "@/lib/financeStore";
 import { useGroceries } from "@/lib/groceriesStore";
 import { slotKey } from "@/lib/skin";
 import { useSkin } from "@/lib/skinStore";
-import { dayKey, useStore } from "@/lib/store";
+import { dayKey, dueLabel, repeatLabel, useStore } from "@/lib/store";
 import { useNow } from "@/lib/useNow";
 
 function addDays(d: Date, n: number) {
@@ -41,6 +51,43 @@ export default function InsightsPage() {
   // Today still counts as "in progress": the streak runs up to yesterday if today is empty so far.
   for (let d = active.has(todayKey) ? today : addDays(today, -1); active.has(dayKey(d)); d = addDays(d, -1)) streak++;
   const activeThisMonth = [...active].filter((k) => k.startsWith(monthKey) && k <= todayKey).length;
+
+  // This week, day by day: everything ticked (reminders, cleaning steps, skincare). Moved here from Today.
+  const tickedOn = (key: string) =>
+    tasks.filter((t) => t.completedAt && dayKey(new Date(t.completedAt)) === key).length +
+    Object.entries(routineDone).reduce((n, [k, ids]) => n + ((k.split("@")[1] ?? "").split("#")[0] === key ? ids.length : 0), 0) +
+    Object.entries(skin.done).reduce((n, [k, ids]) => n + (k.split("@")[1] === key ? ids.length : 0), 0);
+  const weekStart = addDays(today, -((today.getDay() + 6) % 7));
+  const thisWeek = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(weekStart, i);
+    const key = dayKey(d);
+    return { label: d.toLocaleDateString(undefined, { weekday: "narrow" }), value: key > todayKey ? 0 : tickedOn(key), current: key === todayKey };
+  });
+  const daysThisWeek = thisWeek.filter((d) => d.value > 0).length;
+
+  // The last month-end Big clean (both days), and its bedroom day.
+  const thisSat = monthEndSaturday(today);
+  const sat = thisSat <= today ? thisSat : monthEndSaturday(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+  const sun = addDays(sat, 1);
+  const bigSeen = new Map<string, boolean>();
+  for (const d of [sat, sun]) {
+    for (const it of bigCleanItems(dueToday(d, settings.officeDays).filter(joinsBigClean), d)) {
+      if (it.step.optional || it.step.id.startsWith("morning-") || it.step.id.startsWith("evening-")) continue; // daily steps are counted with cleaning
+      bigSeen.set(it.occurrence + "|" + it.step.id, (routineDone[it.occurrence] ?? []).includes(it.step.id));
+    }
+  }
+  const bigTotal = bigSeen.size;
+  const bigDone = [...bigSeen.values()].filter(Boolean).length;
+  const swap = monthEndSwap(sat, settings.officeDays);
+  const bedroom = swap && swap.day <= today ? bedroomDay(swap.day, settings.officeDays) : null;
+  const bedroomDone = bedroom ? bedroom.items.filter((it) => (routineDone[it.occurrence] ?? []).includes(it.step.id)).length : 0;
+  const shortDate = (d: Date) => d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+
+  // Repeating reminders coming up (a check-up, a passport), soonest first.
+  const comingUp = tasks
+    .filter((t) => t.repeat && !t.completedAt && t.dueDate && t.dueDate >= todayKey)
+    .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!))
+    .slice(0, 5);
 
   // Tasks done per week, last 8 weeks (weeks start on Monday).
   const monday = addDays(today, -((today.getDay() + 6) % 7));
@@ -99,6 +146,8 @@ export default function InsightsPage() {
     return { label: MONTHS[d.getMonth()].slice(0, 3), spent, shopping, current: i === 5 };
   });
   const hasMoney = months.some((m) => m.spent > 0 || m.shopping > 0);
+  // Friends paying back their share this month (it lowers what those payments cost you).
+  const paidBack = finance.txns.filter((t) => t.category === "paid_back" && t.amount > 0 && t.date.startsWith(monthKey)).reduce((s, t) => s + t.amount, 0);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -111,7 +160,17 @@ export default function InsightsPage() {
       </div>
 
       <section className="mt-4 rounded-3xl bg-card p-5">
-        <h2 className="text-lg font-bold">Tasks done</h2>
+        <h2 className="text-lg font-bold">This week</h2>
+        <Bars items={thisWeek} format={(n) => String(n)} />
+        <p className="mt-2 text-sm text-muted">
+          {daysThisWeek === 0
+            ? "A fresh week. One small tick puts a bar here."
+            : `Things ticked each day. You showed up on ${daysThisWeek} ${daysThisWeek === 1 ? "day" : "days"} this week; missed days don't erase that.`}
+        </p>
+      </section>
+
+      <section className="mt-4 rounded-3xl bg-card p-5">
+        <h2 className="text-lg font-bold">Reminders done</h2>
         <Bars items={weeks.map((w) => ({ label: w.label, value: w.count, current: w.current }))} format={(n) => String(n)} />
         <p className="mt-2 text-sm text-muted">Per week, last 8 weeks.</p>
       </section>
@@ -149,6 +208,46 @@ export default function InsightsPage() {
         )}
       </section>
 
+      {bigTotal > 0 && (
+        <section className="mt-4 rounded-3xl bg-card p-5">
+          <h2 className="text-lg font-bold">Last Big clean</h2>
+          <p className="text-sm text-muted">
+            {shortDate(sat)} and {shortDate(sun)}
+          </p>
+          <p className="mt-2 text-[15px]">
+            <strong>{bigDone}</strong> of {bigTotal} steps done
+            <span className="text-muted"> ({Math.round((bigDone / bigTotal) * 100)}%)</span>
+          </p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-line">
+            <div className="h-full rounded-full bg-sun" style={{ width: `${(bigDone / bigTotal) * 100}%` }} />
+          </div>
+          {bedroom && (
+            <p className="mt-3 text-[15px]">
+              Bedroom day ({shortDate(swap!.day)}): <strong>{bedroomDone}</strong> of {bedroom.items.length}
+            </p>
+          )}
+          {bigDone < bigTotal && <p className="mt-1 text-sm text-muted">Whatever&apos;s left waits for next month. Nothing piles up.</p>}
+        </section>
+      )}
+
+      {comingUp.length > 0 && (
+        <section className="mt-4 rounded-3xl bg-card p-5">
+          <h2 className="text-lg font-bold">Coming up</h2>
+          <p className="text-sm text-muted">Your repeating reminders, soonest first.</p>
+          <ul className="mt-2 divide-y divide-line">
+            {comingUp.map((t) => (
+              <li key={t.id} className="flex items-baseline justify-between gap-3 py-2.5 text-[15px]">
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">{t.title}</span>
+                  <span className="block text-xs text-muted">↻ {repeatLabel(t.repeat!).toLowerCase()}</span>
+                </span>
+                <span className="shrink-0 text-sm text-muted">{dueLabel(t)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="mt-4 rounded-3xl bg-card p-5">
         <h2 className="text-lg font-bold">Self care in {MONTHS[today.getMonth()]}</h2>
         <div className={`mt-2 grid gap-3 text-center ${hasDaily ? "grid-cols-3" : "grid-cols-2"}`}>
@@ -172,6 +271,11 @@ export default function InsightsPage() {
       {hasMoney && (
         <section className="mt-4 rounded-3xl bg-card p-5">
           <h2 className="text-lg font-bold">Finances</h2>
+          {paidBack > 0 && (
+            <p className="mt-1 text-[15px]">
+              Friends paid you back <strong>{money(paidBack)}</strong> in {MONTHS[today.getMonth()]}, already taken off your spending.
+            </p>
+          )}
           {months.some((m) => m.spent > 0) && (
             <>
               <p className="mt-2 text-sm font-semibold text-muted">Spending per month</p>
@@ -216,8 +320,8 @@ function Bars({
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
     <div className="mt-3 flex h-36 items-end gap-2">
-      {items.map((i) => (
-        <div key={i.label} className="flex flex-1 flex-col items-center gap-1">
+      {items.map((i, n) => (
+        <div key={n} className="flex flex-1 flex-col items-center gap-1">
           <span className="text-[11px] text-muted">{i.value ? format(i.value) : ""}</span>
           <div className="flex h-24 w-full items-end">
             <div

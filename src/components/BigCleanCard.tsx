@@ -6,7 +6,7 @@
 // Cleaning schedule screen stays in sync.
 
 import { useState } from "react";
-import { BEDROOM_DAY, PHASES, bigCleanOrder, coveredInBigClean, formatMinutes, monthEndSwap, occurrenceKey, phaseOf, stepsOn, type Room, type Routine } from "@/lib/cleaning";
+import { PHASES, bigCleanItems, formatMinutes, phaseOf, type Routine } from "@/lib/cleaning";
 import { today } from "@/lib/clock";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
@@ -19,23 +19,11 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
   const [openRooms, setOpenRooms] = useState<Set<string> | null>(null);
   const [howOpen, setHowOpen] = useState<string | null>(null); // the step whose instructions are open
 
-  // The weekly list matching the month's deep clean joins in, saved under the Saturday (so Sunday sees the same ticks).
-  const swap = monthEndSwap(date);
-  const lists: { r: Routine; on: Date }[] = [
-    ...routines.map((r) => ({ r, on: date })),
-    ...(swap && !routines.some((r) => r.id === swap.weekly.id) ? [{ r: swap.weekly, on: swap.saturday }] : []),
-  ];
-  const all = lists.flatMap(({ r, on }) => {
-    const occurrence = occurrenceKey(r, on);
-    return stepsOn(r, on).map((step) => ({ step, occurrence, room: step.room, listName: r.name, label: PHASES.find((p) => p.id === phaseOf(step))!.label }));
-  });
-  const ids = new Set(all.map((it) => it.step.id));
-  // Daily steps the Big clean already does (the bed made with fresh sheets, every floor vacuumed) are left out.
-  const items: (TimerItem & { room: Room; listName: string })[] = bigCleanOrder(
-    // The bedroom jobs are done on the bedroom day (see bedroomDay), not in the Big clean.
-    all.filter((it) => !coveredInBigClean(it.step, ids) && !(swap && BEDROOM_DAY.includes(it.step.id))),
-    (it) => it.step,
-  );
+  // The month's lists, the matching weekly list, in cleaning order (see bigCleanItems).
+  const items: (TimerItem & { listName: string })[] = bigCleanItems(routines, date).map((it) => ({
+    ...it,
+    label: PHASES.find((p) => p.id === phaseOf(it.step))!.label,
+  }));
   const isDone = (it: TimerItem) => (routineDone[it.occurrence] ?? []).includes(it.step.id);
   const counted = items.filter((it) => !it.step.optional);
   const done = counted.filter(isDone).length;

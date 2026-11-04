@@ -503,6 +503,24 @@ export function bigCleanOrder<T>(items: T[], stepOf: (x: T) => Step) {
   return items.map((x, i) => ({ x, i })).sort((a, b) => rank(stepOf(a.x)) - rank(stepOf(b.x)) || a.i - b.i).map((e) => e.x);
 }
 
+/**
+ * Everything in the Big clean on a month-end day, in cleaning order: the given lists, plus the weekly list that
+ * matches the month's deep clean (saved under the Saturday), without steps it already covers or the bedroom jobs.
+ */
+export function bigCleanItems(routines: Routine[], date: Date) {
+  const swap = monthEndSwap(date);
+  const lists: { r: Routine; on: Date }[] = [
+    ...routines.map((r) => ({ r, on: date })),
+    ...(swap && !routines.some((r) => r.id === swap.weekly.id) ? [{ r: swap.weekly, on: swap.saturday }] : []),
+  ];
+  const all = lists.flatMap(({ r, on }) => stepsOn(r, on).map((step) => ({ step, occurrence: occurrenceKey(r, on), listName: r.name })));
+  const ids = new Set(all.map((it) => it.step.id));
+  return bigCleanOrder(
+    all.filter((it) => !coveredInBigClean(it.step, ids) && !(swap && BEDROOM_DAY.includes(it.step.id))),
+    (it) => it.step,
+  );
+}
+
 /** Goes first on the month-end weekend. */
 export function isStartFirst(s: Step) {
   return phaseOf(s) === "start";

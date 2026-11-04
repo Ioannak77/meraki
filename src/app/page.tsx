@@ -302,61 +302,9 @@ export default function TodayPage() {
         </section>
       )}
 
-      {/* Outside the grid so it always comes last, even when the iPad's two columns fill gaps. */}
-      {show("week") && (
-        <div className="mt-4">
-          <WeekCard now={now} />
-        </div>
-      )}
-
       <AddMenu onNewTask={() => setSheet("new")} />
 
       {sheet && <TaskSheet task={sheet} onClose={() => setSheet(null)} />}
     </div>
-  );
-}
-
-function WeekCard({ now }: { now: Date }) {
-  const { tasks } = useStore();
-  const days = useMemo(() => {
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const key = dayKey(d);
-      return {
-        key,
-        letter: d.toLocaleDateString(undefined, { weekday: "narrow" }),
-        count: tasks.filter((t) => t.completedAt && dayKey(new Date(t.completedAt)) === key).length,
-        isToday: key === dayKey(now),
-        isFuture: key > dayKey(now),
-      };
-    });
-  }, [tasks, now]);
-  const max = Math.max(4, ...days.map((d) => d.count));
-  const activeDays = days.filter((d) => d.count > 0).length;
-
-  return (
-    <Fold id="today-week" title="This week">
-      <div className="mt-2 flex h-28 items-end justify-between gap-2">
-        {days.map((d) => (
-          <div key={d.key} className="flex flex-1 flex-col items-center gap-1.5">
-            <div className="flex h-20 w-3 items-end overflow-hidden rounded-full bg-line">
-              <div
-                className={`w-full rounded-full ${d.isToday ? "bg-sage-dark" : "bg-sage"}`}
-                style={{ height: `${d.isFuture ? 0 : (d.count / max) * 100}%` }}
-              />
-            </div>
-            <span className={`text-xs ${d.isToday ? "font-bold text-ink" : "text-muted"}`}>{d.letter}</span>
-          </div>
-        ))}
-      </div>
-      <p className="mt-3 text-sm text-muted">
-        {activeDays === 0
-          ? "A fresh week. One small tick puts a bar here."
-          : `You showed up on ${activeDays} ${activeDays === 1 ? "day" : "days"} this week. Missed days don't erase that.`}
-      </p>
-    </Fold>
   );
 }
