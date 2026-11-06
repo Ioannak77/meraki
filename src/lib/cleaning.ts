@@ -152,10 +152,9 @@ export const DEFAULT_CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 1 },
     steps: [
-      ...steps("tue", [
-        ["Vacuum and mop", 30, "Floors"],
-        ["Shake the entrance mat", 2, "Floors"],
-      ]),
+      step("tue-0", "Vacuum the floors", 15, "Floors"),
+      step("tue-mop", "Mop the floors", 15, "Floors", { hint: "every other week", everyOtherWeek: "odd" }),
+      step("tue-1", "Shake the entrance mat", 2, "Floors"),
       step("tue-whites", "Wash the whites", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
     ],
   },
@@ -165,8 +164,9 @@ export const DEFAULT_CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 2 },
     steps: [
-      step("wed-0", "Wipe cupboard fronts", 5, "Kitchen"),
-      step("wed-1", "Wipe the backsplash", 3, "Kitchen"),
+      // Fronts and backsplash take turns, one each week.
+      step("wed-0", "Wipe cupboard fronts", 5, "Kitchen", { hint: "every other week", everyOtherWeek: "odd" }),
+      step("wed-1", "Wipe the backsplash", 3, "Kitchen", { hint: "every other week", everyOtherWeek: "even" }),
       step("wed-2", "Check the fridge for expired food", 5, "Kitchen"),
       step("wed-3", "Deep clean the sink", 5, "Kitchen", { hint: "hot water + baking soda" }),
       step("wed-5", "Deep clean Pari's bowls", 5, "Pari"),
@@ -189,9 +189,10 @@ export const DEFAULT_CLEANING: Routine[] = [
     group: "weekly",
     when: { kind: "weekly", weekday: 4 },
     steps: [
-      step("fri-0", "Dust the living room", 10, "Living room"),
+      // Dusting and the sofa take turns, one each week.
+      step("fri-0", "Dust the living room", 10, "Living room", { hint: "every other week", everyOtherWeek: "odd" }),
       step("fri-1", "Wipe the tables", 3, "Living room"),
-      step("fri-2", "Vacuum and spray the sofa", 10, "Living room"),
+      step("fri-2", "Vacuum and spray the sofa", 10, "Living room", { hint: "every other week", everyOtherWeek: "even" }),
       step("fri-black", "Wash the black clothes", 3, "Laundry", { optional: true, wash: true, hint: "if there's enough for a load" }),
     ],
   },
@@ -204,7 +205,7 @@ export const DEFAULT_CLEANING: Routine[] = [
     steps: [
       step("sat-sheets", "Strip the bed and wash the sheets", 5, "Laundry", { hint: "the day's load", wash: true, phase: "start" }),
       step("sat-0", "Make the bed with fresh sheets", 5, "Bedroom", { hint: "and pillowcases", phase: "bed" }),
-      step("sat-2", "Dust the bedroom", 5, "Bedroom", { phase: "high" }),
+      step("sat-2", "Dust the bedroom", 5, "Bedroom", { hint: "every other week", everyOtherWeek: "even", phase: "high" }),
     ],
   },
   {
@@ -331,6 +332,7 @@ const FORTNIGHT = "2026-11-01c";
 const PHASED = "2026-11-01d";
 const PROTECTORS = "2026-11-01e";
 const BEDROOM = "2026-11-01f";
+const LIGHTER = "2026-11-06";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -431,6 +433,21 @@ const CHANGES: Change[] = [
   // The bedroom jobs moved to the bedroom day, which isn't always a Saturday or Sunday.
   { list: "sat", update: "sat-sheets", patch: { hint: "the day's load" }, since: BEDROOM },
   { list: "half", update: "half-1", patch: { hint: "its own load, after the sheets" }, since: BEDROOM },
+  // A lighter week: these take turns every other week, spread so each week gets about half.
+  { list: "tue", update: "tue-0", patch: { title: "Vacuum the floors", minutes: 15 }, since: LIGHTER },
+  { list: "tue", step: "tue-mop", since: LIGHTER },
+  ...(
+    [
+      ["wed", "wed-0"],
+      ["wed", "wed-1"],
+      ["fri", "fri-0"],
+      ["fri", "fri-2"],
+      ["sat", "sat-2"],
+    ] as const
+  ).map(([list, id]) => {
+    const st = defaultStep(list, id);
+    return { list, update: id, patch: { hint: st.hint, everyOtherWeek: st.everyOtherWeek }, since: LIGHTER };
+  }),
 ];
 
 // ---------- The Big clean, in the order you clean ----------
@@ -607,33 +624,101 @@ export function setCleaningDone(done: Record<string, string[]>) {
   ticks = done;
 }
 
-/** Was a machine load ticked the day before `d`? (Loads on the month-end weekend count too.) */
-function washedDayBefore(d: Date) {
-  const y = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
-  const yKey = dayKey(y);
-  const owner = monthEndOwner(y);
-  const monthKey = owner ? dayKey(owner).slice(0, 7) : null;
-  const washes = new Set(active.flatMap((r) => r.steps.filter((s) => s.wash).map((s) => s.id)));
-  return Object.entries(ticks).some(([key, ids]) => {
-    const when = key.split("@")[1]?.split("#")[0] ?? "";
-    // Month-end lists are saved by month: count them only on their weekend.
-    const matches = when === yKey || (monthKey !== null && when === monthKey);
-    return matches && ids.some((id) => washes.has(id));
-  });
+// Every tick, by step: the days ("YYYY-MM-DD") and month-ends ("YYYY-MM") it was done. Rebuilt when ticks change.
+let tickIndex: { from: Record<string, string[]>; days: Map<string, string[]>; months: Map<string, string[]> } | null = null;
+function ticksOf(stepId: string) {
+  if (!tickIndex || tickIndex.from !== ticks) {
+    const days = new Map<string, string[]>();
+    const months = new Map<string, string[]>();
+    for (const [key, ids] of Object.entries(ticks)) {
+      const when = key.split("@")[1]?.split("#")[0] ?? "";
+      const into = when.length === 10 ? days : when.length === 7 ? months : null;
+      if (!into) continue;
+      for (const id of ids) if (id !== SKIPPED) into.set(id, [...(into.get(id) ?? []), when]);
+    }
+    tickIndex = { from: ticks, days, months };
+  }
+  return { days: tickIndex.days.get(stepId) ?? [], months: tickIndex.months.get(stepId) ?? [] };
+}
+
+const toDate = (key: string) => {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const addDaysKey = (key: string, n: number) => {
+  const d = toDate(key);
+  return dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
+};
+const shortDay = (key: string) => toDate(key).toLocaleDateString(undefined, { weekday: "long" });
+
+/**
+ * Steps that stay due until they're done, because skipping them has a cost (the rubbish, the plants,
+ * hanging the washing). The next turn counts from the day you actually did it.
+ */
+const CARRY = ["evening-rubbish", "morning-plants", "morning-laundry"];
+
+/** For an "every N days" step that carries over: due today, and since when if it's late. */
+function carriedEvery(s: Step, d: Date): { due: boolean; since?: string } {
+  const key = dayKey(d);
+  const done = ticksOf(s.id).days;
+  if (done.includes(key)) return { due: true };
+  const last = done.filter((k) => k < key).sort().at(-1);
+  let next: string;
+  if (last) next = addDaysKey(last, s.every!.days);
+  else {
+    // Never done: its last turn on or before today.
+    const gap = Math.round((toDate(key).getTime() - toDate(s.every!.from).getTime()) / 86_400_000);
+    if (gap < 0) return { due: false };
+    next = addDaysKey(s.every!.from, gap - (gap % Math.max(1, s.every!.days)));
+  }
+  return next <= key ? { due: true, since: next < key ? next : undefined } : { due: false };
+}
+
+/** Hanging the washing: due from the day after a load, until it's hung (looking back 10 days). */
+function carriedHang(s: Step, d: Date): { due: boolean; since?: string } {
+  const key = dayKey(d);
+  const hung = ticksOf(s.id).days;
+  const washes = active.flatMap((r) => r.steps.filter((st) => st.wash).map((st) => st.id));
+  // Loads on a month-end weekend are saved by month: count them on its Saturday.
+  const washDays = washes
+    .flatMap((id) => [...ticksOf(id).days, ...ticksOf(id).months.map((m) => dayKey(monthEndSaturday(toDate(`${m}-01`))))])
+    .filter((k) => k < key && k >= addDaysKey(key, -10))
+    .sort();
+  const lastWash = washDays.at(-1);
+  if (hung.includes(key)) return { due: true };
+  if (!lastWash || hung.some((h) => h > lastWash && h < key)) return { due: false };
+  const since = addDaysKey(lastWash, 1);
+  return { due: true, since: since < key ? since : undefined };
 }
 
 /** Steps of a list that apply on this day (e.g. Pari's bowls only Tue/Thu/Sat). */
 export function stepsOn(r: Routine, d = today()) {
   const day = weekdayIndex(d);
-  const month = (monthEndOwner(d) ?? d).getMonth() + 1;
-  return r.steps.filter(
-    (s) =>
-      (!s.months || r.when.kind !== "monthly" || s.months.includes(month)) &&
-      (!s.weekdays || s.weekdays.includes(day)) &&
-      (!s.every || onEvery(s.every, d)) &&
-      (!s.everyOtherWeek || weekParity(d) === s.everyOtherWeek) &&
-      (!s.afterWash || washedDayBefore(d)),
-  );
+  const owner = monthEndOwner(d) ?? d;
+  const month = owner.getMonth() + 1;
+  // Month-end lists: what the queue picked for this month (see monthEndPlan); bedroom jobs keep their months.
+  const picked = r.when.kind === "monthly" ? monthEndPlan(monthIndex(owner)).stepIds : null;
+  const out: Step[] = [];
+  for (const s of r.steps) {
+    if (r.when.kind === "monthly") {
+      if (BEDROOM_DAY.includes(s.id)) {
+        if (!r.when.months.includes(month) || (s.months && !s.months.includes(month))) continue;
+      } else if (!picked!.has(s.id)) continue;
+    }
+    if (s.weekdays && !s.weekdays.includes(day)) continue;
+    if (s.everyOtherWeek && weekParity(d) !== s.everyOtherWeek) continue;
+    // Steps that carry over until done; they say since when if they're late.
+    if (CARRY.includes(s.id) && (s.every || s.afterWash)) {
+      const c = s.afterWash ? carriedHang(s, d) : carriedEvery(s, d);
+      if (!c.due) continue;
+      out.push(c.since ? { ...s, hint: `still to do, since ${shortDay(c.since)}` } : s);
+      continue;
+    }
+    if (s.every && !onEvery(s.every, d)) continue;
+    if (s.afterWash && !carriedHang(s, d).due) continue;
+    out.push(s);
+  }
+  return out;
 }
 
 export type WeekParity = "odd" | "even";
@@ -682,10 +767,120 @@ export function monthEndLabel(d = today()) {
   return `Saturday ${sat.getDate()} ${MONTHS[sat.getMonth()]}`;
 }
 
-/** Which big lists belong to `d`'s month (or to the month-end weekend it's on). */
+// ---------- The month-end queue ----------
+// Each month-end job (the oven, the windows, the fridge…) keeps its rhythm, from its list's months
+// (4 a year = every 3 months), and remembers when it was last done. At each month-end the Big clean gets
+// the jobs that are due, most overdue first, up to a time limit. A job that isn't done stays due and is
+// first in line next month; the next turn counts from the month it was actually done. The bedroom jobs
+// aren't in the queue: they're done on the bedroom day (see bedroomDay).
+
+/** The time limit for a month-end Big clean's own jobs (minutes). */
+export const BIG_CLEAN_BUDGET = 120;
+const QUEUE_START = 2026 * 12 + 10; // November 2026: the first month-end planned by the queue
+/** In every Big clean whatever else is due: the floors, the machine and the loads that go with it. */
+const ALWAYS = ["monthly-floors", "monthly-2", "monthly-drain", "monthly-3"];
+/** Steps that are one job (spraying the oven and wiping it out). */
+const DONE_WITH: Record<string, string> = { "q-kitchen-oven": "q-kitchen-0" };
+
+export function monthIndex(d: Date) {
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+export type QueueJob = { id: string; list: Routine; steps: Step[]; minutes: number; every: number; always: boolean };
+
+function queueJobs(): QueueJob[] {
+  const jobs = new Map<string, QueueJob>();
+  for (const r of active) {
+    if (r.when.kind !== "monthly") continue;
+    const every = Math.max(1, Math.round(12 / Math.max(1, r.when.months.length)));
+    for (const s of r.steps) {
+      if (BEDROOM_DAY.includes(s.id)) continue;
+      const id = DONE_WITH[s.id] ?? s.id;
+      const job = jobs.get(id) ?? { id, list: r, steps: [], minutes: 0, every, always: ALWAYS.includes(id) };
+      job.steps.push(s);
+      if (!s.optional) job.minutes += s.minutes;
+      jobs.set(id, job);
+    }
+  }
+  return [...jobs.values()];
+}
+
+const monthOfKey = (k: string) => Number(k.slice(0, 4)) * 12 + Number(k.slice(5, 7)) - 1;
+
+/** The month a job was last done before month `mi`: from the ticks, else its last old planned month up to September 2026. */
+function lastDoneBefore(job: QueueJob, mi: number) {
+  let last = -1;
+  for (const s of job.steps) for (const k of ticksOf(s.id).months) if (monthOfKey(k) < mi) last = Math.max(last, monthOfKey(k));
+  if (last >= 0) return last;
+  const months = job.list.when.kind === "monthly" ? job.list.when.months : ALL_MONTHS;
+  for (let m = QUEUE_START - 2; m > QUEUE_START - 26; m--) if (months.includes((m % 12) + 1)) return m;
+  return QUEUE_START - 2;
+}
+
+function pick(jobs: QueueJob[], last: Map<string, number>, mi: number) {
+  const late = (j: QueueJob) => mi - last.get(j.id)! - j.every;
+  const due = jobs.filter((j) => j.always || late(j) >= 0);
+  // Twice-a-year jobs keep their month (the balcony in March and September) instead of queueing.
+  const fixed = (j: QueueJob) => j.always || j.every >= 6;
+  // The fixed ones, then the most overdue, then the rarer jobs (a missed oven matters more than a missed fridge).
+  due.sort((a, b) => Number(fixed(b)) - Number(fixed(a)) || late(b) - late(a) || b.every - a.every);
+  const picked: QueueJob[] = [];
+  let minutes = 0;
+  for (const j of due) {
+    if (!fixed(j) && minutes + j.minutes > BIG_CLEAN_BUDGET) continue;
+    picked.push(j);
+    minutes += j.minutes;
+  }
+  return { picked, waiting: due.filter((j) => !picked.includes(j)), minutes };
+}
+
+export type MonthEndPlan = { picked: QueueJob[]; waiting: QueueJob[]; minutes: number; stepIds: Set<string> };
+let planCache: { ticks: Record<string, string[]>; lists: Routine[]; day: string; plans: Map<number, MonthEndPlan> } | null = null;
+
+/**
+ * The jobs in month `mi`'s Big clean. Past and current months use what was really done before them;
+ * later months are an estimate, assuming each Big clean gets done (or, once its weekend is over, what was).
+ */
+export function monthEndPlan(mi: number): MonthEndPlan {
+  const day = dayKey(today());
+  if (!planCache || planCache.ticks !== ticks || planCache.lists !== active || planCache.day !== day) {
+    planCache = { ticks, lists: active, day, plans: new Map() };
+  }
+  const cached = planCache.plans.get(mi);
+  if (cached) return cached;
+  const jobs = queueJobs();
+  let result: Omit<MonthEndPlan, "stepIds">;
+  if (mi < QUEUE_START) {
+    // Before the queue: the old fixed months.
+    const picked = jobs.filter((j) => j.list.when.kind === "monthly" && j.list.when.months.includes((mi % 12) + 1));
+    result = { picked, waiting: [], minutes: picked.reduce((t, j) => t + j.minutes, 0) };
+  } else {
+    const now = Math.max(QUEUE_START, monthIndex(monthEndOwner(today()) ?? today()));
+    const last = new Map(jobs.map((j) => [j.id, lastDoneBefore(j, Math.min(mi, now))]));
+    const nowOver = today() > new Date(monthEndSaturday(new Date(Math.floor(now / 12), now % 12, 1)).getTime() + 2 * 86_400_000);
+    for (let k = now; k < mi; k++) {
+      for (const j of pick(jobs, last, k).picked) {
+        const reallyDone = j.steps.some((s) => ticksOf(s.id).months.some((m) => monthOfKey(m) === k));
+        if (k > now || !nowOver || reallyDone) last.set(j.id, k);
+      }
+    }
+    result = pick(jobs, last, mi);
+  }
+  const plan = { ...result, stepIds: new Set(result.picked.flatMap((j) => j.steps.map((s) => s.id))) };
+  planCache.plans.set(mi, plan);
+  return plan;
+}
+
+/** Which big lists belong to `d`'s month (or to the month-end weekend it's on): the ones the queue picked from, and the bedroom jobs'. */
 export function routinesForMonth(d = today()) {
-  const month = (monthEndOwner(d) ?? d).getMonth() + 1;
-  return active.filter((r) => r.when.kind === "monthly" && r.when.months.includes(month));
+  const owner = monthEndOwner(d) ?? d;
+  const month = owner.getMonth() + 1;
+  const plan = monthEndPlan(monthIndex(owner));
+  return active.filter(
+    (r) =>
+      r.when.kind === "monthly" &&
+      (r.steps.some((s) => plan.stepIds.has(s.id)) || (r.when.months.includes(month) && r.steps.some((s) => BEDROOM_DAY.includes(s.id)))),
+  );
 }
 
 /** Planned minutes for the steps that count (optional "if needed" steps left out). */
@@ -754,16 +949,19 @@ export function setOfficeDays(days: number[]) {
 export type MonthEndSwap = { saturday: Date; weekly: Routine; bedroom: Routine; day: Date };
 
 function swapForSaturday(sat: Date, officeDays: number[]): MonthEndSwap | null {
-  const deep = routinesForMonth(sat).find((r) => MATCHING_WEEKLY[r.id]);
+  // The deep clean with the most of its jobs in this month's Big clean decides the swap.
+  const plan = monthEndPlan(monthIndex(sat));
+  const minutesOf = (id: string) => plan.picked.filter((j) => j.list.id === id).reduce((t, j) => t + j.minutes, 0);
+  const deep = active.filter((r) => MATCHING_WEEKLY[r.id] && minutesOf(r.id) > 0).sort((a, b) => minutesOf(b.id) - minutesOf(a.id))[0];
   if (!deep) return null;
-  const plan = weeklyPlan(officeDays);
-  const k = plan.findIndex((slot) => slot.routine.id === MATCHING_WEEKLY[deep.id]);
+  const week = weeklyPlan(officeDays);
+  const k = week.findIndex((slot) => slot.routine.id === MATCHING_WEEKLY[deep.id]);
   if (k < 0 || k >= 5) return null;
   // The list's day in the weekend's own week, or the week after: whichever is closer to the Saturday.
   const before = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() - 5 + k);
   const after = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() + 2 + k);
   const day = 5 - k <= k + 2 ? before : after;
-  return { saturday: sat, weekly: plan[k].routine, bedroom: plan[5].routine, day };
+  return { saturday: sat, weekly: week[k].routine, bedroom: week[5].routine, day };
 }
 
 /** The swap whose weekend `d` is on, or whose swapped day `d` is. */
@@ -815,6 +1013,71 @@ export function bedroomDay(d = today(), officeDays = officeDaysNow) {
   return { swap: sw, items };
 }
 
+// ---------- What happens when something isn't done ----------
+// Daily lists: let go. Steps with a cost (rubbish, plants, the washing): carry over until done (see CARRY).
+// Weekly lists: catch up until Sunday, then let go; missed machine loads carry on until done.
+// The bedroom day: carries over until done. The Big clean: its leftovers show the next two weekends,
+// and whatever is still undone is first in line at the next month-end (see monthEndPlan).
+
+export type CheckItem = { step: Step; occurrence: string; list: string; note?: string };
+
+const isDoneTick = (it: { step: Step; occurrence: string }) => (ticks[it.occurrence] ?? []).includes(it.step.id);
+
+/** Weekly steps missed earlier this week, and missed machine loads from the last two weeks. */
+export function catchUp(d = today(), officeDays = officeDaysNow): CheckItem[] {
+  const out: CheckItem[] = [];
+  for (let back = 13; back >= 1; back--) {
+    const p = new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
+    const thisWeek = back <= weekdayIndex(d);
+    if (monthEndOwner(p)) continue; // the Big clean has its own leftovers
+    const sw = monthEndSwap(p, officeDays);
+    if (sw && dayKey(sw.day) === dayKey(p)) continue; // so has the bedroom day
+    const r = weeklyListOn(p, officeDays);
+    const occurrence = occurrenceKey(r, p);
+    if ((ticks[occurrence] ?? []).includes(SKIPPED)) continue;
+    for (const step of stepsOn(r, p)) {
+      if (step.optional || isDoneTick({ step, occurrence })) continue;
+      if (thisWeek || (step.wash && step.everyOtherWeek)) out.push({ step, occurrence, list: r.name, note: `${WEEKDAYS[weekdayIndex(p)]} · ${r.name}` });
+    }
+  }
+  return out;
+}
+
+/** A bedroom day in the last three weeks that isn't finished yet. */
+export function bedroomCatchUp(d = today(), officeDays = officeDaysNow) {
+  for (let back = 1; back <= 21; back++) {
+    const p = new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
+    const day = bedroomDay(p, officeDays);
+    if (!day) continue;
+    const items = day.items.filter((it) => !it.step.optional && !isDoneTick(it));
+    return items.length ? { day: p, swap: day.swap, items } : null;
+  }
+  return null;
+}
+
+/** The last Big clean's undone jobs, on the two weekends after it. */
+export function bigCleanLeftovers(d = today(), officeDays = officeDaysNow) {
+  if (monthEndOwner(d) || weekdayIndex(d) < 5) return null;
+  const sat = new Date(d.getFullYear(), d.getMonth(), d.getDate() - weekdayIndex(d) + 5);
+  for (const weeksAfter of [1, 2]) {
+    const s = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() - 7 * weeksAfter);
+    if (!monthEndOwner(s)) continue;
+    const seen = new Set<string>();
+    const items: CheckItem[] = [];
+    for (const day of [s, new Date(s.getFullYear(), s.getMonth(), s.getDate() + 1)]) {
+      for (const it of bigCleanItems(dueToday(day, officeDays).filter((r) => r.when.kind === "monthly"), day)) {
+        const key = it.occurrence + "|" + it.step.id;
+        // Only the month's own jobs (saved by month): the weekly list that joined in is let go like any week's.
+        if (seen.has(key) || it.step.optional || isDoneTick(it) || (it.occurrence.split("@")[1] ?? "").length !== 7) continue;
+        seen.add(key);
+        items.push({ step: it.step, occurrence: it.occurrence, list: it.listName });
+      }
+    }
+    return items.length ? { saturday: s, until: new Date(s.getFullYear(), s.getMonth(), s.getDate() + 15), items } : null;
+  }
+  return null;
+}
+
 export function isDueOn(r: Routine, d = today(), officeDays: number[] = []) {
   switch (r.when.kind) {
     case "daily":
@@ -823,7 +1086,7 @@ export function isDueOn(r: Routine, d = today(), officeDays: number[] = []) {
       return weeklyListOn(d, officeDays).id === r.id;
     case "monthly": {
       const owner = monthEndOwner(d);
-      return owner !== null && r.when.months.includes(owner.getMonth() + 1);
+      return owner !== null && routinesForMonth(owner).includes(r);
     }
   }
 }

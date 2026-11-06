@@ -2,22 +2,52 @@
 
 // The bedroom day around a month-end weekend (see bedroomDay in cleaning.ts): the weekly Bedroom list and
 // the month's bedroom jobs (protectors, mattress, under the bed, pillows and duvet when it's their month)
-// as one list, while the bed is stripped anyway. Each step still saves to its own list.
+// as one list, while the bed is stripped anyway. Also the general ChecklistCard it's built on.
 
 import { useState } from "react";
-import { bedroomDay, formatMinutes } from "@/lib/cleaning";
+import { bedroomDay, formatMinutes, type CheckItem } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 import { RoutineTimer, unlockTimerAudio } from "./RoutineTimer";
 import { HowButton, HowText } from "./StepHow";
 
 export function BedroomDayCard({ date, badge }: { date: Date; badge?: string }) {
-  const { routineDone, toggleStep, settings } = useStore();
-  const [howOpen, setHowOpen] = useState<string | null>(null);
-  const [timing, setTiming] = useState(false);
+  const { settings } = useStore();
   const day = bedroomDay(date, settings.officeDays);
   if (!day) return null;
-  const { swap, items } = day;
+  return (
+    <ChecklistCard
+      title={day.swap.bedroom.name}
+      badge={badge}
+      subtitle={`With this month's bedroom jobs · ${day.swap.weekly.name} is in the Big clean`}
+      items={day.items}
+      hideList={day.swap.bedroom.name}
+    />
+  );
+}
+
+/**
+ * A checklist made of steps from several lists (each saves to its own list): the bedroom day, catching up,
+ * the Big clean's leftovers. `hideList`: a list name not worth repeating under each step.
+ */
+export function ChecklistCard({
+  title,
+  subtitle,
+  badge,
+  items,
+  hideList,
+  tone = "bg-sky-soft text-sky",
+}: {
+  title: string;
+  subtitle: string;
+  badge?: string;
+  items: CheckItem[];
+  hideList?: string;
+  tone?: string;
+}) {
+  const { routineDone, toggleStep } = useStore();
+  const [howOpen, setHowOpen] = useState<string | null>(null);
+  const [timing, setTiming] = useState(false);
   const isDone = (it: (typeof items)[number]) => (routineDone[it.occurrence] ?? []).includes(it.step.id);
   const counted = items.filter((it) => !it.step.optional);
   const done = counted.filter(isDone).length;
@@ -26,15 +56,15 @@ export function BedroomDayCard({ date, badge }: { date: Date; badge?: string }) 
   return (
     <section className="rounded-3xl bg-card p-5">
       <div className="flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sky-soft text-sky">
+        <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${tone}`}>
           <Icon.routines className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="truncate text-[17px] font-bold">{swap.bedroom.name}</span>
+            <span className="truncate text-[17px] font-bold">{title}</span>
             {badge && <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">{badge}</span>}
           </span>
-          <span className="block text-[13px] text-muted">With this month&apos;s bedroom jobs · {swap.weekly.name} is in the Big clean</span>
+          <span className="block text-[13px] text-muted">{subtitle}</span>
         </span>
         <span className={`shrink-0 text-sm font-semibold ${done === counted.length ? "text-sage-dark" : "text-muted"}`}>
           {done === counted.length ? "Done ✓" : `${done}/${counted.length}`}
@@ -66,7 +96,7 @@ export function BedroomDayCard({ date, badge }: { date: Date; badge?: string }) 
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className={`block text-[15px] ${ticked ? "text-muted line-through" : ""}`}>{it.step.title}</span>
-                    {it.list !== swap.bedroom.name && <span className="block text-xs text-muted">{it.list}</span>}
+                    {(it.note ?? it.list) !== hideList && <span className="block text-xs text-muted">{it.note ?? it.list}</span>}
                   </span>
                   <span className="max-w-[40%] shrink-0 text-right text-xs text-muted">
                     {it.step.minutes} min
@@ -93,7 +123,7 @@ export function BedroomDayCard({ date, badge }: { date: Date; badge?: string }) 
           {done ? "Continue" : "Start"} · ~{formatMinutes(minutesLeft)}
         </button>
       )}
-      {timing && <RoutineTimer title={swap.bedroom.name} items={items} onClose={() => setTiming(false)} />}
+      {timing && <RoutineTimer title={title} items={items} onClose={() => setTiming(false)} />}
     </section>
   );
 }

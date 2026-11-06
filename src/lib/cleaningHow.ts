@@ -30,7 +30,8 @@ export const HOW: Record<string, string> = {
   "mon-1": "Spray the walls and glass, leave a minute, wipe or squeegee top to bottom, rinse and wipe dry so no limescale spots stay.",
   "mon-towels": "Towels and bath rug together, 60°C, no fabric softener (towels absorb less with it). Check the rug's label first.",
   // Tuesday
-  "tue-0": "Vacuum first, edges and corners too. Then mop with warm water and a little floor cleaner, from the far corner towards the door, so you don't walk on it.",
+  "tue-0": "Every room, edges and corners too, under the table and behind the doors. Empty the vacuum if it's full.",
+  "tue-mop": "Right after vacuuming: warm water with a little floor cleaner, mop from the far corner towards the door so you don't walk on it. Wring the mop well; floors dry faster with less water.",
   "tue-1": "Take the mat outside and shake it hard (or beat it on the railing). Vacuum the floor underneath before putting it back.",
   "tue-whites": "Whites only, 40°C (60°C for underwear and socks). Don't overfill: a hand's width free at the top of the drum.",
   // Wednesday

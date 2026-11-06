@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BigCleanCard } from "@/components/BigCleanCard";
 import { BedroomDayCard } from "@/components/BedroomDayCard";
+import { CleaningCatchUp } from "@/components/CleaningCatchUp";
 import { CleaningEditor } from "@/components/CleaningEditor";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
 import {
@@ -16,8 +17,12 @@ import {
   type DayPart,
   dueToday,
   inEndOfMonthWindow,
+  BIG_CLEAN_BUDGET,
   joinsBigClean,
+  monthEndOwner,
+  monthEndPlan,
   monthEndSwap,
+  monthIndex,
   monthEndLabel,
   monthEndSaturday,
   routinesForMonth,
@@ -116,6 +121,7 @@ function TodayTab({ now }: { now: Date }) {
           />
           ),
         )}
+      <CleaningCatchUp date={now} />
       {bigClean ? (
         <BigCleanCard routines={due.filter(joinsBigClean)} date={now} />
       ) : (
@@ -180,7 +186,7 @@ function MonthTab({ now }: { now: Date }) {
     <>
       <p className="rounded-3xl bg-card/60 p-5 text-[15px] text-muted lg:col-span-2">
         {open
-          ? "It's the month-end weekend: the Today tab has everything as one Big clean, room by room."
+          ? "It's the month-end weekend: the Today tab has everything as one Big clean, in cleaning order."
           : `These are for the month-end weekend, ${monthEndLabel(now)}. You can tick things off early if you get to them.`}
       </p>
       {thisMonth.map((r) => (
@@ -188,11 +194,14 @@ function MonthTab({ now }: { now: Date }) {
       ))}
 
       <section className="rounded-3xl bg-card p-5 lg:col-span-2">
-        <h2 className="text-lg font-bold">Year plan</h2>
-        <p className="text-sm text-muted">Each month&apos;s end-of-month lists, on top of the Monthly reset. Tap a month to see everything in it.</p>
+        <h2 className="text-lg font-bold">The year ahead</h2>
+        <p className="text-sm text-muted">
+          Each month-end gets the floors, the machine and the loads, then the jobs most overdue, up to about{" "}
+          {formatMinutes(BIG_CLEAN_BUDGET)}. Anything not done stays first in line. Later months are an estimate; tap one to see it.
+        </p>
         <ul className="mt-3 divide-y divide-line">
-          {MONTHS.map((name, i) => (
-            <YearMonth key={name} name={name} month={i + 1} isCurrent={i === now.getMonth()} />
+          {Array.from({ length: 12 }, (_, i) => monthIndex(monthEndOwner(now) ?? now) + i).map((mi, i) => (
+            <YearMonth key={mi} mi={mi} isCurrent={i === 0} />
           ))}
         </ul>
       </section>
@@ -200,48 +209,51 @@ function MonthTab({ now }: { now: Date }) {
   );
 }
 
-/** One month of the year plan: its lists at a glance, and every step when you tap it. */
-function YearMonth({ name, month, isCurrent }: { name: string; month: number; isCurrent: boolean }) {
+/** One month-end in the year ahead: what the queue expects to pick, and every step when you tap it. */
+function YearMonth({ mi, isCurrent }: { mi: number; isCurrent: boolean }) {
   const [open, setOpen] = useState(false);
-  const lists = cleaningLists().filter((r) => r.when.kind === "monthly" && r.when.months.includes(month));
-  const extra = lists.filter((r) => r.group !== "monthly");
-  const inMonth = (r: (typeof lists)[number]) => r.steps.filter((st) => !st.months || st.months.includes(month));
-  const minutes = (r: (typeof lists)[number]) => inMonth(r).filter((st) => !st.optional).reduce((t, st) => t + st.minutes, 0);
-  const total = lists.reduce((t, r) => t + minutes(r), 0);
+  const plan = monthEndPlan(mi);
+  const year = Math.floor(mi / 12);
+  const name = `${MONTHS[mi % 12]}${year !== new Date().getFullYear() ? ` ${year}` : ""}`;
+  // Grouped by list, in the lists' own order.
+  const lists = cleaningLists()
+    .filter((r) => plan.picked.some((j) => j.list.id === r.id))
+    .map((r) => ({ r, jobs: plan.picked.filter((j) => j.list.id === r.id) }));
+  const extra = lists.filter(({ r }) => r.group !== "monthly");
   return (
     <li>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 py-2.5 text-left text-[15px]">
-        <span className={`w-24 shrink-0 ${isCurrent ? "font-bold" : "text-muted"}`}>{name}</span>
-        <span className={`min-w-0 flex-1 ${isCurrent ? "font-semibold" : ""}`}>{extra.map((r) => r.name).join(" + ") || "Monthly reset only"}</span>
+        <span className={`w-28 shrink-0 ${isCurrent ? "font-bold" : "text-muted"}`}>{name}</span>
+        <span className={`min-w-0 flex-1 ${isCurrent ? "font-semibold" : ""}`}>
+          {extra.map(({ r }) => r.name).join(" + ") || "Monthly basics"}
+        </span>
+        <span className="shrink-0 text-xs text-muted">{formatMinutes(plan.minutes)}</span>
         <span className={`shrink-0 text-muted transition-transform duration-200 ease-out ${open ? "rotate-90" : ""}`}>›</span>
       </button>
       {open && (
         <div className="animate-reveal mb-3 space-y-3 rounded-2xl bg-cream p-3.5">
-          <p className="text-[13px] text-muted">About {formatMinutes(total)} in all, on the month-end weekend.</p>
-          {lists.map((r) => (
+          <p className="text-[13px] text-muted">
+            About {formatMinutes(plan.minutes)} on the month-end weekend{isCurrent ? "" : " (an estimate)"}. The bedroom jobs are on the bedroom day.
+          </p>
+          {lists.map(({ r, jobs }) => (
             <section key={r.id}>
               <h3 className="flex justify-between gap-3 text-xs font-bold uppercase tracking-wide text-muted">
                 <span>{r.name}</span>
-                <span className="shrink-0 font-semibold normal-case tracking-normal">~{formatMinutes(minutes(r))}</span>
+                <span className="shrink-0 font-semibold normal-case tracking-normal">~{formatMinutes(jobs.reduce((t, j) => t + j.minutes, 0))}</span>
               </h3>
               <ul className="mt-1 divide-y divide-line">
-                {inMonth(r).map((st) => (
+                {jobs.flatMap((j) => j.steps).map((st) => (
                   <li key={st.id} className="flex items-baseline gap-3 py-1.5 text-[14px]">
-                    <span className="min-w-0 flex-1">
-                      {st.title}
-                      <span className="block text-xs text-muted">
-                        {st.room}
-                        {st.hint ? ` · ${st.hint}` : ""}
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-xs text-muted">
-                      {st.minutes} min{st.optional ? " · if needed" : ""}
-                    </span>
+                    <span className="min-w-0 flex-1">{st.title}</span>
+                    <span className="shrink-0 text-xs text-muted">{st.minutes} min</span>
                   </li>
                 ))}
               </ul>
             </section>
           ))}
+          {plan.waiting.length > 0 && (
+            <p className="text-[13px] text-muted">Waiting for a later month: {plan.waiting.map((j) => j.steps[0].title).join(", ")}.</p>
+          )}
         </div>
       )}
     </li>

@@ -7,6 +7,7 @@ import { Icon } from "@/components/icons";
 import { Ring } from "@/components/Ring";
 import { BigCleanCard } from "@/components/BigCleanCard";
 import { BedroomDayCard } from "@/components/BedroomDayCard";
+import { CleaningCatchUp } from "@/components/CleaningCatchUp";
 import { RoutineCard, routineProgress } from "@/components/RoutineCard";
 import {
   WEEKDAYS,
@@ -273,6 +274,7 @@ export default function TodayPage() {
               ),
             )
           )}
+          <CleaningCatchUp date={now} />
           {bigCleanSoon && (
             <Link href="/cleaning/" className="rounded-3xl bg-card/60 p-4 text-[15px] text-muted lg:col-span-2">
               Big clean ({monthLists.map((r) => r.name).join(", ")}) is on the month-end weekend, {monthEndLabel(now)}.
