@@ -1023,9 +1023,28 @@ export type CheckItem = { step: Step; occurrence: string; list: string; note?: s
 
 const isDoneTick = (it: { step: Step; occurrence: string }) => (ticks[it.occurrence] ?? []).includes(it.step.id);
 
+/** A day's step that was done that day or any later day on the same list (e.g. the sheets, changed on Saturday after a missed Monday). */
+function doneSince(it: { step: Step; occurrence: string }) {
+  const [listId, when = ""] = it.occurrence.split("@");
+  if (when.length !== 10) return isDoneTick(it);
+  return Object.entries(ticks).some(([key, ids]) => {
+    const [id, w = ""] = key.split("@");
+    const day = w.split("#")[0];
+    return id === listId && day.length === 10 && day >= when && ids.includes(it.step.id);
+  });
+}
+
+/** Step ids already on today's own lists, so catching up never shows a step twice. */
+function todaysStepIds(d: Date, officeDays: number[]) {
+  return new Set(dueToday(d, officeDays).flatMap((r) => stepsOn(r, d).map((s) => s.id)));
+}
+
 /** Weekly steps missed earlier this week, and missed machine loads from the last two weeks. */
 export function catchUp(d = today(), officeDays = officeDaysNow): CheckItem[] {
   const out: CheckItem[] = [];
+  const todays = todaysStepIds(d, officeDays);
+  // Steps an unfinished bedroom day still shows aren't repeated here.
+  const seen = new Set<string>(bedroomCatchUp(d, officeDays)?.items.map((it) => it.step.id) ?? []);
   for (let back = 13; back >= 1; back--) {
     const p = new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
     const thisWeek = back <= weekdayIndex(d);
@@ -1036,8 +1055,11 @@ export function catchUp(d = today(), officeDays = officeDaysNow): CheckItem[] {
     const occurrence = occurrenceKey(r, p);
     if ((ticks[occurrence] ?? []).includes(SKIPPED)) continue;
     for (const step of stepsOn(r, p)) {
-      if (step.optional || isDoneTick({ step, occurrence })) continue;
-      if (thisWeek || (step.wash && step.everyOtherWeek)) out.push({ step, occurrence, list: r.name, note: `${WEEKDAYS[weekdayIndex(p)]} · ${r.name}` });
+      // Not if it's on today's lists, was done since, or a later missed turn of it is already listed.
+      if (step.optional || todays.has(step.id) || seen.has(step.id) || doneSince({ step, occurrence })) continue;
+      if (!(thisWeek || (step.wash && step.everyOtherWeek))) continue;
+      out.push({ step, occurrence, list: r.name, note: `${WEEKDAYS[weekdayIndex(p)]} · ${r.name}` });
+      seen.add(step.id);
     }
   }
   return out;
@@ -1049,7 +1071,9 @@ export function bedroomCatchUp(d = today(), officeDays = officeDaysNow) {
     const p = new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
     const day = bedroomDay(p, officeDays);
     if (!day) continue;
-    const items = day.items.filter((it) => !it.step.optional && !isDoneTick(it));
+    // The weekly part (sheets, making the bed) is left out once it's on today's list or done since.
+    const todays = todaysStepIds(d, officeDays);
+    const items = day.items.filter((it) => !it.step.optional && !todays.has(it.step.id) && !doneSince(it));
     return items.length ? { day: p, swap: day.swap, items } : null;
   }
   return null;
