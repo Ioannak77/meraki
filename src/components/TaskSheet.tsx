@@ -93,6 +93,30 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
   const [remindTime, setRemindTime] = useState(existing?.remindAt?.slice(11, 16) ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [more, setMore] = useState(false);
+  // "I last did it on": kept to explain where the next date came from.
+  const [lastDone, setLastDone] = useState<string | null>(null);
+
+  const nice = (key: string) => new Date(key + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  const lead = dueDate ? leadDays({ showBefore: showBefore ?? undefined, wholeMonth }) : 0;
+  const showFrom = dueDate
+    ? (() => {
+        const [y, m, d] = dueDate.split("-").map(Number);
+        return dayKey(new Date(y, m - 1, d - lead));
+      })()
+    : null;
+  const summary = (() => {
+    const when = !dueDate
+      ? "No date yet: it waits in Reminders."
+      : `${repeat ? "Next one" : "Due"}: ${wholeMonth ? `by the end of ${new Date(dueDate + "T12:00:00").toLocaleDateString(undefined, { month: "long" })}` : nice(dueDate)}${
+          lastDone && repeat && dueDate === advanceDate(lastDone, repeat) ? ` (${nice(lastDone)} + ${repeatLabel(repeat).replace(/^Every /, "").toLowerCase()})` : ""
+        }. ${showFrom && showFrom > dayKey() ? `It shows on Today from ${nice(showFrom)}.` : "It's on Today now."}`;
+    if (!repeat) return when;
+    const gap = repeatLabel(repeat).replace(/^Every /, "").toLowerCase();
+    const after = fromDone
+      ? `After you tick it, the next one is ${gap} after the day you tick it.`
+      : `After you tick it, the next one is ${gap} after ${dueDate ? nice(dueDate) : "the day you tick it"}, whenever you did it.`;
+    return `${when} ${after}`;
+  })();
 
   function applyIdea(idea: Idea) {
     setTitle(idea.title);
@@ -217,7 +241,16 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
                 </button>
               )}
               {INTERVALS.map((c) => (
-                <button key={repeatLabel(c)} type="button" className={chip(same(c, repeat))} onClick={() => setRepeat(c)}>
+                <button
+                  key={repeatLabel(c)}
+                  type="button"
+                  className={chip(same(c, repeat))}
+                  onClick={() => {
+                    setRepeat(c);
+                    // Counted from a last-done date: the next date follows the new gap.
+                    if (lastDone && dueDate === advanceDate(lastDone, repeat)) setWhen(advanceDate(lastDone, c));
+                  }}
+                >
                   {repeatLabel(c)}
                 </button>
               ))}
@@ -309,6 +342,7 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
               onChange={(e) => {
                 if (!e.target.value) return;
                 setMode("date");
+                setLastDone(e.target.value);
                 setWhen(advanceDate(e.target.value, repeat));
               }}
               className="min-w-0 flex-1 rounded-2xl bg-cream px-3 py-2 text-base text-ink"
@@ -460,6 +494,11 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
             </label>
           </div>
         )}
+
+        {/* What happens, in plain words, from the choices above. */}
+        <div className="mt-5 rounded-2xl bg-sage-soft px-4 py-3 text-[14px] leading-snug text-sage-dark">
+          {summary}
+        </div>
 
         <button
           type="submit"
