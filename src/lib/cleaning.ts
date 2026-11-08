@@ -1075,14 +1075,19 @@ export type CheckItem = { step: Step; occurrence: string; list: string; note?: s
 
 const isDoneTick = (it: { step: Step; occurrence: string }) => (ticks[it.occurrence] ?? []).includes(it.step.id);
 
-/** A day's step that was done that day or any later day on the same list (e.g. the sheets, changed on Saturday after a missed Monday). */
+/**
+ * A missed turn of a step counts as done if the same step on the same list was done any time from 6 days before
+ * it onwards: changing the sheets once (on Monday's bedroom day, or on Saturday) covers both turns. A turn a full
+ * week earlier doesn't count, so last week's never hides this week's.
+ */
 function doneSince(it: { step: Step; occurrence: string }) {
   const [listId, when = ""] = it.occurrence.split("@");
   if (when.length !== 10) return isDoneTick(it);
+  const from = addDaysKey(when, -6);
   return Object.entries(ticks).some(([key, ids]) => {
     const [id, w = ""] = key.split("@");
     const day = w.split("#")[0];
-    return id === listId && day.length === 10 && day >= when && ids.includes(it.step.id);
+    return id === listId && day.length === 10 && day >= from && ids.includes(it.step.id);
   });
 }
 
