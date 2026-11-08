@@ -12,7 +12,6 @@ import { Sheet, inputClass } from "./finance/ui";
 const LINKS: { href: string; label: string; note: string; icon: IconName; tone: string }[] = [
   { href: "/finances/#new-bill", label: "Bill", note: "Rent, a subscription, insurance…", icon: "bill", tone: "bg-peach-soft text-peach" },
   { href: "/groceries/#receipts", label: "Receipt", note: "Snap it and Meraki reads it", icon: "basket", tone: "bg-rose-soft text-rose" },
-  { href: "/self-care/#reminders", label: "Self-care reminder", note: "Waxing, nails, hair…", icon: "heart", tone: "bg-sage-soft text-sage-dark" },
 ];
 
 export function AddMenu({ onNewTask }: { onNewTask: () => void }) {
@@ -62,7 +61,7 @@ export function AddMenu({ onNewTask }: { onNewTask: () => void }) {
                 {badge("tasks", "bg-sky-soft text-sky")}
                 <span className="flex-1">
                   <span className="block text-[16px] font-semibold">Reminder</span>
-                  <span className="block text-[13px] text-muted">Something to do, once or every so often</span>
+                  <span className="block text-[13px] text-muted">Once, or repeating: waxing, the dentist, a passport…</span>
                 </span>
               </button>
             </li>

@@ -14,7 +14,7 @@ type Tab = (typeof TABS)[number];
 export default function SelfCarePage() {
   const { ready, settings, steps } = useSkin();
   const hasDaily = steps.some((s) => s.slot === "day");
-  // Settings links here with #reminders or #skincare.
+  // Settings links here with #skincare.
   const [tab, setTab] = useState<Tab>("Today");
   useEffect(() => {
     const read = () => {

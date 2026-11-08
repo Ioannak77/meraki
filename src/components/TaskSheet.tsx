@@ -1,12 +1,13 @@
 "use client";
 
-// Add / edit a task. Slides up from the bottom on phones, centred on iPad.
-// Only the title is required, so capturing a task takes one field and one tap.
+// Add / edit a reminder. Slides up from the bottom on phones, centred on iPad.
+// In the order you'd think of it: what, how often, when, show early, notification. Area, time, small steps
+// and priority are folded under More. Only the title is required; ready-made ones fill in the rest.
 
 import { useState } from "react";
 import {
   LEAD_CHOICES,
-  REPEAT_CHOICES,
+  advanceDate,
   repeatLabel,
   dayKey,
   leadDays,
@@ -21,6 +22,37 @@ import { Icon } from "./icons";
 import { NewChip } from "./NewChip";
 
 const MINUTE_CHOICES = [5, 10, 20, 30, 60];
+
+/** How often a repeating reminder comes back. */
+const INTERVALS: Repeat[] = [
+  { every: 1, unit: "week" },
+  { every: 2, unit: "week" },
+  { every: 3, unit: "week" },
+  { every: 4, unit: "week" },
+  { every: 6, unit: "week" },
+  { every: 8, unit: "week" },
+  { every: 1, unit: "month" },
+  { every: 3, unit: "month" },
+  { every: 6, unit: "month" },
+  { every: 1, unit: "year" },
+  { every: 2, unit: "year" },
+  { every: 5, unit: "year" },
+  { every: 10, unit: "year" },
+];
+const same = (a: Repeat, b: Repeat) => a.every === b.every && a.unit === b.unit;
+
+/** Ready-made repeating reminders (self care, check-ups, documents). */
+type Idea = { title: string; repeat: Repeat; fromDone: boolean; area: string; lead: number; minutes: number };
+const IDEAS: Idea[] = [
+  { title: "Waxing", repeat: { every: 4, unit: "week" }, fromDone: true, area: "care", lead: 7, minutes: 60 },
+  { title: "Nails", repeat: { every: 3, unit: "week" }, fromDone: true, area: "care", lead: 3, minutes: 60 },
+  { title: "Haircut", repeat: { every: 8, unit: "week" }, fromDone: true, area: "care", lead: 7, minutes: 60 },
+  { title: "Eyebrows", repeat: { every: 4, unit: "week" }, fromDone: true, area: "care", lead: 3, minutes: 30 },
+  { title: "Dentist check-up", repeat: { every: 6, unit: "month" }, fromDone: true, area: "care", lead: 30, minutes: 60 },
+  { title: "Gynaecologist check-up", repeat: { every: 1, unit: "year" }, fromDone: true, area: "care", lead: 30, minutes: 60 },
+  { title: "Renew passport", repeat: { every: 10, unit: "year" }, fromDone: false, area: "life", lead: 182, minutes: 60 },
+  { title: "Renew ID card", repeat: { every: 10, unit: "year" }, fromDone: false, area: "life", lead: 182, minutes: 60 },
+];
 
 /** "Shows on Today from Fri 6 Nov." */
 function showFromText(dueDate: string, lead: number) {
@@ -60,6 +92,16 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
   const [newStep, setNewStep] = useState("");
   const [remindTime, setRemindTime] = useState(existing?.remindAt?.slice(11, 16) ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [more, setMore] = useState(false);
+
+  function applyIdea(idea: Idea) {
+    setTitle(idea.title);
+    setRepeat(idea.repeat);
+    setFromDone(idea.fromDone);
+    setAreaId(areas.some((a) => a.id === idea.area) ? idea.area : null);
+    setShowBefore(idea.lead);
+    setMinutes(idea.minutes);
+  }
 
   function save(e: React.FormEvent) {
     e.preventDefault();
@@ -123,34 +165,106 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
           autoFocus={!existing}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="What needs doing?"
+          placeholder="What do you want to remember?"
           className="w-full rounded-2xl border border-line bg-cream px-4 py-3.5 text-base outline-none focus:border-sage"
         />
 
-        <p className="mb-2 mt-5 text-sm font-semibold text-muted">When</p>
-        <div className="flex gap-1 rounded-full bg-cream p-1">
-          <button
-            type="button"
-            className={`flex-1 rounded-full py-2.5 text-sm ${mode === "date" ? "bg-ink font-bold text-cream" : "text-ink/70"}`}
-            onClick={() => {
-              setMode("date");
-              if (wholeMonth || !dueDate) setWhen(dayKey());
-            }}
-          >
-            On a date
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-full py-2.5 text-sm ${mode === "month" ? "bg-ink font-bold text-cream" : "text-ink/70"}`}
-            onClick={() => {
-              setMode("month");
-              if (!wholeMonth || !dueDate) setWhen(monthEndKey(0), true);
-            }}
-          >
-            In a month
-          </button>
-        </div>
+        {/* Ready-made repeating reminders: one tap fills in the rest. */}
+        {!existing && !title.trim() && (
+          <>
+            <p className="mb-2 mt-4 text-sm font-semibold text-muted">Or pick one</p>
+            <div className="flex flex-wrap gap-2">
+              {IDEAS.map((idea) => (
+                <button key={idea.title} type="button" onClick={() => applyIdea(idea)} className={chip(false)}>
+                  {idea.title}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
+        <p className="mb-2 mt-5 text-sm font-semibold text-muted">How often</p>
+        <div className="flex gap-1 rounded-full bg-cream p-1">
+          {(
+            [
+              ["once", "Just once"],
+              ["repeat", "It repeats"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`flex-1 rounded-full py-2.5 text-sm ${(repeat ? "repeat" : "once") === id ? "bg-ink font-bold text-cream" : "text-ink/70"}`}
+              onClick={() => {
+                if (id === "once") setRepeat(null);
+                else if (!repeat) {
+                  setRepeat({ every: 4, unit: "week" });
+                  setFromDone(true);
+                }
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {repeat && (
+          <>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {/* A repeat that isn't one of the choices (e.g. every 5 weeks) stays selectable. */}
+              {!INTERVALS.some((c) => same(c, repeat)) && (
+                <button type="button" className={chip(true)}>
+                  {repeatLabel(repeat)}
+                </button>
+              )}
+              {INTERVALS.map((c) => (
+                <button key={repeatLabel(c)} type="button" className={chip(same(c, repeat))} onClick={() => setRepeat(c)}>
+                  {repeatLabel(c)}
+                </button>
+              ))}
+            </div>
+            <label className="mt-3 flex items-start gap-3 rounded-2xl bg-cream p-3.5">
+              <input type="checkbox" checked={fromDone} onChange={(e) => setFromDone(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-sage" />
+              <span>
+                <span className="block text-[15px] font-semibold">Count from the day I do it</span>
+                <span className="block text-xs text-muted">
+                  For waxing, a haircut or a check-up: done a week late, the next one moves a week too. Off for fixed dates, like a
+                  passport&apos;s expiry.
+                </span>
+              </span>
+            </label>
+          </>
+        )}
+
+        <p className="mb-2 mt-5 text-sm font-semibold text-muted">{repeat ? "When is the next one?" : "When"}</p>
+        <div className="flex gap-1 rounded-full bg-cream p-1">
+          {(
+            [
+              ["date", "On a date"],
+              ["month", "In a month"],
+              ["none", "No date"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`flex-1 rounded-full py-2.5 text-sm ${(mode ?? "none") === id ? "bg-ink font-bold text-cream" : "text-ink/70"}`}
+              onClick={() => {
+                if (id === "none") {
+                  setMode(null);
+                  setWhen(null);
+                } else if (id === "date") {
+                  setMode("date");
+                  if (wholeMonth || !dueDate) setWhen(dayKey());
+                } else {
+                  setMode("month");
+                  if (!wholeMonth || !dueDate) setWhen(monthEndKey(0), true);
+                }
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {mode === "date" && (
           <input
             type="date"
@@ -175,30 +289,36 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
             />
             {dueDate && (
               <p className="mt-2 text-xs text-muted">
-                Any time in {new Date(dueDate + "T12:00:00").toLocaleDateString(undefined, { month: "long" })}, done by its
-                last day.
+                Any time in {new Date(dueDate + "T12:00:00").toLocaleDateString(undefined, { month: "long" })}, done by its last day.
               </p>
             )}
           </>
         )}
-        {mode ? (
-          <button
-            type="button"
-            onClick={() => {
-              setMode(null);
-              setWhen(null);
-            }}
-            className="mt-2 text-sm font-semibold text-muted underline"
-          >
-            No date
-          </button>
-        ) : (
-          <p className="mt-2 text-sm text-muted">No date. Pick one above if it has a deadline.</p>
+        {!mode && (
+          <p className="mt-2 text-sm text-muted">
+            {repeat ? "Tick it when you do it, and the next one gets its date from then." : "It waits in Reminders until you give it a date."}
+          </p>
+        )}
+        {/* For repeating ones you often know the last time better than the next. */}
+        {repeat && (
+          <label className="mt-2 flex items-center gap-2 text-sm text-muted">
+            Or: I last did it on
+            <input
+              type="date"
+              aria-label="Last time"
+              onChange={(e) => {
+                if (!e.target.value) return;
+                setMode("date");
+                setWhen(advanceDate(e.target.value, repeat));
+              }}
+              className="min-w-0 flex-1 rounded-2xl bg-cream px-3 py-2 text-base text-ink"
+            />
+          </label>
         )}
 
         {dueDate && (
           <>
-            <p className="mb-2 mt-5 text-sm font-semibold text-muted">Show on Today</p>
+            <p className="mb-2 mt-5 text-sm font-semibold text-muted">Show it on Today</p>
             <div className="flex flex-wrap gap-2">
               {LEAD_CHOICES.map((c) => (
                 <button
@@ -211,45 +331,14 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-xs text-muted">{showFromText(dueDate, leadDays({ showBefore: showBefore ?? undefined, wholeMonth }))}</p>
+            <p className="mt-2 text-xs text-muted">
+              {showFromText(dueDate, leadDays({ showBefore: showBefore ?? undefined, wholeMonth }))} Early is handy for things you
+              need to book.
+            </p>
           </>
         )}
 
-        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Repeats</p>
-        <div className="flex flex-wrap gap-2">
-          {/* A repeat that isn't one of the choices (e.g. every 4 weeks, from Self care) stays selectable. */}
-          {repeat && !REPEAT_CHOICES.some((c) => JSON.stringify(c.repeat) === JSON.stringify(repeat)) && (
-            <button type="button" className={chip(true)}>
-              {repeatLabel(repeat)}
-            </button>
-          )}
-          {REPEAT_CHOICES.map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              className={chip(JSON.stringify(repeat) === JSON.stringify(c.repeat))}
-              onClick={() => setRepeat(c.repeat)}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-        {repeat && (
-          <>
-            <p className="mt-2 text-xs text-muted">When you tick it off, the next one appears by itself.</p>
-            <label className="mt-3 flex items-start gap-3 rounded-2xl bg-cream p-3.5">
-              <input type="checkbox" checked={fromDone} onChange={(e) => setFromDone(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-sage" />
-              <span>
-                <span className="block text-[15px] font-semibold">Count from the day I do it</span>
-                <span className="block text-xs text-muted">
-                  For waxing, a haircut or a check-up: done a week late, the next one moves a week too.
-                </span>
-              </span>
-            </label>
-          </>
-        )}
-
-        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Remind me at</p>
+        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Phone notification</p>
         <div className="flex items-center gap-2">
           <input
             type="time"
@@ -260,96 +349,117 @@ export function TaskSheet({ task, onClose, defaultDate }: { task: Task | "new"; 
           />
           {remindTime ? (
             <button type="button" onClick={() => setRemindTime("")} className="text-sm font-semibold text-muted underline">
-              No reminder
+              None
             </button>
           ) : (
-            <span className="text-sm text-muted">{dueDate ? "on the day" : "today"}, as a phone notification</span>
+            <span className="text-sm text-muted">optional, at this time {dueDate ? "on the day" : "today"}</span>
           )}
         </div>
 
-        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Small steps</p>
-        {steps.length > 0 && (
-          <ul className="mb-2 divide-y divide-line rounded-2xl bg-cream px-3">
-            {steps.map((st) => (
-              <li key={st.id} className="flex items-center gap-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => setSteps((all) => all.map((x) => (x.id === st.id ? { ...x, done: !x.done } : x)))}
-                  aria-label={st.done ? `Mark ${st.title} as not done` : `Mark ${st.title} as done`}
-                  className={`grid size-6 shrink-0 place-items-center rounded-md border-2 ${st.done ? "border-sage bg-sage text-white" : "border-line bg-card"}`}
-                >
-                  {st.done && <Icon.check className="size-3.5" />}
+        {/* The rest is optional: folded away so a reminder stays quick to add. */}
+        <button
+          type="button"
+          onClick={() => setMore(!more)}
+          aria-expanded={more}
+          className="mt-5 flex w-full items-center justify-between rounded-2xl bg-cream px-4 py-3 text-left text-[15px] font-semibold"
+        >
+          <span>
+            More
+            <span className="block text-xs font-normal text-muted">
+              {[
+                areas.find((a) => a.id === areaId)?.name ?? "No area",
+                minutes ? (minutes === 60 ? "1 h" : `${minutes} min`) : null,
+                steps.length ? `${steps.length} steps` : null,
+                isEssential ? "priority today" : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </span>
+          <span className={`text-muted transition-transform duration-200 ease-out ${more ? "rotate-90" : ""}`}>›</span>
+        </button>
+        {more && (
+          <div className="animate-reveal">
+            <p className="mb-2 mt-4 text-sm font-semibold text-muted">Area</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={chip(areaId === null)} onClick={() => setAreaId(null)}>
+                None
+              </button>
+              {areas.map((a) => (
+                <button key={a.id} type="button" className={chip(areaId === a.id)} onClick={() => setAreaId(a.id)}>
+                  {a.name}
                 </button>
-                <span className={`flex-1 text-[15px] ${st.done ? "text-muted line-through" : ""}`}>{st.title}</span>
-                <button
-                  type="button"
-                  onClick={() => setSteps((all) => all.filter((x) => x.id !== st.id))}
-                  aria-label={`Remove ${st.title}`}
-                  className="px-1 text-muted"
-                >
-                  ✕
+              ))}
+              <NewChip placeholder="New area, e.g. Work" onAdd={(name) => setAreaId(addArea(name))} />
+            </div>
+
+            <p className="mb-2 mt-5 text-sm font-semibold text-muted">How long it takes</p>
+            <div className="flex flex-wrap gap-2">
+              {MINUTE_CHOICES.map((m) => (
+                <button key={m} type="button" className={chip(minutes === m)} onClick={() => setMinutes(m)}>
+                  {m === 60 ? "1 h" : `${m} min`}
                 </button>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </div>
+
+            <p className="mb-2 mt-5 text-sm font-semibold text-muted">Small steps</p>
+            {steps.length > 0 && (
+              <ul className="mb-2 divide-y divide-line rounded-2xl bg-cream px-3">
+                {steps.map((st) => (
+                  <li key={st.id} className="flex items-center gap-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => setSteps((all) => all.map((x) => (x.id === st.id ? { ...x, done: !x.done } : x)))}
+                      aria-label={st.done ? `Mark ${st.title} as not done` : `Mark ${st.title} as done`}
+                      className={`grid size-6 shrink-0 place-items-center rounded-md border-2 ${st.done ? "border-sage bg-sage text-white" : "border-line bg-card"}`}
+                    >
+                      {st.done && <Icon.check className="size-3.5" />}
+                    </button>
+                    <span className={`flex-1 text-[15px] ${st.done ? "text-muted line-through" : ""}`}>{st.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSteps((all) => all.filter((x) => x.id !== st.id))}
+                      aria-label={`Remove ${st.title}`}
+                      className="px-1 text-muted"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={newStep}
+                onChange={(e) => setNewStep(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" || !newStep.trim()) return;
+                  e.preventDefault();
+                  setSteps((all) => [...all, { id: Math.random().toString(36).slice(2, 9), title: newStep.trim(), done: false }]);
+                  setNewStep("");
+                }}
+                placeholder="Break it down, e.g. call to book"
+                className="w-full rounded-2xl border border-line bg-cream px-4 py-3 text-base outline-none focus:border-sage"
+              />
+              <button
+                type="button"
+                disabled={!newStep.trim()}
+                onClick={() => {
+                  setSteps((all) => [...all, { id: Math.random().toString(36).slice(2, 9), title: newStep.trim(), done: false }]);
+                  setNewStep("");
+                }}
+                className="shrink-0 rounded-2xl bg-sage-soft px-4 font-bold text-sage-dark disabled:opacity-40"
+              >
+                Add
+              </button>
+            </div>
+
+            <label className="mt-5 flex items-center gap-3 rounded-2xl bg-cream px-4 py-3">
+              <input type="checkbox" checked={isEssential} onChange={(e) => setIsEssential(e.target.checked)} className="size-5 accent-sage" />
+              <span className="text-[15px]">Make it a priority for today</span>
+            </label>
+          </div>
         )}
-        <div className="flex gap-2">
-          <input
-            value={newStep}
-            onChange={(e) => setNewStep(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || !newStep.trim()) return;
-              e.preventDefault();
-              setSteps((all) => [...all, { id: Math.random().toString(36).slice(2, 9), title: newStep.trim(), done: false }]);
-              setNewStep("");
-            }}
-            placeholder="Break it down, e.g. find a garage"
-            className="w-full rounded-2xl border border-line bg-cream px-4 py-3 text-base outline-none focus:border-sage"
-          />
-          <button
-            type="button"
-            disabled={!newStep.trim()}
-            onClick={() => {
-              setSteps((all) => [...all, { id: Math.random().toString(36).slice(2, 9), title: newStep.trim(), done: false }]);
-              setNewStep("");
-            }}
-            className="shrink-0 rounded-2xl bg-sage-soft px-4 font-bold text-sage-dark disabled:opacity-40"
-          >
-            Add
-          </button>
-        </div>
-
-        <p className="mb-2 mt-5 text-sm font-semibold text-muted">How long</p>
-        <div className="flex flex-wrap gap-2">
-          {MINUTE_CHOICES.map((m) => (
-            <button key={m} type="button" className={chip(minutes === m)} onClick={() => setMinutes(m)}>
-              {m === 60 ? "1 h" : `${m} min`}
-            </button>
-          ))}
-        </div>
-
-        <p className="mb-2 mt-5 text-sm font-semibold text-muted">Area</p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={chip(areaId === null)} onClick={() => setAreaId(null)}>
-            None
-          </button>
-          {areas.map((a) => (
-            <button key={a.id} type="button" className={chip(areaId === a.id)} onClick={() => setAreaId(a.id)}>
-              {a.name}
-            </button>
-          ))}
-          <NewChip placeholder="New area, e.g. Work" onAdd={(name) => setAreaId(addArea(name))} />
-        </div>
-
-        <label className="mt-5 flex items-center gap-3 rounded-2xl bg-cream px-4 py-3">
-          <input
-            type="checkbox"
-            checked={isEssential}
-            onChange={(e) => setIsEssential(e.target.checked)}
-            className="size-5 accent-sage"
-          />
-          <span className="text-[15px]">Priority for today</span>
-        </label>
 
         <button
           type="submit"
