@@ -28,6 +28,7 @@ export function CleaningCatchUp({ date }: { date: Date }) {
       {week.length > 0 && (
         <ChecklistCard
           title="Catch up"
+          sortable
           subtitle="Missed earlier this week; it goes after Sunday (machine loads stay until done)"
           items={week}
           tone="bg-cream text-muted"

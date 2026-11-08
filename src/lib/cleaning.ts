@@ -503,7 +503,10 @@ const DAILY_PHASE: Record<string, Phase> = {
   // The weekly list that joins the Big clean on its matching month (see monthEndSwap).
   "wed-colours": "start", "wed-0": "clear", "wed-3": "clear", "wed-1": "high", "wed-5": "close",
   "thu-pari-wash": "start", "thu-pari-bed": "floors",
-  "fri-black": "start", "fri-1": "clear", "fri-0": "high", "fri-2": "floors",
+  "fri-black": "start", "fri-0": "high", "fri-1": "high", "fri-2": "floors",
+  // The other weekly steps, so catching up goes in cleaning order too (dusting before the floors).
+  "mon-towels": "start", "tue-whites": "start", "mon-0": "clear", "mon-1": "clear", "wed-2": "clear",
+  "tue-1": "floors", "tue-0": "floors", "tue-mop": "floors",
 };
 const COVERED_BY: Record<string, string> = {
   "wed-2": "monthly-1", // the fridge is emptied and cleaned anyway
@@ -531,10 +534,10 @@ export function coveredInBigClean(s: Step, ids: Set<string>) {
 const PHASE_ORDER = [
   "morning-1", "morning-2", "morning-laundry", "morning-0",
   "sat-sheets", "monthly-protectors", "monthly-mattress-protector", "q-pari-3", "q-living-1", "q-kitchen-0", "q-pari-1", "q-pari-2", "monthly-drain",
-  "morning-3", "monthly-5", "monthly-1", "q-kitchen-2", "q-pari-4",
-  "q-living-4", "q-kitchen-4", "q-kitchen-1", "q-living-2", "sat-2",
+  "morning-3", "monthly-5", "monthly-1", "q-kitchen-2", "q-pari-4", "wed-2", "wed-0", "wed-3", "mon-1", "mon-0",
+  "q-living-4", "q-kitchen-4", "q-kitchen-1", "q-living-2", "wed-1", "fri-0", "sat-2", "fri-1",
   "monthly-mattress", "half-0", "sat-0", "q-kitchen-oven",
-  "q-kitchen-3", "q-living-3", "q-living-0", "monthly-0", "half-2", "monthly-floors",
+  "q-kitchen-3", "q-living-3", "q-living-0", "monthly-0", "half-2", "fri-2", "thu-pari-bed", "tue-1", "tue-0", "monthly-floors", "tue-mop",
   "monthly-3", "q-pari-0", "half-1", "sun-1", "sun-2", "sun-3", "morning-plants",
   "evening-0", "evening-2", "evening-1", "evening-makeup", "evening-hairbrush", "monthly-bin", "evening-rubbish", "monthly-4", "monthly-2", "evening-4",
 ];

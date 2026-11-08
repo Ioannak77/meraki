@@ -5,7 +5,7 @@
 // as one list, while the bed is stripped anyway. Also the general ChecklistCard it's built on.
 
 import { useState } from "react";
-import { bedroomDay, formatMinutes, type CheckItem } from "@/lib/cleaning";
+import { bedroomDay, bigCleanOrder, formatMinutes, type CheckItem } from "@/lib/cleaning";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
 import { RoutineTimer, unlockTimerAudio } from "./RoutineTimer";
@@ -34,9 +34,10 @@ export function ChecklistCard({
   title,
   subtitle,
   badge,
-  items,
+  items: given,
   hideList,
   tone = "bg-sky-soft text-sky",
+  sortable = false,
 }: {
   title: string;
   subtitle: string;
@@ -44,10 +45,26 @@ export function ChecklistCard({
   items: CheckItem[];
   hideList?: string;
   tone?: string;
+  sortable?: boolean; // offer "In cleaning order" / "By day missed" (remembered on this device)
 }) {
   const { routineDone, toggleStep } = useStore();
   const [howOpen, setHowOpen] = useState<string | null>(null);
   const [timing, setTiming] = useState(false);
+  const [byDay, setByDayState] = useState(() => {
+    try {
+      return typeof window !== "undefined" && localStorage.getItem("merakiCatchUpOrder") === "day";
+    } catch {
+      return false;
+    }
+  });
+  const setByDay = (on: boolean) => {
+    setByDayState(on);
+    try {
+      localStorage.setItem("merakiCatchUpOrder", on ? "day" : "clean");
+    } catch {}
+  };
+  // In cleaning order: machines first, high to low, floors last (dusting before vacuuming and mopping).
+  const items = sortable && !byDay ? bigCleanOrder(given, (it) => it.step) : given;
   const isDone = (it: (typeof items)[number]) => (routineDone[it.occurrence] ?? []).includes(it.step.id);
   const counted = items.filter((it) => !it.step.optional);
   const done = counted.filter(isDone).length;
@@ -71,6 +88,25 @@ export function ChecklistCard({
         </span>
       </div>
 
+      {sortable && (
+        <div className="mt-3 flex gap-1 rounded-full bg-cream p-1 text-[13px]">
+          {(
+            [
+              [false, "In cleaning order"],
+              [true, "By day missed"],
+            ] as const
+          ).map(([day, label]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setByDay(day)}
+              className={`flex-1 rounded-full py-1.5 ${byDay === day ? "bg-ink font-bold text-cream" : "text-ink/70"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       <ul className="mt-2 divide-y divide-line">
         {items.map((it) => {
           const ticked = isDone(it);
