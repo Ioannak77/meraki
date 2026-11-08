@@ -49,7 +49,12 @@ export function ChecklistCard({
 }) {
   const { routineDone, toggleStep } = useStore();
   const [howOpen, setHowOpen] = useState<string | null>(null);
-  const [timing, setTiming] = useState(false);
+  // The timer: all that's left, or one step (the ▶ next to it).
+  const [timing, setTiming] = useState<CheckItem[] | null>(null);
+  const startTimer = (list: CheckItem[]) => {
+    unlockTimerAudio();
+    setTiming(list);
+  };
   const [byDay, setByDayState] = useState(() => {
     try {
       return typeof window !== "undefined" && localStorage.getItem("merakiCatchUpOrder") === "day";
@@ -139,6 +144,16 @@ export function ChecklistCard({
                     {it.step.hint && <span className="block">{it.step.hint}</span>}
                   </span>
                 </button>
+                {!ticked && (
+                  <button
+                    type="button"
+                    onClick={() => startTimer([it])}
+                    aria-label={`Timer for ${it.step.title}, ${it.step.minutes} minutes`}
+                    className="grid size-7 shrink-0 place-items-center rounded-full bg-sage-soft text-[11px] text-sage-dark"
+                  >
+                    ▶
+                  </button>
+                )}
                 <HowButton step={it.step} open={howOpen === id} onToggle={() => setHowOpen(howOpen === id ? null : id)} />
               </div>
               {howOpen === id && <HowText step={it.step} />}
@@ -150,16 +165,15 @@ export function ChecklistCard({
       {minutesLeft > 0 && (
         <button
           type="button"
-          onClick={() => {
-            unlockTimerAudio();
-            setTiming(true);
-          }}
+          onClick={() => startTimer(items)}
           className="mt-3 w-full rounded-2xl bg-sage-dark py-3.5 text-[16px] font-bold text-white"
         >
           {done ? "Continue" : "Start"} · ~{formatMinutes(minutesLeft)}
         </button>
       )}
-      {timing && <RoutineTimer title={title} items={items} onClose={() => setTiming(false)} />}
+      {timing && (
+        <RoutineTimer title={timing.length === 1 ? timing[0].step.title : title} items={timing} onClose={() => setTiming(null)} />
+      )}
     </section>
   );
 }
