@@ -7,6 +7,10 @@
 - The cleaning section is the **Cleaning schedule**. Never call it "Routines" in the UI, docs or messages.
   The phone tab bar says "Cleaning" (short label); the page title and iPad sidebar say "Cleaning schedule".
   The page lives at `/cleaning/`. (Code still uses `Routine`/`routine` as internal type names; that's fine.)
+- Cleaning schedule tabs (2026-11-08): **Today** (in three layers: Keep up / Declutter / Clean, after Dana K White's
+  "layers of a clean house"), **Plan**, **Edit** (Settings: Big clean time limit, office days; every step's how often,
+  if it isn't done, bedroom day, always in the Big clean, part of it, how to do it), **Guide** (plain-words explainer).
+  Keep the Guide tab true when cleaning rules change.
 - The tasks section is called **Reminders** (tab bar, page title; renamed from "Tasks" 2026-10-31): one-off things and
   recurring ones (a check-up every year, a passport every 10 years). Page `/tasks/`; code still uses `Task`.
 - The money section is called **Finances** (tab bar, page title, Settings; renamed from "Money" 2026-10-28). Never call it "Money" in the UI. The page lives at `/finances/`.

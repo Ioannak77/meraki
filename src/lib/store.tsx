@@ -7,7 +7,7 @@
 import { today } from "./clock";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { markSaved } from "./sync";
-import { setCleaning, setCleaningDone, setOfficeDays, withAddedSteps, type Routine } from "./cleaning";
+import { setBigCleanBudget, setCleaning, setCleaningDone, setOfficeDays, withAddedSteps, type Routine } from "./cleaning";
 
 export type Energy = "low" | "normal" | "high";
 export type Mood = "great" | "okay" | "low";
@@ -88,6 +88,7 @@ export type Settings = {
   push?: PushPrefs; // phone notifications (synced, so every device plans the same reminders)
   kindWords?: string[]; // your own kind words, mixed into the daily ones
   theme?: "light" | "dark" | "system"; // missing = light
+  bigCleanMinutes?: number; // the month-end Big clean's time limit (missing = 2 hours)
 };
 
 export type PushPrefs = {
@@ -253,6 +254,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   setCleaning(data.cleaning);
   setCleaningDone(data.routineDone);
   setOfficeDays(data.settings.officeDays);
+  setBigCleanBudget(data.settings.bigCleanMinutes);
 
   // localStorage only exists in the browser, so read it after the first render.
   useEffect(() => {

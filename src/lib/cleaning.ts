@@ -49,11 +49,19 @@ export type Step = {
   how?: string; // your own instructions (Edit); else the built-in ones in cleaningHow.ts
   everyOtherWeek?: WeekParity; // weekly lists: only every other week (see weekParity), whichever day the list lands on
   months?: number[]; // month-end lists: only in these months (1-12), e.g. the mattress protector every 2 months
+  carry?: boolean; // if it isn't done, it stays until it is (default: the rubbish, the plants, hanging the washing)
+  everyMonths?: number; // month-end jobs: how often, in months (default: from the list's months)
+  always?: boolean; // month-end jobs: in every Big clean whatever else is due (default: floors, machine, drain, throws)
+  bedroomDay?: boolean; // month-end jobs: done on the bedroom day with the sheets, not in the Big clean
 };
+
+/** The three layers of a clean house (Dana K White): keeping up isn't cleaning, nor is decluttering. */
+export type Layer = "keep" | "declutter" | "clean";
 
 export type Routine = {
   id: string;
   name: string;
+  layer?: Layer; // default: daily lists keep up, the rest is cleaning
   group: RoutineGroup;
   when: RoutineWhen;
   note?: string;
@@ -63,7 +71,7 @@ export type Routine = {
 
 const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst" | "everyOtherWeek" | "phase" | "months">];
+type StepInput = [title: string, minutes: number, room: Room, extra?: Pick<Step, "optional" | "hint" | "weekdays" | "every" | "wash" | "afterWash" | "startFirst" | "everyOtherWeek" | "phase" | "months" | "carry">];
 
 function steps(prefix: string, list: StepInput[]): Step[] {
   return list.map(([title, minutes, room, extra], i) => ({ id: `${prefix}-${i}`, title, minutes, room, ...extra }));
@@ -118,7 +126,8 @@ export const DEFAULT_CLEANING: Routine[] = [
     when: { kind: "daily", part: "evening" },
     steps: [
       ...steps("evening", [
-        ["Living room reset", 5, "Living room"],
+        // Layer 1 (keeping up): trash out, things back home, counters clear. Five minutes, not a clean.
+        ["5-minute pickup", 5, "Whole home", { hint: "trash, put away, clear the counters" }],
         ["Empty small bins", 2, "Whole home", { optional: true, hint: "if full" }],
         // The kitchen is wiped after each meal, so only the bathroom here.
         ["Wipe the bathroom sink", 2, "Bathroom"],
@@ -129,6 +138,20 @@ export const DEFAULT_CLEANING: Routine[] = [
       // Sunday evenings (counted in days, so they stay on Sunday even if the weekly lists move).
       step("evening-makeup", "Clean the makeup brushes", 10, "Bathroom", { every: { days: 7, from: "2026-11-01" }, hint: "every Sunday" }),
       step("evening-hairbrush", "Clean the hairbrush", 5, "Bathroom", { every: { days: 14, from: "2026-11-01" }, hint: "every 2 weeks" }),
+    ],
+  },
+
+  // ---------- Layer 2: decluttering, a little and often ----------
+  {
+    id: "declutter",
+    name: "Declutter",
+    layer: "declutter",
+    group: "daily",
+    when: { kind: "daily", part: "evening" },
+    note: "Less stuff, less to tidy and to clean around",
+    steps: [
+      step("declutter-spot", "Declutter one small spot", 10, "Whole home", { every: { days: 7, from: "2026-11-12" }, hint: "every Thursday" }),
+      step("declutter-out", "Take the give-away bag out of the house", 5, "Whole home", { every: { days: 28, from: "2026-11-29" }, hint: "every 4 weeks" }),
     ],
   },
 
@@ -236,7 +259,6 @@ export const DEFAULT_CLEANING: Routine[] = [
         months: [1, 3, 5, 7, 9, 11],
       }),
       step("monthly-drain", "Drain cleaner", 2, "Kitchen", { hint: "let it work", phase: "start" }),
-      step("monthly-5", "Declutter 1 drawer", 10, "Whole home", { phase: "clear" }),
       step("monthly-1", "Empty and deep clean the fridge", 20, "Kitchen", { phase: "clear" }),
       step("monthly-mattress", "Vacuum the mattress", 5, "Bedroom", { phase: "bed" }),
       step("monthly-0", "Vacuum under the bed", 10, "Bedroom", { phase: "floors" }),
@@ -333,6 +355,7 @@ const PHASED = "2026-11-01d";
 const PROTECTORS = "2026-11-01e";
 const BEDROOM = "2026-11-01f";
 const LIGHTER = "2026-11-06";
+const LAYERS = "2026-11-08";
 const CHANGES: Change[] = [
   { list: "monthly", step: "monthly-protectors", since: "2026-10-25" },
   { list: "morning", step: "morning-plants", since: "2026-10-26" },
@@ -422,9 +445,10 @@ const CHANGES: Change[] = [
       ["balcony", ["q-living-2", "half-2"]],
     ] as const
   ).flatMap(([list, ids]) =>
-    ids.map((id) => {
+    ids.flatMap((id) => {
       const st = defaultStep(list, id);
-      return { list, update: id, patch: { title: st.title, minutes: st.minutes, hint: st.hint, wash: st.wash, phase: st.phase, startFirst: undefined }, since: PHASED };
+      if (!st) return []; // a step removed from the schedule later
+      return [{ list, update: id, patch: { title: st.title, minutes: st.minutes, hint: st.hint, wash: st.wash, phase: st.phase, startFirst: undefined }, since: PHASED }];
     }),
   ),
   // Pillow protectors every month, the mattress protector every 2 months (from November).
@@ -448,6 +472,10 @@ const CHANGES: Change[] = [
     const st = defaultStep(list, id);
     return { list, update: id, patch: { hint: st.hint, everyOtherWeek: st.everyOtherWeek }, since: LIGHTER };
   }),
+  // The three layers: a 5-minute pickup every evening, decluttering a little each week (not a drawer at month-end).
+  { list: "evening", update: "evening-0", patch: { title: "5-minute pickup", room: "Whole home", hint: "trash, put away, clear the counters" }, since: LAYERS },
+  { list: "declutter", addList: true, since: LAYERS },
+  { list: "monthly", remove: "monthly-5", since: LAYERS },
 ];
 
 // ---------- The Big clean, in the order you clean ----------
@@ -482,6 +510,11 @@ const COVERED_BY: Record<string, string> = {
   "morning-0": "sat-0", // Saturday's bed is made with fresh sheets later on
   "evening-3": "monthly-floors", // every floor is vacuumed and mopped
 };
+
+/** Which layer a list is: keeping up (daily), decluttering, or cleaning. */
+export function layerOf(r: Routine): Layer {
+  return r.layer ?? (r.when.kind === "daily" ? "keep" : "clean");
+}
 
 /** Daily lists that join the Big clean on the month-end weekend: all but the ones done again after each meal. */
 export function joinsBigClean(r: Routine) {
@@ -533,7 +566,7 @@ export function bigCleanItems(routines: Routine[], date: Date) {
   const all = lists.flatMap(({ r, on }) => stepsOn(r, on).map((step) => ({ step, occurrence: occurrenceKey(r, on), listName: r.name })));
   const ids = new Set(all.map((it) => it.step.id));
   return bigCleanOrder(
-    all.filter((it) => !coveredInBigClean(it.step, ids) && !(swap && BEDROOM_DAY.includes(it.step.id))),
+    all.filter((it) => !coveredInBigClean(it.step, ids) && !(swap && isBedroomJob(it.step))),
     (it) => it.step,
   );
 }
@@ -657,6 +690,11 @@ const shortDay = (key: string) => toDate(key).toLocaleDateString(undefined, { we
  */
 const CARRY = ["evening-rubbish", "morning-plants", "morning-laundry"];
 
+/** Does this step stay until it's done if it's missed? Your choice in Edit, else the built-in ones above. */
+export function carries(s: Step) {
+  return s.carry ?? CARRY.includes(s.id);
+}
+
 /** For an "every N days" step that carries over: due today, and since when if it's late. */
 function carriedEvery(s: Step, d: Date): { due: boolean; since?: string } {
   const key = dayKey(d);
@@ -701,14 +739,14 @@ export function stepsOn(r: Routine, d = today()) {
   const out: Step[] = [];
   for (const s of r.steps) {
     if (r.when.kind === "monthly") {
-      if (BEDROOM_DAY.includes(s.id)) {
+      if (isBedroomJob(s)) {
         if (!r.when.months.includes(month) || (s.months && !s.months.includes(month))) continue;
       } else if (!picked!.has(s.id)) continue;
     }
     if (s.weekdays && !s.weekdays.includes(day)) continue;
     if (s.everyOtherWeek && weekParity(d) !== s.everyOtherWeek) continue;
     // Steps that carry over until done; they say since when if they're late.
-    if (CARRY.includes(s.id) && (s.every || s.afterWash)) {
+    if (carries(s) && (s.every || s.afterWash)) {
       const c = s.afterWash ? carriedHang(s, d) : carriedEvery(s, d);
       if (!c.due) continue;
       out.push(c.since ? { ...s, hint: `still to do, since ${shortDay(c.since)}` } : s);
@@ -774,11 +812,19 @@ export function monthEndLabel(d = today()) {
 // first in line next month; the next turn counts from the month it was actually done. The bedroom jobs
 // aren't in the queue: they're done on the bedroom day (see bedroomDay).
 
-/** The time limit for a month-end Big clean's own jobs (minutes). */
+/** The time limit for a month-end Big clean's own jobs (minutes): 2 hours, or your own in Edit (kept in sync by StoreProvider). */
 export const BIG_CLEAN_BUDGET = 120;
+let budget = BIG_CLEAN_BUDGET;
+export function setBigCleanBudget(minutes: number | undefined) {
+  budget = minutes && minutes > 0 ? minutes : BIG_CLEAN_BUDGET;
+}
+export function bigCleanBudget() {
+  return budget;
+}
 const QUEUE_START = 2026 * 12 + 10; // November 2026: the first month-end planned by the queue
 /** In every Big clean whatever else is due: the floors, the machine and the loads that go with it. */
-const ALWAYS = ["monthly-floors", "monthly-2", "monthly-drain", "monthly-3"];
+export const ALWAYS_DEFAULT = ["monthly-floors", "monthly-2", "monthly-drain", "monthly-3"];
+const ALWAYS = ALWAYS_DEFAULT;
 /** Steps that are one job (spraying the oven and wiping it out). */
 const DONE_WITH: Record<string, string> = { "q-kitchen-oven": "q-kitchen-0" };
 
@@ -792,11 +838,12 @@ function queueJobs(): QueueJob[] {
   const jobs = new Map<string, QueueJob>();
   for (const r of active) {
     if (r.when.kind !== "monthly") continue;
-    const every = Math.max(1, Math.round(12 / Math.max(1, r.when.months.length)));
+    const listEvery = Math.max(1, Math.round(12 / Math.max(1, r.when.months.length)));
     for (const s of r.steps) {
-      if (BEDROOM_DAY.includes(s.id)) continue;
+      if (isBedroomJob(s)) continue;
       const id = DONE_WITH[s.id] ?? s.id;
-      const job = jobs.get(id) ?? { id, list: r, steps: [], minutes: 0, every, always: ALWAYS.includes(id) };
+      const every = Math.max(1, s.everyMonths ?? listEvery);
+      const job = jobs.get(id) ?? { id, list: r, steps: [], minutes: 0, every, always: s.always ?? ALWAYS.includes(id) };
       job.steps.push(s);
       if (!s.optional) job.minutes += s.minutes;
       jobs.set(id, job);
@@ -827,7 +874,7 @@ function pick(jobs: QueueJob[], last: Map<string, number>, mi: number) {
   const picked: QueueJob[] = [];
   let minutes = 0;
   for (const j of due) {
-    if (!fixed(j) && minutes + j.minutes > BIG_CLEAN_BUDGET) continue;
+    if (!fixed(j) && minutes + j.minutes > budget) continue;
     picked.push(j);
     minutes += j.minutes;
   }
@@ -835,7 +882,7 @@ function pick(jobs: QueueJob[], last: Map<string, number>, mi: number) {
 }
 
 export type MonthEndPlan = { picked: QueueJob[]; waiting: QueueJob[]; minutes: number; stepIds: Set<string> };
-let planCache: { ticks: Record<string, string[]>; lists: Routine[]; day: string; plans: Map<number, MonthEndPlan> } | null = null;
+let planCache: { ticks: Record<string, string[]>; lists: Routine[]; day: string; budget: number; plans: Map<number, MonthEndPlan> } | null = null;
 
 /**
  * The jobs in month `mi`'s Big clean. Past and current months use what was really done before them;
@@ -843,8 +890,8 @@ let planCache: { ticks: Record<string, string[]>; lists: Routine[]; day: string;
  */
 export function monthEndPlan(mi: number): MonthEndPlan {
   const day = dayKey(today());
-  if (!planCache || planCache.ticks !== ticks || planCache.lists !== active || planCache.day !== day) {
-    planCache = { ticks, lists: active, day, plans: new Map() };
+  if (!planCache || planCache.ticks !== ticks || planCache.lists !== active || planCache.day !== day || planCache.budget !== budget) {
+    planCache = { ticks, lists: active, day, budget, plans: new Map() };
   }
   const cached = planCache.plans.get(mi);
   if (cached) return cached;
@@ -879,7 +926,7 @@ export function routinesForMonth(d = today()) {
   return active.filter(
     (r) =>
       r.when.kind === "monthly" &&
-      (r.steps.some((s) => plan.stepIds.has(s.id)) || (r.when.months.includes(month) && r.steps.some((s) => BEDROOM_DAY.includes(s.id)))),
+      (r.steps.some((s) => plan.stepIds.has(s.id)) || (r.when.months.includes(month) && r.steps.some((s) => isBedroomJob(s)))),
   );
 }
 
@@ -992,6 +1039,11 @@ export const BEDROOM_DAY = [
   "monthly-protectors", "monthly-mattress-protector", "q-pari-3", "monthly-mattress", "half-0", "monthly-0", "half-1",
 ];
 
+/** A month-end job done on the bedroom day: your choice in Edit, else the built-in ones above. */
+export function isBedroomJob(s: Step) {
+  return s.bedroomDay ?? BEDROOM_DAY.includes(s.id);
+}
+
 /** The bedroom day around a month-end weekend: the weekly Bedroom list plus the month's bedroom jobs. */
 export function bedroomDay(d = today(), officeDays = officeDaysNow) {
   const sw = monthEndSwap(d, officeDays);
@@ -999,7 +1051,7 @@ export function bedroomDay(d = today(), officeDays = officeDaysNow) {
   const weekly = stepsOn(sw.bedroom, d).map((step) => ({ step, occurrence: occurrenceKey(sw.bedroom, d), list: sw.bedroom.name }));
   const monthly = routinesForMonth(sw.saturday).flatMap((r) =>
     stepsOn(r, sw.saturday)
-      .filter((st) => BEDROOM_DAY.includes(st.id))
+      .filter((st) => isBedroomJob(st))
       .map((step) => ({ step, occurrence: occurrenceKey(r, sw.saturday), list: r.name })),
   );
   // Sheets first, then the month's jobs while the bed is bare, then dusting and making the bed.
@@ -1057,7 +1109,7 @@ export function catchUp(d = today(), officeDays = officeDaysNow): CheckItem[] {
     for (const step of stepsOn(r, p)) {
       // Not if it's on today's lists, was done since, or a later missed turn of it is already listed.
       if (step.optional || todays.has(step.id) || seen.has(step.id) || doneSince({ step, occurrence })) continue;
-      if (!(thisWeek || (step.wash && step.everyOtherWeek))) continue;
+      if (!(thisWeek || (step.wash && step.everyOtherWeek) || carries(step))) continue;
       out.push({ step, occurrence, list: r.name, note: `${WEEKDAYS[weekdayIndex(p)]} · ${r.name}` });
       seen.add(step.id);
     }

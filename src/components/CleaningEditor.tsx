@@ -1,7 +1,8 @@
 "use client";
 
-// Cleaning schedule > Edit lists: rename lists, change their steps, move weekly lists to another
-// day, choose the months for the month-end lists, add or remove month-end lists.
+// Cleaning schedule > Edit: everything about the schedule, without help. The month-end time limit and
+// office days at the top; then each list by layer (keep up, declutter, clean). In a list: its name, day or
+// months, and each step's time, room, how often, what happens if it isn't done, and how to do it.
 // Edits are saved as the store's copy of the schedule; "Reset" goes back to the default.
 
 import { useState } from "react";
@@ -15,6 +16,10 @@ import {
   groupForMonths,
   PHASES,
   phaseOf,
+  layerOf,
+  carries,
+  isBedroomJob,
+  ALWAYS_DEFAULT,
   type Phase,
   weekParity,
   type WeekParity,
@@ -39,6 +44,7 @@ function minutesOf(r: Routine) {
 }
 
 function whenLabel(r: Routine) {
+  if (layerOf(r) === "declutter") return "A little each week, in the evening";
   if (r.when.kind === "daily") return `Every day · ${PARTS[r.when.part]}`;
   if (r.when.kind === "weekly") return `Every ${WEEKDAYS[r.when.weekday]}`;
   if (r.when.months.length === 12) return "Every month-end weekend";
@@ -46,7 +52,7 @@ function whenLabel(r: Routine) {
 }
 
 export function CleaningEditor() {
-  const { cleaning, saveCleaning } = useStore();
+  const { cleaning, saveCleaning, settings, updateSettings } = useStore();
   const lists = cleaningLists();
   const [editing, setEditing] = useState<Routine | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -55,7 +61,8 @@ export function CleaningEditor() {
     saveCleaning(updated);
   }
 
-  const daily = lists.filter((r) => r.when.kind === "daily");
+  const daily = lists.filter((r) => r.when.kind === "daily" && layerOf(r) === "keep");
+  const declutter = lists.filter((r) => layerOf(r) === "declutter");
   const weekly = lists
     .filter((r) => r.when.kind === "weekly")
     .sort((a, b) => (a.when.kind === "weekly" && b.when.kind === "weekly" ? a.when.weekday - b.when.weekday : 0));
@@ -85,12 +92,55 @@ export function CleaningEditor() {
   return (
     <>
       <p className="rounded-3xl bg-card/60 p-5 text-[15px] text-muted lg:col-span-2">
-        Tap a list to change its steps, times or day. Changes show everywhere straight away, and sync to your other devices.
+        Tap a list to change its steps: time, room, how often, what happens if it isn&apos;t done, and how to do it. Changes show
+        everywhere straight away and sync to your other devices. The Guide tab explains how it all fits together.
       </p>
-      {group("Every day", daily)}
-      {group("Weekly", weekly)}
+      <section className="rounded-3xl bg-card p-5 lg:col-span-2">
+        <h2 className="text-lg font-bold">Settings</h2>
+        <p className="mt-2 text-sm font-semibold text-muted">Month-end Big clean: at most</p>
+        <div className="mt-1 flex flex-wrap gap-2">
+          {[60, 90, 120, 150, 180].map((m) => {
+            const on = (settings.bigCleanMinutes ?? 120) === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => updateSettings({ bigCleanMinutes: m })}
+                className={`rounded-full px-3.5 py-2 text-sm ${on ? "bg-ink font-bold text-cream" : "bg-cream text-ink/80"}`}
+              >
+                {formatMinutes(m)}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-xs text-muted">
+          The floors, the machine and the loads always fit; then the jobs most overdue, until the time is used. The rest waits.
+        </p>
+        <p className="mt-4 text-sm font-semibold text-muted">Office days</p>
+        <div className="mt-1 flex flex-wrap gap-2">
+          {WEEKDAYS.slice(0, 5).map((d, i) => {
+            const on = settings.officeDays.includes(i);
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() =>
+                  updateSettings({ officeDays: on ? settings.officeDays.filter((x) => x !== i) : [...settings.officeDays, i].sort() })
+                }
+                className={`rounded-full px-3.5 py-2 text-sm ${on ? "bg-ink font-bold text-cream" : "bg-cream text-ink/80"}`}
+              >
+                {d.slice(0, 3)}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-xs text-muted">On office days you get the shortest weekly list; the longer one moves to a lighter weekday.</p>
+      </section>
+      {group("Keep up: every day", daily)}
+      {group("Declutter", declutter)}
+      {group("Clean: weekly", weekly)}
       <div className="flex flex-col gap-4 lg:col-span-2">
-        {group("Month-end weekend", monthEnd)}
+        {group("Clean: month-end jobs", monthEnd)}
         <button
           type="button"
           onClick={() =>
@@ -156,7 +206,6 @@ function ListSheet({
   const [draft, setDraft] = useState<Routine>(routine);
   const [open, setOpen] = useState<string | null>(null);
   const prefix = routine.id;
-  const isDaily = draft.when.kind === "daily";
   const isDefault = DEFAULT_CLEANING.some((r) => r.id === routine.id);
 
   const setStep = (id: string, patch: Partial<Step>) =>
@@ -196,7 +245,7 @@ function ListSheet({
 
       {draft.when.kind === "monthly" && (
         <>
-          <Label>Months (on their last weekend)</Label>
+          <Label>Usual months (its jobs repeat this often; a missed job moves to the next month)</Label>
           <div className="flex flex-wrap gap-2">
             {MONTHS.map((m, i) => {
               const on = months.includes(i + 1);
@@ -279,38 +328,7 @@ function ListSheet({
                   </span>
                   Only if needed (doesn&apos;t count towards the time)
                 </button>
-                {!isDaily && (
-                  <label className="flex items-center gap-2 text-sm text-muted">
-                    In the Big clean
-                    <select
-                      value={phaseOf(s)}
-                      onChange={(e) => setStep(s.id, { phase: e.target.value as Phase, startFirst: undefined })}
-                      className={`${inputClass} flex-1`}
-                    >
-                      {PHASES.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.label} ({p.when})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {draft.when.kind === "weekly" && (
-                  <label className="flex items-center gap-2 text-sm text-muted">
-                    How often
-                    <select
-                      value={s.everyOtherWeek ?? "every"}
-                      onChange={(e) =>
-                        setStep(s.id, { everyOtherWeek: e.target.value === "every" ? undefined : (e.target.value as WeekParity) })
-                      }
-                      className={`${inputClass} flex-1`}
-                    >
-                      <option value="every">Every week</option>
-                      <option value={weekParity()}>Every other week, starting this week</option>
-                      <option value={weekParity() === "odd" ? "even" : "odd"}>Every other week, starting next week</option>
-                    </select>
-                  </label>
-                )}
+                <StepTiming step={s} list={draft} onChange={(patch) => setStep(s.id, patch)} />
                 <label className="text-sm text-muted">
                   How to do it
                   <textarea
@@ -322,49 +340,6 @@ function ListSheet({
                   />
                   {!s.how && HOW[s.id] && <span className="mt-1 block text-xs">Empty: the instructions above (greyed) are used.</span>}
                 </label>
-                {isDaily && (
-                  <label className="flex items-center gap-2 text-sm text-muted">
-                    Every
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={2}
-                      value={s.every?.days ?? ""}
-                      placeholder="1"
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        const t = new Date();
-                        const from = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
-                        setStep(s.id, { every: n >= 2 ? { days: n, from: s.every?.from ?? from } : undefined });
-                      }}
-                      className={`${inputClass} w-20 text-center`}
-                    />
-                    days (empty: every day; counting from today)
-                  </label>
-                )}
-                {isDaily && (
-                  <div>
-                    <p className="text-sm text-muted">Only on (leave all off for every day)</p>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {WEEKDAYS.map((d, wd) => {
-                        const on = s.weekdays?.includes(wd) ?? false;
-                        return (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() => {
-                              const next = on ? (s.weekdays ?? []).filter((x) => x !== wd) : [...(s.weekdays ?? []), wd].sort();
-                              setStep(s.id, { weekdays: next.length ? next : undefined });
-                            }}
-                            className={`rounded-full px-2.5 py-1.5 text-xs ${on ? "bg-ink text-cream" : "bg-card text-ink/80"}`}
-                          >
-                            {d.slice(0, 3)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
                 <div className="flex gap-2 text-sm font-semibold">
                   <button
                     type="button"
@@ -401,5 +376,191 @@ function ListSheet({
         <DangerButton label="Delete this list" onConfirm={onDelete} />
       )}
     </Sheet>
+  );
+}
+
+const todayKey = () => {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+};
+
+function Choice({ label, value, options, onChange }: { label: string; value: string; options: [string, string][]; onChange: (v: string) => void }) {
+  return (
+    <label className="grid gap-1 text-sm text-muted">
+      {label}
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
+        {options.map(([v, text]) => (
+          <option key={v} value={v}>
+            {text}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function Tick({ on, label, note, onChange }: { on: boolean; label: string; note?: string; onChange: (on: boolean) => void }) {
+  return (
+    <button type="button" onClick={() => onChange(!on)} className="flex items-start gap-2 text-left text-sm">
+      <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-md border-2 ${on ? "border-sage bg-sage text-white" : "border-line bg-card"}`}>
+        {on && <Icon.check className="size-4" />}
+      </span>
+      <span>
+        {label}
+        {note && <span className="block text-xs text-muted">{note}</span>}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * When a step comes up, and what happens if it isn't done: the choices depend on the kind of list.
+ * Every choice here has a plain default, so leaving them alone is always fine.
+ */
+function StepTiming({ step: s, list, onChange }: { step: Step; list: Routine; onChange: (patch: Partial<Step>) => void }) {
+  if (list.when.kind === "daily") {
+    const freq = s.every ? "days" : s.weekdays ? "weekdays" : "daily";
+    return (
+      <div className="grid gap-2 rounded-2xl bg-card p-3">
+        <Choice
+          label="How often"
+          value={freq}
+          options={[
+            ["daily", "Every day"],
+            ["weekdays", "On some days of the week"],
+            ["days", "Every few days"],
+          ]}
+          onChange={(v) =>
+            onChange(
+              v === "daily"
+                ? { every: undefined, weekdays: undefined }
+                : v === "weekdays"
+                  ? { every: undefined, weekdays: s.weekdays ?? [0] }
+                  : { weekdays: undefined, every: s.every ?? { days: 3, from: todayKey() } },
+            )
+          }
+        />
+        {freq === "weekdays" && (
+          <div className="flex flex-wrap gap-1.5">
+            {WEEKDAYS.map((d, wd) => {
+              const on = s.weekdays?.includes(wd) ?? false;
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => {
+                    const next = on ? (s.weekdays ?? []).filter((x) => x !== wd) : [...(s.weekdays ?? []), wd].sort();
+                    onChange({ weekdays: next.length ? next : undefined });
+                  }}
+                  className={`rounded-full px-2.5 py-1.5 text-xs ${on ? "bg-ink text-cream" : "bg-cream text-ink/80"}`}
+                >
+                  {d.slice(0, 3)}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {freq === "days" && (
+          <label className="flex items-center gap-2 text-sm text-muted">
+            Every
+            <input
+              type="number"
+              inputMode="numeric"
+              min={2}
+              value={s.every?.days ?? 3}
+              onChange={(e) => onChange({ every: { days: Math.max(2, Number(e.target.value) || 2), from: s.every?.from ?? todayKey() } })}
+              className={`${inputClass} w-20 text-center`}
+            />
+            days, starting from {s.every?.from === todayKey() ? "today" : "the last time"}
+          </label>
+        )}
+        {(freq === "days" || s.afterWash) && (
+          <Choice
+            label="If it isn't done"
+            value={carries(s) ? "carry" : "let-go"}
+            options={[
+              ["let-go", "Let it go: it comes back on its next day"],
+              ["carry", "Keep it until it's done (the next one counts from then)"],
+            ]}
+            onChange={(v) => onChange({ carry: v === "carry" })}
+          />
+        )}
+      </div>
+    );
+  }
+  if (list.when.kind === "weekly") {
+    return (
+      <div className="grid gap-2 rounded-2xl bg-card p-3">
+        <Choice
+          label="How often"
+          value={s.everyOtherWeek ?? "every"}
+          options={[
+            ["every", "Every week"],
+            [weekParity(), "Every other week, starting this week"],
+            [weekParity() === "odd" ? "even" : "odd", "Every other week, starting next week"],
+          ]}
+          onChange={(v) => onChange({ everyOtherWeek: v === "every" ? undefined : (v as WeekParity) })}
+        />
+        <Choice
+          label="If it isn't done"
+          value={carries(s) || (s.wash && s.everyOtherWeek) ? "carry" : "week"}
+          options={[
+            ["week", "Catch up until Sunday, then let it go"],
+            ["carry", "Keep it until it's done"],
+          ]}
+          onChange={(v) => onChange({ carry: v === "carry" })}
+        />
+        <Choice
+          label="On the month-end weekend, it goes in the Big clean part"
+          value={phaseOf(s)}
+          options={PHASES.map((p) => [p.id, `${p.label} (${p.when})`])}
+          onChange={(v) => onChange({ phase: v as Phase, startFirst: undefined })}
+        />
+      </div>
+    );
+  }
+  // Month-end jobs.
+  const listEvery = Math.max(1, Math.round(12 / Math.max(1, list.when.months.length)));
+  const bedroom = isBedroomJob(s);
+  return (
+    <div className="grid gap-2 rounded-2xl bg-card p-3">
+      <Choice
+        label="How often"
+        value={String(s.everyMonths ?? "list")}
+        options={[
+          ["list", `Like the rest of this list (every ${listEvery === 1 ? "month" : `${listEvery} months`})`],
+          ["1", "Every month"],
+          ["2", "Every 2 months"],
+          ["3", "Every 3 months"],
+          ["4", "Every 4 months"],
+          ["6", "Every 6 months"],
+          ["12", "Once a year"],
+        ]}
+        onChange={(v) => onChange({ everyMonths: v === "list" ? undefined : Number(v) })}
+      />
+      <Tick
+        on={bedroom}
+        label="Do it on the bedroom day, with the sheets"
+        note="For bed and bedroom jobs: done while the bed is stripped, not in the Big clean."
+        onChange={(on) => onChange({ bedroomDay: on })}
+      />
+      {!bedroom && (
+        <>
+          <Tick
+            on={s.always ?? ALWAYS_DEFAULT.includes(s.id)}
+            label="In every Big clean"
+            note="It always gets a place, even past the time limit (like the floors and the machine)."
+            onChange={(on) => onChange({ always: on })}
+          />
+          <Choice
+            label="Part of the Big clean"
+            value={phaseOf(s)}
+            options={PHASES.map((p) => [p.id, `${p.label} (${p.when})`])}
+            onChange={(v) => onChange({ phase: v as Phase, startFirst: undefined })}
+          />
+          <p className="text-xs text-muted">If it isn&apos;t done, it stays due and is first in line at the next month-end.</p>
+        </>
+      )}
+    </div>
   );
 }

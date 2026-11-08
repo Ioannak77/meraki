@@ -6,7 +6,7 @@
 // Cleaning schedule screen stays in sync.
 
 import { useState } from "react";
-import { BIG_CLEAN_BUDGET, PHASES, bigCleanItems, formatMinutes, monthEndOwner, monthEndPlan, monthIndex, phaseOf, type Routine } from "@/lib/cleaning";
+import { PHASES, bigCleanBudget, bigCleanItems, formatMinutes, monthEndOwner, monthEndPlan, monthIndex, phaseOf, type Routine } from "@/lib/cleaning";
 import { today } from "@/lib/clock";
 import { useStore } from "@/lib/store";
 import { Icon } from "./icons";
@@ -168,7 +168,7 @@ export function BigCleanCard({ routines, date = today() }: { routines: Routine[]
       {/* The month's jobs are capped at the time limit; what didn't fit waits, first in line next month. */}
       {plan.waiting.length > 0 && (
         <p className="mt-3 text-[13px] text-muted">
-          Kept to about {formatMinutes(BIG_CLEAN_BUDGET)} of month-end jobs. Next in line:{" "}
+          Kept to about {formatMinutes(bigCleanBudget())} of month-end jobs. Next in line:{" "}
           {plan.waiting
             .slice(0, 4)
             .map((j) => j.steps[0].title.replace(/^Spray the oven and let it soak$/, "Clean the oven"))

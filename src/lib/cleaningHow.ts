@@ -17,7 +17,7 @@ export const HOW: Record<string, string> = {
   "meals-2": "Food in the fridge or cupboard, bottles and jars back in their place, tea towel on its hook.",
   "meals-bowls": "Rinse Pari's bowls with hot water and wipe them dry. Fresh water in the water bowl.",
   // Evening
-  "evening-0": "Cushions straight, throw folded, cups and plates to the kitchen, remote and chargers in one place.",
+  "evening-0": "Set a 5-minute timer and stop when it rings. Trash in the bin first, then cups and plates to the kitchen, then everything that has a home goes back to it. Clear the counters. Something with no home: put it where you'd look for it first, or in the give-away bag.",
   "evening-1": "Bathroom, bedroom and desk bins into the big bin. New bag in each if you use them.",
   "evening-2": "Spray, wipe the basin and tap with a cloth, rinse, and dry the tap so it shines.",
   "evening-3": "Quick pass where you walk most: kitchen floor, hallway, under the table. Empty the vacuum if it's full.",
@@ -94,6 +94,8 @@ export const HOW: Record<string, string> = {
   "q-living-2": "Wipe the frames and sills first. Then the glass: a little washing-up liquid in warm water (or window spray), wash, squeegee top to bottom, dry the edges with a microfibre cloth. Not in direct sun, or it streaks.",
   "q-kitchen-oven": "Wipe the softened grease out with a damp cloth or sponge, rinse the cloth often, then wipe once more with clean water so no cleaner is left. Scrub the soaked racks, rinse, dry and put back.",
   "monthly-floors": "After everything else is done: vacuum every room, edges and corners too, then mop with warm water and a little floor cleaner, from the far end of the flat towards the door so you don't walk on it.",
+  "declutter-spot": "Pick one small spot: a shelf, a counter, a drawer, a bag. Take one thing at a time and ask: where would I look for it first? Put it there, now. If it has no home and you don't need it, it goes in the give-away bag or the bin. Don't move things to another room to deal with later; that's shifting stuff, and it drifts back. Ten minutes, then stop.",
+  "declutter-out": "Take the give-away bag (and anything to return or sell) out of the house: the car boot, a charity shop, a friend. Out of the house is what makes it count.",
 };
 
 /** The instructions for a step: yours from Edit, else the built-in ones. */
